@@ -1,0 +1,19 @@
+[project]
+name = "assetsafe"
+version = "0.1.0"
+description = "Keep safe trade safe"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "celery[redis]>=5.6.2",
+    "django>=5.2,<5.3",
+    "djangorestframework>=3.17.0",
+    "psycopg2-binary>=2.9.11",
+    "python-dotenv>=1.2.2",
+    "redis>=6.4.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.7",
+]
