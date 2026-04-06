@@ -11,7 +11,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
-from apps.assetsafe.models import BaseAssetType
+from apps.common.models import BaseAssetType
 from apps.asset_management.models import AssetRegistration
 
 User = get_user_model()

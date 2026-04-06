@@ -12,50 +12,287 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ("assetsafe", "0001_remove_old_models"),
+        ("common", "0002_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='CollateralRegistration',
+            name="CollateralRegistration",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('financier_type', models.CharField(choices=[('individual', 'Individual'), ('company', 'Company')], db_index=True, max_length=20, verbose_name='Financier Type')),
-                ('data_source_name', models.CharField(help_text='Full name of the financier representative supplying this record.', max_length=200, verbose_name='Data Source Name')),
-                ('data_date', models.DateField(help_text='Date on which the financier wants the record lodged.', verbose_name='Data Date')),
-                ('position', models.CharField(blank=True, help_text='Job title of the data-source representative within the financier organisation.', max_length=100, verbose_name='Position')),
-                ('debtor_type', models.CharField(choices=[('individual', 'Individual'), ('company', 'Company')], db_index=True, max_length=20, verbose_name='Debtor Type')),
-                ('agreement_number', models.CharField(db_index=True, help_text='The loan reference number issued by the lender.', max_length=100, verbose_name='Agreement Number')),
-                ('asset_type', models.CharField(choices=[('computers', 'Computers'), ('machinery', 'Machinery'), ('equipment', 'Equipment'), ('vehicles', 'Vehicles'), ('land', 'Land'), ('building', 'Building'), ('furniture', 'Furniture'), ('shares', 'Shares'), ('inventory', 'Inventory'), ('accounts_receivable', 'Accounts Receivable')], db_index=True, max_length=30, verbose_name='Asset Type')),
-                ('make', models.CharField(blank=True, max_length=100, verbose_name='Make')),
-                ('model', models.CharField(blank=True, max_length=100, verbose_name='Model')),
-                ('year_of_make', models.PositiveSmallIntegerField(blank=True, null=True, verbose_name='Year of Make')),
-                ('condition', models.CharField(blank=True, choices=[('new', 'New'), ('second_hand', 'Second Hand'), ('reconditioned', 'Reconditioned'), ('non_functioning', 'Non Functioning')], max_length=20, verbose_name='Condition')),
-                ('asset_registration_number', models.CharField(blank=True, db_index=True, help_text='Vehicle registration plate, if applicable.', max_length=50, verbose_name='Asset Registration Number')),
-                ('chassis_number', models.CharField(blank=True, db_index=True, max_length=100, verbose_name='Chassis Number')),
-                ('engine_number', models.CharField(blank=True, max_length=100, verbose_name='Engine Number')),
-                ('serial_number', models.CharField(blank=True, db_index=True, max_length=100, verbose_name='Serial Number')),
-                ('currency', models.CharField(choices=[('USD', 'US Dollar'), ('ZWL', 'Zimbabwean Dollar'), ('ZAR', 'South African Rand'), ('GBP', 'British Pound'), ('EUR', 'Euro')], max_length=10, verbose_name='Currency')),
-                ('total_debt', models.DecimalField(decimal_places=2, max_digits=18, validators=[django.core.validators.MinValueValidator(0)], verbose_name='Total Debt')),
-                ('instalment_amount', models.DecimalField(decimal_places=2, max_digits=18, validators=[django.core.validators.MinValueValidator(0)], verbose_name='Instalment Amount')),
-                ('instalment_day', models.PositiveSmallIntegerField(help_text='Day-of-month (dd) when each instalment falls due.', validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(31)], verbose_name='Instalment Day')),
-                ('total_paid_to_date', models.DecimalField(decimal_places=2, default=0, max_digits=18, validators=[django.core.validators.MinValueValidator(0)], verbose_name='Total Paid to Date')),
-                ('balance', models.DecimalField(decimal_places=2, help_text='Stored derived value: total_debt - total_paid_to_date.', max_digits=18, validators=[django.core.validators.MinValueValidator(0)], verbose_name='Balance')),
-                ('agreement_start_date', models.DateField(db_index=True, verbose_name='Agreement Start Date')),
-                ('agreement_end_date', models.DateField(db_index=True, verbose_name='Agreement End Date')),
-                ('lodge_date', models.DateField(auto_now_add=True, db_index=True, verbose_name='Lodge Date')),
-                ('is_discharged', models.BooleanField(db_index=True, default=False, help_text='Set to True when the financier officially releases the collateral encumbrance.', verbose_name='Is Discharged')),
-                ('discharge_confirmed_at', models.DateTimeField(blank=True, editable=False, null=True, verbose_name='Discharge Confirmed At')),
-                ('debtor', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='collateral_records_as_debtor', to=settings.AUTH_USER_MODEL, verbose_name='Debtor')),
-                ('financier', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='collateral_records_as_financier', to=settings.AUTH_USER_MODEL, verbose_name='Financier')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "financier_type",
+                    models.CharField(
+                        choices=[("individual", "Individual"), ("company", "Company")],
+                        db_index=True,
+                        max_length=20,
+                        verbose_name="Financier Type",
+                    ),
+                ),
+                (
+                    "data_source_name",
+                    models.CharField(
+                        help_text="Full name of the financier representative supplying this record.",
+                        max_length=200,
+                        verbose_name="Data Source Name",
+                    ),
+                ),
+                (
+                    "data_date",
+                    models.DateField(
+                        help_text="Date on which the financier wants the record lodged.",
+                        verbose_name="Data Date",
+                    ),
+                ),
+                (
+                    "position",
+                    models.CharField(
+                        blank=True,
+                        help_text="Job title of the data-source representative within the financier organisation.",
+                        max_length=100,
+                        verbose_name="Position",
+                    ),
+                ),
+                (
+                    "debtor_type",
+                    models.CharField(
+                        choices=[("individual", "Individual"), ("company", "Company")],
+                        db_index=True,
+                        max_length=20,
+                        verbose_name="Debtor Type",
+                    ),
+                ),
+                (
+                    "agreement_number",
+                    models.CharField(
+                        db_index=True,
+                        help_text="The loan reference number issued by the lender.",
+                        max_length=100,
+                        verbose_name="Agreement Number",
+                    ),
+                ),
+                (
+                    "asset_type",
+                    models.CharField(
+                        choices=[
+                            ("computers", "Computers"),
+                            ("machinery", "Machinery"),
+                            ("equipment", "Equipment"),
+                            ("vehicles", "Vehicles"),
+                            ("land", "Land"),
+                            ("building", "Building"),
+                            ("furniture", "Furniture"),
+                            ("shares", "Shares"),
+                            ("inventory", "Inventory"),
+                            ("accounts_receivable", "Accounts Receivable"),
+                        ],
+                        db_index=True,
+                        max_length=30,
+                        verbose_name="Asset Type",
+                    ),
+                ),
+                (
+                    "make",
+                    models.CharField(blank=True, max_length=100, verbose_name="Make"),
+                ),
+                (
+                    "model",
+                    models.CharField(blank=True, max_length=100, verbose_name="Model"),
+                ),
+                (
+                    "year_of_make",
+                    models.PositiveSmallIntegerField(
+                        blank=True, null=True, verbose_name="Year of Make"
+                    ),
+                ),
+                (
+                    "condition",
+                    models.CharField(
+                        blank=True,
+                        choices=[
+                            ("new", "New"),
+                            ("second_hand", "Second Hand"),
+                            ("reconditioned", "Reconditioned"),
+                            ("non_functioning", "Non Functioning"),
+                        ],
+                        max_length=20,
+                        verbose_name="Condition",
+                    ),
+                ),
+                (
+                    "asset_registration_number",
+                    models.CharField(
+                        blank=True,
+                        db_index=True,
+                        help_text="Vehicle registration plate, if applicable.",
+                        max_length=50,
+                        verbose_name="Asset Registration Number",
+                    ),
+                ),
+                (
+                    "chassis_number",
+                    models.CharField(
+                        blank=True,
+                        db_index=True,
+                        max_length=100,
+                        verbose_name="Chassis Number",
+                    ),
+                ),
+                (
+                    "engine_number",
+                    models.CharField(
+                        blank=True, max_length=100, verbose_name="Engine Number"
+                    ),
+                ),
+                (
+                    "serial_number",
+                    models.CharField(
+                        blank=True,
+                        db_index=True,
+                        max_length=100,
+                        verbose_name="Serial Number",
+                    ),
+                ),
+                (
+                    "currency",
+                    models.CharField(
+                        choices=[
+                            ("USD", "US Dollar"),
+                            ("ZWL", "Zimbabwean Dollar"),
+                            ("ZAR", "South African Rand"),
+                            ("GBP", "British Pound"),
+                            ("EUR", "Euro"),
+                        ],
+                        max_length=10,
+                        verbose_name="Currency",
+                    ),
+                ),
+                (
+                    "total_debt",
+                    models.DecimalField(
+                        decimal_places=2,
+                        max_digits=18,
+                        validators=[django.core.validators.MinValueValidator(0)],
+                        verbose_name="Total Debt",
+                    ),
+                ),
+                (
+                    "instalment_amount",
+                    models.DecimalField(
+                        decimal_places=2,
+                        max_digits=18,
+                        validators=[django.core.validators.MinValueValidator(0)],
+                        verbose_name="Instalment Amount",
+                    ),
+                ),
+                (
+                    "instalment_day",
+                    models.PositiveSmallIntegerField(
+                        help_text="Day-of-month (dd) when each instalment falls due.",
+                        validators=[
+                            django.core.validators.MinValueValidator(1),
+                            django.core.validators.MaxValueValidator(31),
+                        ],
+                        verbose_name="Instalment Day",
+                    ),
+                ),
+                (
+                    "total_paid_to_date",
+                    models.DecimalField(
+                        decimal_places=2,
+                        default=0,
+                        max_digits=18,
+                        validators=[django.core.validators.MinValueValidator(0)],
+                        verbose_name="Total Paid to Date",
+                    ),
+                ),
+                (
+                    "balance",
+                    models.DecimalField(
+                        decimal_places=2,
+                        help_text="Stored derived value: total_debt - total_paid_to_date.",
+                        max_digits=18,
+                        validators=[django.core.validators.MinValueValidator(0)],
+                        verbose_name="Balance",
+                    ),
+                ),
+                (
+                    "agreement_start_date",
+                    models.DateField(
+                        db_index=True, verbose_name="Agreement Start Date"
+                    ),
+                ),
+                (
+                    "agreement_end_date",
+                    models.DateField(db_index=True, verbose_name="Agreement End Date"),
+                ),
+                (
+                    "lodge_date",
+                    models.DateField(
+                        auto_now_add=True, db_index=True, verbose_name="Lodge Date"
+                    ),
+                ),
+                (
+                    "is_discharged",
+                    models.BooleanField(
+                        db_index=True,
+                        default=False,
+                        help_text="Set to True when the financier officially releases the collateral encumbrance.",
+                        verbose_name="Is Discharged",
+                    ),
+                ),
+                (
+                    "discharge_confirmed_at",
+                    models.DateTimeField(
+                        blank=True,
+                        editable=False,
+                        null=True,
+                        verbose_name="Discharge Confirmed At",
+                    ),
+                ),
+                (
+                    "debtor",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="collateral_records_as_debtor",
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="Debtor",
+                    ),
+                ),
+                (
+                    "financier",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="collateral_records_as_financier",
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="Financier",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Collateral Registration',
-                'verbose_name_plural': 'Collateral Registrations',
-                'ordering': ['-lodge_date'],
-                'indexes': [models.Index(fields=['agreement_start_date', 'agreement_end_date'], name='col_agreement_period_idx'), models.Index(fields=['is_discharged', 'agreement_end_date'], name='col_discharge_status_idx')],
+                "verbose_name": "Collateral Registration",
+                "verbose_name_plural": "Collateral Registrations",
+                "ordering": ["-lodge_date"],
+                "indexes": [
+                    models.Index(
+                        fields=["agreement_start_date", "agreement_end_date"],
+                        name="col_agreement_period_idx",
+                    ),
+                    models.Index(
+                        fields=["is_discharged", "agreement_end_date"],
+                        name="col_discharge_status_idx",
+                    ),
+                ],
             },
         ),
     ]
