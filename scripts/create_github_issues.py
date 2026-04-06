@@ -171,7 +171,7 @@ ISSUES: list[Issue] = [
             acceptance=[
                 "Settings load correctly from `.env` (no hard-coded secrets).",
                 "`.env.example` lists every required variable with a placeholder value.",
-                "All six domain apps (users, individuals, companies, clients, asset_management, collateral, hire_purchase, common) appear in INSTALLED_APPS.",
+                "All eight domain apps (users, individuals, companies, clients, asset_management, collateral, hire_purchase, common) appear in INSTALLED_APPS.",
                 "All app URL namespaces are registered in `core/urls.py`.",
                 "`python manage.py check` passes with no errors.",
             ],
@@ -1447,7 +1447,7 @@ def _run(cmd: list[str], dry_run: bool, capture: bool = False) -> Optional[str]:
     if dry_run:
         print("DRY-RUN:", " ".join(cmd))
         return None
-    result = subprocess.run(cmd, capture_output=capture, text=True)
+    result = subprocess.run(cmd, capture_output=capture, text=True, check=False)
     if result.returncode != 0:
         # Print but don't abort — some errors are non-fatal (e.g. label already exists)
         print(f"  ⚠  Command failed (exit {result.returncode}): {result.stderr.strip()}", file=sys.stderr)
@@ -1466,9 +1466,13 @@ def get_repo(specified: Optional[str]) -> str:
         sys.exit("Could not determine repo from git remote. Pass --repo OWNER/REPO.")
     url = result.stdout.strip()
     # Handles https://github.com/owner/repo and git@github.com:owner/repo
-    if "github.com" in url:
-        url = url.replace("git@github.com:", "").replace("https://github.com/", "")
-        url = url.removesuffix(".git")
+    # Use urlparse / explicit prefix checks to avoid matching arbitrary domains
+    # that merely contain the substring "github.com" (e.g. "evilgithub.com").
+    if url.startswith("https://github.com/"):
+        url = url.removeprefix("https://github.com/").removesuffix(".git")
+        return url
+    if url.startswith("git@github.com:"):
+        url = url.removeprefix("git@github.com:").removesuffix(".git")
         return url
     sys.exit(f"Unexpected remote URL format: {url}. Pass --repo OWNER/REPO.")
 
