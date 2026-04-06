@@ -1,0 +1,5 @@
+blank: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/sehmaluva/assetsafe/wiki
+    about: Check our wiki for guides and documentation
