@@ -1,31 +1,11 @@
 """
-urls.py — AssetSafe
+urls.py — AssetSafe (shared models only)
 
+This app now serves only as a shared models/enums repository.
+API endpoints have been moved to dedicated apps:
+- apps.asset_management (AssetRegistration)
+- apps.hire_purchase (HirePurchaseRegistration)
+- apps.collateral (CollateralRegistration)
 """
 
-from rest_framework.routers import DefaultRouter
-
-from .views import (
-    AssetRegistrationViewSet,
-    CollateralRegistrationViewSet,
-    HirePurchaseRegistrationViewSet,
-)
-
-router = DefaultRouter()
-router.register(  # type: ignore
-    r"asset-registrations",
-    AssetRegistrationViewSet,
-    basename="asset-registration",
-)
-router.register(  # type: ignore
-    r"collateral-registrations",
-    CollateralRegistrationViewSet,
-    basename="collateral-registration",
-)
-router.register(  # type: ignore
-    r"hire-purchase-registrations",
-    HirePurchaseRegistrationViewSet,
-    basename="hire-purchase-registration",
-)
-
-urlpatterns = router.urls  # type: ignore
+urlpatterns = []
