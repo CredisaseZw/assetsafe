@@ -77,6 +77,22 @@ class Issue:
 
 SIZE_OPTIONS = {"XS": "XS", "S": "S", "M": "M", "L": "L", "XL": "XL"}
 
+SIZE_TO_ESTIMATED_DURATION = {
+    "XS": "<= 0.5 day",
+    "S": "1 day",
+    "M": "1-2 days",
+    "L": "3-5 days",
+    "XL": "5+ days",
+}
+
+SIZE_TO_ESTIMATE_NUMBER = {
+    "XS": 0.5,
+    "S": 1.0,
+    "M": 2.0,
+    "L": 5.0,
+    "XL": 8.0,
+}
+
 LABELS: list[Label] = [
     # ---- Priority ----
     Label("priority: high", "d93f0b", "Must be completed for MVP"),
@@ -1165,6 +1181,28 @@ def normalize_name(value: str) -> str:
     return " ".join(normalized.split())
 
 
+def get_estimated_duration(size: str) -> str:
+    """Map size codes to human-readable duration estimates."""
+    normalized_size = size.strip().upper()
+    return SIZE_TO_ESTIMATED_DURATION.get(normalized_size, normalized_size)
+
+
+def get_estimate_number(size: str) -> float:
+    """Map size codes to numeric estimates for number project fields."""
+    normalized_size = size.strip().upper()
+    return SIZE_TO_ESTIMATE_NUMBER.get(normalized_size, 1.0)
+
+
+def with_estimated_duration(body: str, size: str) -> str:
+    """Append estimated duration to issue body if not already present."""
+    marker = "## Estimated Duration"
+    if marker in body:
+        return body
+
+    duration = get_estimated_duration(size)
+    return f"{body.rstrip()}\n\n{marker}\n{duration}\n"
+
+
 def run_graphql_query(
     query: str, variables: Optional[dict[str, Any]] = None
 ) -> dict[str, Any]:
@@ -1210,7 +1248,7 @@ def get_project_context(
     project_number: int,
     default_status: str,
 ) -> Optional[dict[str, Any]]:
-    """Resolve a personal GitHub Project V2 and cache key single-select fields."""
+    """Resolve a personal GitHub Project V2 and cache key tracked fields."""
     print(
         f"\n=== Resolving personal Project V2 #{project_number} for user '{project_owner}' ==="
     )
@@ -1223,6 +1261,7 @@ def get_project_context(
           number
           fields(first: 50) {
             nodes {
+                            __typename
               ... on ProjectV2SingleSelectField {
                 id
                 name
@@ -1231,6 +1270,11 @@ def get_project_context(
                   name
                 }
               }
+                            ... on ProjectV2Field {
+                                id
+                                name
+                                dataType
+                            }
             }
           }
         }
@@ -1261,44 +1305,83 @@ def get_project_context(
         if not isinstance(node, dict):
             continue
 
+        field_type_name = node.get("__typename")
         field_name = node.get("name")
         field_id = node.get("id")
-        options = node.get("options")
-        if not field_name or not field_id or not options:
+        if not field_name or not field_id:
             continue
 
         normalized_field_name = normalize_name(field_name)
-        if normalized_field_name not in {"priority", "size", "status"}:
+        field_aliases = {
+            "priority": "priority",
+            "size": "size",
+            "status": "status",
+            "duration": "duration",
+            "estimate": "duration",
+            "estimated": "duration",
+            "estimated duration": "duration",
+            "estimate duration": "duration",
+        }
+        canonical_field_name = field_aliases.get(normalized_field_name)
+        if not canonical_field_name:
             continue
 
-        option_lookup: dict[str, str] = {}
-        option_names: dict[str, str] = {}
-        for option in options:
-            if not isinstance(option, dict):
-                continue
-            option_id = option.get("id")
-            option_name = option.get("name")
-            if not option_id or not option_name:
-                continue
-            option_key = normalize_name(option_name)
-            option_lookup[option_key] = option_id
-            option_names[option_key] = option_name
+        if canonical_field_name in fields:
+            continue
 
-        fields[normalized_field_name] = {
-            "id": field_id,
-            "options": option_lookup,
-            "option_names": option_names,
-        }
+        if field_type_name == "ProjectV2SingleSelectField":
+            options = node.get("options")
+            if not options:
+                continue
+
+            option_lookup: dict[str, str] = {}
+            option_names: dict[str, str] = {}
+            for option in options:
+                if not isinstance(option, dict):
+                    continue
+                option_id = option.get("id")
+                option_name = option.get("name")
+                if not option_id or not option_name:
+                    continue
+                option_key = normalize_name(option_name)
+                option_lookup[option_key] = option_id
+                option_names[option_key] = option_name
+
+            fields[canonical_field_name] = {
+                "id": field_id,
+                "type": "single_select",
+                "options": option_lookup,
+                "option_names": option_names,
+            }
+            continue
+
+        if field_type_name == "ProjectV2Field":
+            data_type = str(node.get("dataType", "")).upper()
+            if data_type != "NUMBER":
+                continue
+
+            fields[canonical_field_name] = {
+                "id": field_id,
+                "type": "number",
+            }
 
     print(f"  ✓ Found project: {project.get('title', 'Unknown')} (#{project_number})")
-    for tracked in ("priority", "size", "status"):
+    required_fields = {"priority", "size", "status"}
+    optional_fields = {"duration"}
+
+    for tracked in ("priority", "size", "status", "duration"):
         field = fields.get(tracked)
         if field:
-            print(
-                f"    ✓ Field '{tracked}' found with {len(field['options'])} options"
-            )
-        else:
+            if field.get("type") == "single_select":
+                print(
+                    f"    ✓ Field '{tracked}' found with {len(field['options'])} options"
+                )
+            elif field.get("type") == "number":
+                print(f"    ✓ Field '{tracked}' found as number field")
+        elif tracked in required_fields:
             print(f"    ⚠  Field '{tracked}' not found; it will be skipped")
+        elif tracked in optional_fields:
+            print(f"    ℹ  Optional field '{tracked}' not found; duration will stay in issue body only")
 
     return {
         "id": project.get("id"),
@@ -1408,6 +1491,24 @@ def get_status_candidates(default_status: str) -> list[str]:
     return candidates
 
 
+def get_duration_candidates(size: str) -> list[str]:
+    """Build candidate duration option names from issue size."""
+    normalized_size = size.strip().upper()
+    aliases = {
+        "XS": ["<= 0.5 day", "0.5 day", "half day", "XS"],
+        "S": ["1 day", "S", "Small"],
+        "M": ["1-2 days", "2 days", "M", "Medium"],
+        "L": ["3-5 days", "3 days", "5 days", "L", "Large"],
+        "XL": ["5+ days", "5 days", "XL", "Extra Large"],
+    }
+    base_duration = get_estimated_duration(size)
+    candidates = [base_duration]
+    for alias in aliases.get(normalized_size, [normalized_size]):
+        if alias not in candidates:
+            candidates.append(alias)
+    return candidates
+
+
 def add_issue_to_project(project_id: str, issue_node_id: str) -> Optional[str]:
     """Create a project item from an issue node id and return item id."""
     mutation = """
@@ -1473,6 +1574,46 @@ def update_project_single_select_field(
         return False
 
 
+def update_project_number_field(
+    project_id: str,
+    item_id: str,
+    field_id: str,
+    number_value: float,
+) -> bool:
+    """Set a number project field on a project item."""
+    mutation = """
+    mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $number: Float!) {
+      updateProjectV2ItemFieldValue(
+        input: {
+          projectId: $projectId
+          itemId: $itemId
+          fieldId: $fieldId
+          value: {number: $number}
+        }
+      ) {
+        projectV2Item {
+          id
+        }
+      }
+    }
+    """
+
+    try:
+        run_graphql_query(
+            mutation,
+            {
+                "projectId": project_id,
+                "itemId": item_id,
+                "fieldId": field_id,
+                "number": float(number_value),
+            },
+        )
+        return True
+    except RuntimeError as exc:
+        print(f"      ⚠  Could not update project field: {exc}", file=sys.stderr)
+        return False
+
+
 def apply_project_fields_to_item(
     project_ctx: dict[str, Any],
     item_id: str,
@@ -1485,11 +1626,40 @@ def apply_project_fields_to_item(
         ("priority", get_priority_candidates(issue)),
         ("size", get_size_candidates(issue.size)),
         ("status", get_status_candidates(project_ctx.get("default_status", "Todo"))),
+        ("duration", get_duration_candidates(issue.size)),
     ]
 
     for field_name, candidates in updates:
         field = project_ctx.get("fields", {}).get(field_name)
         if not field:
+            continue
+
+        field_type = field.get("type", "single_select")
+
+        if field_type == "number":
+            if field_name != "duration":
+                print(
+                    f"      ⚠  Unsupported number field type for '{field_name}' on {issue_ref}",
+                    file=sys.stderr,
+                )
+                continue
+
+            estimate_value = get_estimate_number(issue.size)
+            if dry_run:
+                print(
+                    f"      [DRY RUN] Would set {field_name.title()}={estimate_value:g} on project item for {issue_ref}"
+                )
+                continue
+
+            if update_project_number_field(
+                project_ctx["id"],
+                item_id,
+                field["id"],
+                estimate_value,
+            ):
+                print(
+                    f"      ✓ Set {field_name.title()}={estimate_value:g} for {issue_ref}"
+                )
             continue
 
         option_id, option_name = resolve_single_select_option(field, candidates)
@@ -1664,6 +1834,8 @@ def create_issues(
         print(f"  [{i:02d}/{len(ISSUES)}] {issue.title}")
 
         github_issue = existing_issues_by_title.get(issue.title)
+        issue_existed = github_issue is not None
+        issue_body_with_duration = with_estimated_duration(issue.body, issue.size)
         expected_milestone = milestones_dict.get(issue.milestone)
 
         if github_issue:
@@ -1676,7 +1848,7 @@ def create_issues(
             try:
                 create_kwargs: dict[str, Any] = {
                     "title": issue.title,
-                    "body": issue.body,
+                    "body": issue_body_with_duration,
                     "labels": issue.labels,
                 }
                 if expected_milestone:
@@ -1687,6 +1859,24 @@ def create_issues(
             except Exception as e:
                 print(f"    ⚠  Error creating issue '{issue.title}': {e}", file=sys.stderr)
                 continue
+
+        if issue_existed and github_issue:
+            existing_body = github_issue.body or ""
+            body_with_duration = with_estimated_duration(
+                existing_body or issue.body,
+                issue.size,
+            )
+            if body_with_duration != existing_body:
+                if dry_run:
+                    print(
+                        f"      [DRY RUN] Would append Estimated Duration to issue #{github_issue.number}"
+                    )
+                else:
+                    try:
+                        github_issue.edit(body=body_with_duration)
+                        print("      ✓ Added Estimated Duration section")
+                    except Exception as e:
+                        print(f"      ⚠  Could not update issue body: {e}", file=sys.stderr)
 
         if github_issue and expected_milestone:
             current_milestone = github_issue.milestone.title if github_issue.milestone else ""
