@@ -46,7 +46,7 @@ INSTALLED_APPS = [
     # Third-party apps
     "drf_spectacular",
     "django_filters",
-    "apps.assetsafe",
+    "apps.common",
     "apps.asset_management",
     "apps.hire_purchase",
     "apps.collateral",
@@ -54,7 +54,6 @@ INSTALLED_APPS = [
     # "apps.individuals",
     # "apps.companies",
     # "apps.clients",
-    # "apps.common",
 ]
 
 MIDDLEWARE = [

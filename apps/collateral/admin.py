@@ -26,7 +26,12 @@ class CollateralRegistrationAdmin(admin.ModelAdmin):
         "financier__username",
         "debtor__username",
     )
-    readonly_fields = ("lodge_date", "discharge_confirmed_at", "created_at", "updated_at")
+    readonly_fields = (
+        "lodge_date",
+        "discharge_confirmed_at",
+        "created_at",
+        "updated_at",
+    )
     fieldsets = (
         (
             "Agreement",
