@@ -3,44 +3,53 @@
 create_github_issues.py
 =======================
 Idempotent script that creates GitHub milestones, labels, and issues for the
-AssetSafe MVP (3-week execution plan) using the ``gh`` CLI.
+AssetSafe MVP (3-week execution plan) using PyGithub.
 
 Usage
 -----
-    python scripts/create_github_issues.py [--repo OWNER/REPO] [--assignee USERNAME] [--dry-run]
+    python scripts/create_github_issues.py [--repo OWNER/REPO] [--dry-run]
 
 Prerequisites
 -------------
-* GitHub CLI (gh) installed and authenticated: https://cli.github.com/
-* Run from the root of the cloned repository, OR pass --repo explicitly.
+* PyGithub installed: pip install PyGithub
+* GITHUB_TOKEN environment variable set with a valid GitHub token
+* Repository defaults to GITHUB_REPO_OWNER/GITHUB_REPO_NAME from .env,
+  OR pass --repo explicitly.
 
 Options
 -------
   --repo       GitHub repository in OWNER/REPO format.
-               Defaults to the remote of the current git checkout.
-  --assignee   GitHub username to assign every issue to.
-               Defaults to the currently authenticated gh user.
-  --dry-run    Print commands without executing them.
+                             Defaults to GITHUB_REPO_OWNER/GITHUB_REPO_NAME from .env.
+  --dry-run    Print actions without executing them.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import subprocess
+import os
 import sys
 import textwrap
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any, Optional
+from urllib import error, request
+
+from dotenv import load_dotenv
+from github import Github, GithubException, Auth
+
+# Load environment variables from .env file
+load_dotenv()
 
 # ---------------------------------------------------------------------------
 # Data model
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Label:
     name: str
-    color: str   # 6-char hex without '#'
+    color: str  # 6-char hex without '#'
     description: str = ""
 
 
@@ -48,7 +57,7 @@ class Label:
 class Milestone:
     title: str
     description: str
-    due_on: str   # ISO-8601, e.g. "2026-04-27T23:59:59Z"
+    due_on: str  # ISO-8601, e.g. "2026-04-27T23:59:59Z"
 
 
 @dataclass
@@ -56,47 +65,47 @@ class Issue:
     title: str
     body: str
     labels: list[str]
-    milestone: str        # milestone title
-    priority: str         # High / Medium / Low
-    effort: str           # Small / Medium / Large
-    duration: str
-    dependencies: str     # free-text
-    assignee: str = ""    # filled in at runtime
+    milestone: str  # milestone title
+    size: str  # XS / S / M / L / XL
+    project: Optional[str] = None  # Project name
+    assignee: str = ""  # filled in at runtime
 
 
 # ---------------------------------------------------------------------------
 # Labels
 # ---------------------------------------------------------------------------
 
+SIZE_OPTIONS = {"XS": "XS", "S": "S", "M": "M", "L": "L", "XL": "XL"}
+
 LABELS: list[Label] = [
     # ---- Priority ----
-    Label("priority: high",   "d93f0b", "Must be completed for MVP"),
+    Label("priority: high", "d93f0b", "Must be completed for MVP"),
     Label("priority: medium", "fbca04", "Important but not blocking"),
-    Label("priority: low",    "0075ca", "Nice-to-have / post-MVP"),
+    Label("priority: low", "0075ca", "Nice-to-have / post-MVP"),
     # ---- Week ----
     Label("week 1", "e4e669", "Week 1: Core foundation"),
     Label("week 2", "c5def5", "Week 2: Core features"),
     Label("week 3", "bfd4f2", "Week 3: Polish, testing & deployment"),
     # ---- Effort ----
-    Label("effort: small",  "c2e0c6", "Estimated: ≤ 0.5 day"),
-    Label("effort: medium", "fef2c0", "Estimated: 1–2 days"),
-    Label("effort: large",  "f9d0c4", "Estimated: 3–5 days"),
+    Label("effort: small", "c2e0c6", "Estimated: ≤ 0.5 day"),
+    Label("effort: medium", "fef2c0", "Estimated: 1-2 days"),
+    Label("effort: large", "f9d0c4", "Estimated: 3-5 days"),
     # ---- Epic ----
-    Label("epic: setup",          "1d76db", "Project setup & infrastructure"),
-    Label("epic: auth",           "0052cc", "Authentication & JWT"),
-    Label("epic: users",          "5319e7", "User management & RBAC"),
-    Label("epic: common",         "006b75", "Common app & shared models"),
-    Label("epic: individuals",    "e11d48", "Individuals app"),
-    Label("epic: companies",      "be4bdb", "Companies app"),
-    Label("epic: clients",        "f97316", "Clients abstraction layer"),
-    Label("epic: asset-mgmt",     "22c55e", "Asset management registry"),
-    Label("epic: collateral",     "84cc16", "Collateral registry"),
-    Label("epic: hire-purchase",  "eab308", "Hire purchase registry"),
-    Label("epic: testing",        "14b8a6", "Testing"),
-    Label("epic: deployment",     "64748b", "Deployment & DevOps"),
-    Label("epic: api-polish",     "a855f7", "API polish & finalization"),
-    Label("critical-path",        "b60205", "Must-do for MVP"),
-    Label("nice-to-have",         "d4c5f9", "Only if time allows"),
+    Label("epic: setup", "1d76db", "Project setup & infrastructure"),
+    Label("epic: auth", "0052cc", "Authentication & JWT"),
+    Label("epic: users", "5319e7", "User management & RBAC"),
+    Label("epic: common", "006b75", "Common app & shared models"),
+    Label("epic: individuals", "e11d48", "Individuals app"),
+    Label("epic: companies", "be4bdb", "Companies app"),
+    Label("epic: clients", "f97316", "Clients abstraction layer"),
+    Label("epic: asset-mgmt", "22c55e", "Asset management registry"),
+    Label("epic: collateral", "84cc16", "Collateral registry"),
+    Label("epic: hire-purchase", "eab308", "Hire purchase registry"),
+    Label("epic: testing", "14b8a6", "Testing"),
+    Label("epic: deployment", "64748b", "Deployment & DevOps"),
+    Label("epic: api-polish", "a855f7", "API polish & finalization"),
+    Label("critical-path", "b60205", "Must-do for MVP"),
+    Label("nice-to-have", "d4c5f9", "Only if time allows"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -105,17 +114,17 @@ LABELS: list[Label] = [
 
 MILESTONES: list[Milestone] = [
     Milestone(
-        title="Week 1 – Core Foundation",
+        title="Week 1 - Core Foundation",
         description="Project setup, authentication, user management, and common models.",
         due_on="2026-04-13T23:59:59Z",
     ),
     Milestone(
-        title="Week 2 – Core Features",
+        title="Week 2 - Core Features",
         description="Individuals, companies, clients, asset management, collateral, and hire-purchase APIs.",
         due_on="2026-04-20T23:59:59Z",
     ),
     Milestone(
-        title="Week 3 – Polish, Testing & Deployment",
+        title="Week 3 - Polish, Testing & Deployment",
         description="Test coverage, Docker, CI/CD, and API polish.",
         due_on="2026-04-27T23:59:59Z",
     ),
@@ -125,36 +134,27 @@ MILESTONES: list[Milestone] = [
 # Issues
 # ---------------------------------------------------------------------------
 
-def _body(description: str, acceptance: list[str], priority: str,
-          effort: str, duration: str, dependencies: str) -> str:
+
+def _body(
+    description: str,
+    acceptance: list[str],
+) -> str:
     ac_lines = "\n".join(f"- [ ] {line}" for line in acceptance)
-    return textwrap.dedent(f"""\
+    return textwrap.dedent(
+        f"""\
         ## Description
         {description.strip()}
 
         ## Acceptance Criteria
         {ac_lines}
-
-        ## Priority
-        {priority}
-
-        ## Estimated Effort
-        {effort}
-
-        ## Duration
-        {duration}
-
-        ## Dependencies
-        {dependencies if dependencies else "None"}
-    """)
+    """
+    )
 
 
 ISSUES: list[Issue] = [
-
     # =========================================================================
     # WEEK 1 — EPIC: Project Setup & Infrastructure
     # =========================================================================
-
     Issue(
         title="[W1] Configure project environment, settings splits, and .env template",
         body=_body(
@@ -175,19 +175,11 @@ ISSUES: list[Issue] = [
                 "All app URL namespaces are registered in `core/urls.py`.",
                 "`python manage.py check` passes with no errors.",
             ],
-            priority="High",
-            effort="Small",
-            duration="0.5 day",
-            dependencies="None",
         ),
         labels=["week 1", "priority: high", "epic: setup", "critical-path"],
-        milestone="Week 1 – Core Foundation",
-        priority="High",
-        effort="Small",
-        duration="0.5 day",
-        dependencies="None",
+        milestone="Week 1 - Core Foundation",
+        size="M",
     ),
-
     Issue(
         title="[W1] Set up PostgreSQL database connection and run baseline migrations",
         body=_body(
@@ -204,19 +196,11 @@ ISSUES: list[Issue] = [
                 "DATABASE_URL environment variable drives the database connection.",
                 "DB setup instructions are documented in the README.",
             ],
-            priority="High",
-            effort="Small",
-            duration="0.5 day",
-            dependencies="#1 – Environment configuration",
         ),
         labels=["week 1", "priority: high", "epic: setup", "critical-path"],
-        milestone="Week 1 – Core Foundation",
-        priority="High",
-        effort="Small",
-        duration="0.5 day",
-        dependencies="#1",
+        milestone="Week 1 - Core Foundation",
+        size="M",
     ),
-
     Issue(
         title="[W1] Configure Celery + Redis for asynchronous task processing",
         body=_body(
@@ -234,19 +218,11 @@ ISSUES: list[Issue] = [
                 "CELERY_BROKER_URL and CELERY_RESULT_BACKEND are read from environment variables.",
                 "Celery is configured to auto-discover tasks in all installed apps.",
             ],
-            priority="Medium",
-            effort="Small",
-            duration="0.5 day",
-            dependencies="#1 – Environment configuration",
         ),
         labels=["week 1", "priority: medium", "epic: setup"],
-        milestone="Week 1 – Core Foundation",
-        priority="Medium",
-        effort="Small",
-        duration="0.5 day",
-        dependencies="#1",
+        milestone="Week 1 - Core Foundation",
+        size="M",
     ),
-
     Issue(
         title="[W1] Enable and configure drf-spectacular for OpenAPI documentation",
         body=_body(
@@ -265,23 +241,14 @@ ISSUES: list[Issue] = [
                 "SPECTACULAR_SETTINGS includes title, version, and a meaningful description.",
                 "Custom actions (`discharge`, `confirm_closure`, `dashboard`) appear in the schema.",
             ],
-            priority="Medium",
-            effort="Small",
-            duration="0.5 day",
-            dependencies="#1 – Environment configuration",
         ),
         labels=["week 1", "priority: medium", "epic: setup"],
-        milestone="Week 1 – Core Foundation",
-        priority="Medium",
-        effort="Small",
-        duration="0.5 day",
-        dependencies="#1",
+        milestone="Week 1 - Core Foundation",
+        size="M",
     ),
-
     # =========================================================================
     # WEEK 1 — EPIC: Authentication & JWT
     # =========================================================================
-
     Issue(
         title="[W1] Implement JWT authentication with HTTP-only cookie strategy",
         body=_body(
@@ -301,19 +268,11 @@ ISSUES: list[Issue] = [
                 "Logout blacklists the refresh token and clears both cookies.",
                 "Requests to protected endpoints without a valid cookie return 401.",
             ],
-            priority="High",
-            effort="Small",
-            duration="1 day",
-            dependencies="#1 – Environment configuration",
         ),
         labels=["week 1", "priority: high", "epic: auth", "critical-path"],
-        milestone="Week 1 – Core Foundation",
-        priority="High",
-        effort="Small",
-        duration="1 day",
-        dependencies="#1",
+        milestone="Week 1 - Core Foundation",
+        size="M",
     ),
-
     Issue(
         title="[W1] Build user registration, login, and logout API endpoints",
         body=_body(
@@ -334,19 +293,11 @@ ISSUES: list[Issue] = [
                 "POST `/api/auth/register/` creates a user + client and returns 201.",
                 "All three endpoints appear in the OpenAPI schema.",
             ],
-            priority="High",
-            effort="Medium",
-            duration="1 day",
-            dependencies="#5 – JWT cookie authentication",
         ),
         labels=["week 1", "priority: high", "epic: auth", "critical-path"],
-        milestone="Week 1 – Core Foundation",
-        priority="High",
-        effort="Medium",
-        duration="1 day",
-        dependencies="#5",
+        milestone="Week 1 - Core Foundation",
+        size="M",
     ),
-
     Issue(
         title="[W1] Implement role-based access control (RBAC) and seed default roles",
         body=_body(
@@ -365,19 +316,11 @@ ISSUES: list[Issue] = [
                 "The `has_perm` method on `CustomUser` correctly delegates to assigned roles.",
                 "Role seeding is idempotent (safe to run multiple times).",
             ],
-            priority="High",
-            effort="Medium",
-            duration="1 day",
-            dependencies="#6 – Registration & login endpoints",
         ),
         labels=["week 1", "priority: high", "epic: users", "critical-path"],
-        milestone="Week 1 – Core Foundation",
-        priority="High",
-        effort="Medium",
-        duration="1 day",
-        dependencies="#6",
+        milestone="Week 1 - Core Foundation",
+        size="M",
     ),
-
     Issue(
         title="[W1] Add password change and token-refresh endpoints",
         body=_body(
@@ -395,23 +338,14 @@ ISSUES: list[Issue] = [
                 "POST `/api/auth/token/refresh/` reads the refresh cookie and issues a new access cookie.",
                 "Incorrect current password returns 400 with a clear error message.",
             ],
-            priority="High",
-            effort="Small",
-            duration="0.5 day",
-            dependencies="#5, #6 – Auth endpoints",
         ),
         labels=["week 1", "priority: high", "epic: auth"],
-        milestone="Week 1 – Core Foundation",
-        priority="High",
-        effort="Small",
-        duration="0.5 day",
-        dependencies="#5, #6",
+        milestone="Week 1 - Core Foundation",
+        size="M",
     ),
-
     # =========================================================================
     # WEEK 1 — EPIC: Common App Foundation
     # =========================================================================
-
     Issue(
         title="[W1] Finalise common shared models (Address, Document, Note) and expose read APIs",
         body=_body(
@@ -429,19 +363,11 @@ ISSUES: list[Issue] = [
                 "Individual and Company serializers nest or link Address/Document/Note via `GenericRelation`.",
                 "`python manage.py check` reports no errors related to content-type or GenericRelation setup.",
             ],
-            priority="High",
-            effort="Small",
-            duration="0.5 day",
-            dependencies="#2 – Database & migrations",
         ),
         labels=["week 1", "priority: high", "epic: common", "critical-path"],
-        milestone="Week 1 – Core Foundation",
-        priority="High",
-        effort="Small",
-        duration="0.5 day",
-        dependencies="#2",
+        milestone="Week 1 - Core Foundation",
+        size="M",
     ),
-
     Issue(
         title="[W1] Seed location data and currency reference data",
         body=_body(
@@ -458,23 +384,14 @@ ISSUES: list[Issue] = [
                 "All seed commands are idempotent (re-running does not create duplicates).",
                 "Setup instructions in README reference all seed commands.",
             ],
-            priority="Medium",
-            effort="Small",
-            duration="0.5 day",
-            dependencies="#2 – Database & migrations",
         ),
         labels=["week 1", "priority: medium", "epic: common"],
-        milestone="Week 1 – Core Foundation",
-        priority="Medium",
-        effort="Small",
-        duration="0.5 day",
-        dependencies="#2",
+        milestone="Week 1 - Core Foundation",
+        size="M",
     ),
-
     # =========================================================================
     # WEEK 2 — EPIC: Individuals App
     # =========================================================================
-
     Issue(
         title="[W2] Individual profile CRUD API",
         body=_body(
@@ -494,19 +411,11 @@ ISSUES: list[Issue] = [
                 "Unauthenticated requests return 401.",
                 "Endpoint appears in OpenAPI schema.",
             ],
-            priority="High",
-            effort="Medium",
-            duration="1 day",
-            dependencies="#9 – Common models, #7 – RBAC",
         ),
         labels=["week 2", "priority: high", "epic: individuals", "critical-path"],
-        milestone="Week 2 – Core Features",
-        priority="High",
-        effort="Medium",
-        duration="1 day",
-        dependencies="#9, #7",
+        milestone="Week 2 - Core Features",
+        size="M",
     ),
-
     Issue(
         title="[W2] Individual contact details management API",
         body=_body(
@@ -523,19 +432,11 @@ ISSUES: list[Issue] = [
                 "DELETE `/api/individuals/{id}/contacts/{contact_id}/` removes a contact entry.",
                 "Validation ensures at least one contact method (mobile or email) is provided.",
             ],
-            priority="High",
-            effort="Medium",
-            duration="1 day",
-            dependencies="#11 – Individual CRUD API",
         ),
         labels=["week 2", "priority: high", "epic: individuals"],
-        milestone="Week 2 – Core Features",
-        priority="High",
-        effort="Medium",
-        duration="1 day",
-        dependencies="#11",
+        milestone="Week 2 - Core Features",
+        size="M",
     ),
-
     Issue(
         title="[W2] Individual document upload and management",
         body=_body(
@@ -554,19 +455,11 @@ ISSUES: list[Issue] = [
                 "Files over 10 MB return 400.",
                 "Only authenticated users belonging to the same client may upload.",
             ],
-            priority="Medium",
-            effort="Medium",
-            duration="1 day",
-            dependencies="#11 – Individual CRUD API",
         ),
         labels=["week 2", "priority: medium", "epic: individuals"],
-        milestone="Week 2 – Core Features",
-        priority="Medium",
-        effort="Medium",
-        duration="1 day",
-        dependencies="#11",
+        milestone="Week 2 - Core Features",
+        size="M",
     ),
-
     Issue(
         title="[W2] Individual verification status management",
         body=_body(
@@ -583,23 +476,14 @@ ISSUES: list[Issue] = [
                 "A Celery notification task is dispatched after verification.",
                 "GET `/api/individuals/{id}/status/` returns the three status flags.",
             ],
-            priority="Medium",
-            effort="Small",
-            duration="0.5 day",
-            dependencies="#11 – Individual CRUD API, #3 – Celery setup",
         ),
         labels=["week 2", "priority: medium", "epic: individuals"],
-        milestone="Week 2 – Core Features",
-        priority="Medium",
-        effort="Small",
-        duration="0.5 day",
-        dependencies="#11, #3",
+        milestone="Week 2 - Core Features",
+        size="M",
     ),
-
     # =========================================================================
     # WEEK 2 — EPIC: Companies App
     # =========================================================================
-
     Issue(
         title="[W2] Company profile CRUD API",
         body=_body(
@@ -618,19 +502,11 @@ ISSUES: list[Issue] = [
                 "DELETE `/api/companies/{id}/` soft-deletes.",
                 "Endpoint appears in OpenAPI schema.",
             ],
-            priority="High",
-            effort="Medium",
-            duration="1 day",
-            dependencies="#9 – Common models, #7 – RBAC",
         ),
         labels=["week 2", "priority: high", "epic: companies", "critical-path"],
-        milestone="Week 2 – Core Features",
-        priority="High",
-        effort="Medium",
-        duration="1 day",
-        dependencies="#9, #7",
+        milestone="Week 2 - Core Features",
+        size="M",
     ),
-
     Issue(
         title="[W2] Company branch management API",
         body=_body(
@@ -648,19 +524,11 @@ ISSUES: list[Issue] = [
                 "DELETE attempts on the last remaining branch return 400 with an error message.",
                 "Branch names are unique within a company (409 on duplicate).",
             ],
-            priority="High",
-            effort="Medium",
-            duration="1 day",
-            dependencies="#15 – Company CRUD API",
         ),
         labels=["week 2", "priority: high", "epic: companies"],
-        milestone="Week 2 – Core Features",
-        priority="High",
-        effort="Medium",
-        duration="1 day",
-        dependencies="#15",
+        milestone="Week 2 - Core Features",
+        size="M",
     ),
-
     Issue(
         title="[W2] Company document upload and contact details management",
         body=_body(
@@ -677,23 +545,14 @@ ISSUES: list[Issue] = [
                 "File-size and MIME-type validation applies.",
                 "Only authenticated users belonging to the company's client may manage data.",
             ],
-            priority="Medium",
-            effort="Medium",
-            duration="1 day",
-            dependencies="#15 – Company CRUD API, #13 – Individual document upload",
         ),
         labels=["week 2", "priority: medium", "epic: companies"],
-        milestone="Week 2 – Core Features",
-        priority="Medium",
-        effort="Medium",
-        duration="1 day",
-        dependencies="#15, #13",
+        milestone="Week 2 - Core Features",
+        size="M",
     ),
-
     # =========================================================================
     # WEEK 2 — EPIC: Clients App
     # =========================================================================
-
     Issue(
         title="[W2] Client abstraction layer CRUD API",
         body=_body(
@@ -711,19 +570,11 @@ ISSUES: list[Issue] = [
                 "Endpoint appears in OpenAPI schema with clear type descriptions.",
                 "Creating a Client with an already-linked entity returns 409.",
             ],
-            priority="High",
-            effort="Medium",
-            duration="1 day",
-            dependencies="#11 – Individuals API, #15 – Companies API",
         ),
         labels=["week 2", "priority: high", "epic: clients", "critical-path"],
-        milestone="Week 2 – Core Features",
-        priority="High",
-        effort="Medium",
-        duration="1 day",
-        dependencies="#11, #15",
+        milestone="Week 2 - Core Features",
+        size="M",
     ),
-
     Issue(
         title="[W2] Client user assignment and status management",
         body=_body(
@@ -743,23 +594,14 @@ ISSUES: list[Issue] = [
                 "Invalid status transitions return 400 with a descriptive error.",
                 "Only staff/admin may change client status.",
             ],
-            priority="High",
-            effort="Medium",
-            duration="1 day",
-            dependencies="#18 – Client CRUD API, #7 – RBAC",
         ),
         labels=["week 2", "priority: high", "epic: clients"],
-        milestone="Week 2 – Core Features",
-        priority="High",
-        effort="Medium",
-        duration="1 day",
-        dependencies="#18, #7",
+        milestone="Week 2 - Core Features",
+        size="M",
     ),
-
     # =========================================================================
     # WEEK 2 — EPIC: Asset Management
     # =========================================================================
-
     Issue(
         title="[W2] Asset registration CRUD API",
         body=_body(
@@ -780,19 +622,11 @@ ISSUES: list[Issue] = [
                 "All filterset_fields and search_fields are functional.",
                 "`year_of_make` must be between 1900 and current year + 1.",
             ],
-            priority="High",
-            effort="Medium",
-            duration="1 day",
-            dependencies="#2 – Migrations, #5 – Auth",
         ),
         labels=["week 2", "priority: high", "epic: asset-mgmt", "critical-path"],
-        milestone="Week 2 – Core Features",
-        priority="High",
-        effort="Medium",
-        duration="1 day",
-        dependencies="#2, #5",
+        milestone="Week 2 - Core Features",
+        size="M",
     ),
-
     Issue(
         title="[W2] Asset management dashboard endpoint",
         body=_body(
@@ -809,23 +643,14 @@ ISSUES: list[Issue] = [
                 "Dashboard data reflects only assets accessible to the authenticated user.",
                 "Endpoint is documented in the OpenAPI schema.",
             ],
-            priority="Medium",
-            effort="Small",
-            duration="0.5 day",
-            dependencies="#20 – Asset CRUD API",
         ),
         labels=["week 2", "priority: medium", "epic: asset-mgmt"],
-        milestone="Week 2 – Core Features",
-        priority="Medium",
-        effort="Small",
-        duration="0.5 day",
-        dependencies="#20",
+        milestone="Week 2 - Core Features",
+        size="M",
     ),
-
     # =========================================================================
     # WEEK 2 — EPIC: Collateral Registry
     # =========================================================================
-
     Issue(
         title="[W2] Collateral registration CRUD API",
         body=_body(
@@ -844,19 +669,11 @@ ISSUES: list[Issue] = [
                 "`balance` is automatically computed as `total_debt - total_paid_to_date`.",
                 "Filtering by `is_discharged`, `asset_type`, and `financier` works correctly.",
             ],
-            priority="High",
-            effort="Medium",
-            duration="1 day",
-            dependencies="#2 – Migrations, #5 – Auth",
         ),
         labels=["week 2", "priority: high", "epic: collateral", "critical-path"],
-        milestone="Week 2 – Core Features",
-        priority="High",
-        effort="Medium",
-        duration="1 day",
-        dependencies="#2, #5",
+        milestone="Week 2 - Core Features",
+        size="M",
     ),
-
     Issue(
         title="[W2] Collateral discharge workflow and status lifecycle",
         body=_body(
@@ -874,19 +691,11 @@ ISSUES: list[Issue] = [
                 "The `status` field in list/detail responses reflects the correct lifecycle state.",
                 "Only the financier or staff may discharge a collateral record.",
             ],
-            priority="High",
-            effort="Small",
-            duration="0.5 day",
-            dependencies="#22 – Collateral CRUD API",
         ),
         labels=["week 2", "priority: high", "epic: collateral"],
-        milestone="Week 2 – Core Features",
-        priority="High",
-        effort="Small",
-        duration="0.5 day",
-        dependencies="#22",
+        milestone="Week 2 - Core Features",
+        size="M",
     ),
-
     Issue(
         title="[W2] Collateral registry dashboard endpoint",
         body=_body(
@@ -901,23 +710,14 @@ ISSUES: list[Issue] = [
                 "Counts accurately reflect current database state.",
                 "Response is documented in the OpenAPI schema.",
             ],
-            priority="Medium",
-            effort="Small",
-            duration="0.5 day",
-            dependencies="#22 – Collateral CRUD API",
         ),
         labels=["week 2", "priority: medium", "epic: collateral"],
-        milestone="Week 2 – Core Features",
-        priority="Medium",
-        effort="Small",
-        duration="0.5 day",
-        dependencies="#22",
+        milestone="Week 2 - Core Features",
+        size="M",
     ),
-
     # =========================================================================
     # WEEK 2 — EPIC: Hire Purchase Registry
     # =========================================================================
-
     Issue(
         title="[W2] Hire purchase registration CRUD API",
         body=_body(
@@ -925,7 +725,7 @@ ISSUES: list[Issue] = [
                 `HirePurchaseRegistrationViewSet` and serializers exist in
                 `apps/hire_purchase/`.  Harden the ViewSet: validate
                 `purchase_amount > 0`, `agreement_start_date <= agreement_end_date`,
-                and ensure `instalment_day` is 1–28.  Auto-compute `balance` on save.
+                and ensure `instalment_day` is 1-28.  Auto-compute `balance` on save.
                 Register the URL under `/api/hire-purchase/`.
             """,
             acceptance=[
@@ -935,19 +735,11 @@ ISSUES: list[Issue] = [
                 "`balance` is automatically computed as `purchase_amount - total_paid_to_date`.",
                 "Filtering by `asset_type`, `financier`, `purchaser` works correctly.",
             ],
-            priority="High",
-            effort="Medium",
-            duration="1 day",
-            dependencies="#2 – Migrations, #5 – Auth",
         ),
         labels=["week 2", "priority: high", "epic: hire-purchase", "critical-path"],
-        milestone="Week 2 – Core Features",
-        priority="High",
-        effort="Medium",
-        duration="1 day",
-        dependencies="#2, #5",
+        milestone="Week 2 - Core Features",
+        size="M",
     ),
-
     Issue(
         title="[W2] Hire purchase closure workflow and lifecycle management",
         body=_body(
@@ -966,19 +758,11 @@ ISSUES: list[Issue] = [
                 "The `status` field accurately reflects `Active`, `Pending Closure Confirmation`, or `Closed`.",
                 "Only the financier or staff may confirm closure.",
             ],
-            priority="High",
-            effort="Small",
-            duration="0.5 day",
-            dependencies="#25 – HP CRUD API",
         ),
         labels=["week 2", "priority: high", "epic: hire-purchase"],
-        milestone="Week 2 – Core Features",
-        priority="High",
-        effort="Small",
-        duration="0.5 day",
-        dependencies="#25",
+        milestone="Week 2 - Core Features",
+        size="M",
     ),
-
     Issue(
         title="[W2] Hire purchase dashboard endpoint",
         body=_body(
@@ -993,23 +777,14 @@ ISSUES: list[Issue] = [
                 "Counts accurately reflect current database state.",
                 "Response is documented in the OpenAPI schema.",
             ],
-            priority="Medium",
-            effort="Small",
-            duration="0.5 day",
-            dependencies="#25 – HP CRUD API",
         ),
         labels=["week 2", "priority: medium", "epic: hire-purchase"],
-        milestone="Week 2 – Core Features",
-        priority="Medium",
-        effort="Small",
-        duration="0.5 day",
-        dependencies="#25",
+        milestone="Week 2 - Core Features",
+        size="M",
     ),
-
     # =========================================================================
     # WEEK 3 — EPIC: Testing
     # =========================================================================
-
     Issue(
         title="[W3] Unit and integration tests for authentication and user management",
         body=_body(
@@ -1029,19 +804,11 @@ ISSUES: list[Issue] = [
                 "RBAC: endpoint returns 403 for a user missing the required role.",
                 "Coverage ≥ 80% for `apps/users/`.",
             ],
-            priority="High",
-            effort="Medium",
-            duration="1 day",
-            dependencies="#5, #6, #7, #8 – Auth & user endpoints",
         ),
         labels=["week 3", "priority: high", "epic: testing"],
-        milestone="Week 3 – Polish, Testing & Deployment",
-        priority="High",
-        effort="Medium",
-        duration="1 day",
-        dependencies="#5, #6, #7, #8",
+        milestone="Week 3 - Polish, Testing & Deployment",
+        size="M",
     ),
-
     Issue(
         title="[W3] Unit and integration tests for asset management, collateral, and hire purchase",
         body=_body(
@@ -1059,19 +826,11 @@ ISSUES: list[Issue] = [
                 "Dashboard tests verify aggregate counts match seeded data.",
                 "Coverage ≥ 70% for each registry app.",
             ],
-            priority="High",
-            effort="Large",
-            duration="2 days",
-            dependencies="#20–#27 – Registry APIs",
         ),
         labels=["week 3", "priority: high", "epic: testing"],
-        milestone="Week 3 – Polish, Testing & Deployment",
-        priority="High",
-        effort="Large",
-        duration="2 days",
-        dependencies="#20-#27",
+        milestone="Week 3 - Polish, Testing & Deployment",
+        size="M",
     ),
-
     Issue(
         title="[W3] Unit tests for individuals, companies, and clients apps",
         body=_body(
@@ -1088,23 +847,14 @@ ISSUES: list[Issue] = [
                 "Client status transition: valid and invalid cases tested.",
                 "Coverage ≥ 70% for each app.",
             ],
-            priority="High",
-            effort="Large",
-            duration="1.5 days",
-            dependencies="#11–#19 – Individuals, companies, clients APIs",
         ),
         labels=["week 3", "priority: high", "epic: testing"],
-        milestone="Week 3 – Polish, Testing & Deployment",
-        priority="High",
-        effort="Large",
-        duration="1.5 days",
-        dependencies="#11-#19",
+        milestone="Week 3 - Polish, Testing & Deployment",
+        size="M",
     ),
-
     # =========================================================================
     # WEEK 3 — EPIC: Deployment & DevOps
     # =========================================================================
-
     Issue(
         title="[W3] Dockerfile and docker-compose for local development and production",
         body=_body(
@@ -1122,19 +872,11 @@ ISSUES: list[Issue] = [
                 "Celery worker connects to Redis and starts successfully.",
                 "Production `Dockerfile` does not include dev dependencies.",
             ],
-            priority="High",
-            effort="Medium",
-            duration="1 day",
-            dependencies="#1, #2, #3 – Environment, DB, Celery",
         ),
         labels=["week 3", "priority: high", "epic: deployment", "critical-path"],
-        milestone="Week 3 – Polish, Testing & Deployment",
-        priority="High",
-        effort="Medium",
-        duration="1 day",
-        dependencies="#1, #2, #3",
+        milestone="Week 3 - Polish, Testing & Deployment",
+        size="M",
     ),
-
     Issue(
         title="[W3] Production environment configuration and security hardening",
         body=_body(
@@ -1152,19 +894,11 @@ ISSUES: list[Issue] = [
                 "All production environment variables are documented in `.env.example`.",
                 "DEBUG is `False` when `DEBUG` env var is not `'True'`.",
             ],
-            priority="High",
-            effort="Medium",
-            duration="0.5 day",
-            dependencies="#1 – Environment setup, #32 – Docker setup",
         ),
         labels=["week 3", "priority: high", "epic: deployment"],
-        milestone="Week 3 – Polish, Testing & Deployment",
-        priority="High",
-        effort="Medium",
-        duration="0.5 day",
-        dependencies="#1, #32",
+        milestone="Week 3 - Polish, Testing & Deployment",
+        size="M",
     ),
-
     Issue(
         title="[W3] Database migration and data seeding automation in entrypoint",
         body=_body(
@@ -1182,19 +916,11 @@ ISSUES: list[Issue] = [
                 "Script is idempotent and safe to re-run.",
                 "Script is used in `docker-compose.yml` as the service entrypoint.",
             ],
-            priority="High",
-            effort="Small",
-            duration="0.5 day",
-            dependencies="#32 – Docker setup",
         ),
         labels=["week 3", "priority: high", "epic: deployment"],
-        milestone="Week 3 – Polish, Testing & Deployment",
-        priority="High",
-        effort="Small",
-        duration="0.5 day",
-        dependencies="#32",
+        milestone="Week 3 - Polish, Testing & Deployment",
+        size="M",
     ),
-
     Issue(
         title="[W3] GitHub Actions CI/CD pipeline for automated testing",
         body=_body(
@@ -1212,23 +938,14 @@ ISSUES: list[Issue] = [
                 "Coverage report is uploaded as a workflow artifact.",
                 "Workflow badge is added to README.",
             ],
-            priority="Medium",
-            effort="Small",
-            duration="0.5 day",
-            dependencies="#28–#30 – Tests written",
         ),
         labels=["week 3", "priority: medium", "epic: deployment"],
-        milestone="Week 3 – Polish, Testing & Deployment",
-        priority="Medium",
-        effort="Small",
-        duration="0.5 day",
-        dependencies="#28-#30",
+        milestone="Week 3 - Polish, Testing & Deployment",
+        size="M",
     ),
-
     # =========================================================================
     # WEEK 3 — EPIC: API Polish & Finalization
     # =========================================================================
-
     Issue(
         title="[W3] Standardise API error responses and input validation across all endpoints",
         body=_body(
@@ -1247,19 +964,11 @@ ISSUES: list[Issue] = [
                 "No endpoint returns a raw Django HTML error page for API requests.",
                 "At least one test asserts the error envelope format.",
             ],
-            priority="High",
-            effort="Medium",
-            duration="1 day",
-            dependencies="All Week 2 endpoints completed",
         ),
         labels=["week 3", "priority: high", "epic: api-polish", "critical-path"],
-        milestone="Week 3 – Polish, Testing & Deployment",
-        priority="High",
-        effort="Medium",
-        duration="1 day",
-        dependencies="All Week 2 issues",
+        milestone="Week 3 - Polish, Testing & Deployment",
+        size="M",
     ),
-
     Issue(
         title="[W3] Wire up all URL routes and activate all apps in settings",
         body=_body(
@@ -1278,19 +987,11 @@ ISSUES: list[Issue] = [
                 "`python manage.py showmigrations` shows all migrations applied.",
                 "A smoke-test HTTP request to each app's list endpoint returns 200 or 401 (not 404).",
             ],
-            priority="High",
-            effort="Small",
-            duration="0.5 day",
-            dependencies="#1 – Environment setup",
         ),
         labels=["week 3", "priority: high", "epic: api-polish", "critical-path"],
-        milestone="Week 3 – Polish, Testing & Deployment",
-        priority="High",
-        effort="Small",
-        duration="0.5 day",
-        dependencies="#1",
+        milestone="Week 3 - Polish, Testing & Deployment",
+        size="M",
     ),
-
     Issue(
         title="[W3] Final OpenAPI schema review and documentation cleanup",
         body=_body(
@@ -1307,23 +1008,14 @@ ISSUES: list[Issue] = [
                 "README includes a section: 'API Quick Start' covering auth and token usage.",
                 "No endpoints appear as `{}` (empty schema) in the Swagger UI.",
             ],
-            priority="Medium",
-            effort="Small",
-            duration="0.5 day",
-            dependencies="#4 – drf-spectacular setup, all Week 2 endpoints",
         ),
         labels=["week 3", "priority: medium", "epic: api-polish"],
-        milestone="Week 3 – Polish, Testing & Deployment",
-        priority="Medium",
-        effort="Small",
-        duration="0.5 day",
-        dependencies="#4, all Week 2 issues",
+        milestone="Week 3 - Polish, Testing & Deployment",
+        size="M",
     ),
-
     # =========================================================================
     # NICE-TO-HAVE (post-MVP)
     # =========================================================================
-
     Issue(
         title="[NICE] SMS / email notification service implementation",
         body=_body(
@@ -1339,19 +1031,11 @@ ISSUES: list[Issue] = [
                 "SMS notifications sent for HP/Collateral lifecycle events.",
                 "Failed notification tasks are retried via Celery retry mechanism.",
             ],
-            priority="Low",
-            effort="Large",
-            duration="2 days",
-            dependencies="#3 – Celery setup",
         ),
         labels=["nice-to-have", "priority: low", "epic: common"],
-        milestone="Week 3 – Polish, Testing & Deployment",
-        priority="Low",
-        effort="Large",
-        duration="2 days",
-        dependencies="#3",
+        milestone="Week 3 - Polish, Testing & Deployment",
+        size="M",
     ),
-
     Issue(
         title="[NICE] Rate limiting on public API endpoints",
         body=_body(
@@ -1366,19 +1050,11 @@ ISSUES: list[Issue] = [
                 "Authenticated endpoints are throttled at a sensible rate.",
                 "429 response includes `Retry-After` header.",
             ],
-            priority="Low",
-            effort="Small",
-            duration="0.5 day",
-            dependencies="#6 – Auth endpoints",
         ),
         labels=["nice-to-have", "priority: low", "epic: api-polish"],
-        milestone="Week 3 – Polish, Testing & Deployment",
-        priority="Low",
-        effort="Small",
-        duration="0.5 day",
-        dependencies="#6",
+        milestone="Week 3 - Polish, Testing & Deployment",
+        size="M",
     ),
-
     Issue(
         title="[NICE] Audit logging for sensitive operations",
         body=_body(
@@ -1395,19 +1071,11 @@ ISSUES: list[Issue] = [
                 "GET `/api/audit-log/` (staff only) returns paginated log entries.",
                 "Audit log is append-only (no delete or update allowed).",
             ],
-            priority="Low",
-            effort="Large",
-            duration="2 days",
-            dependencies="All core APIs complete",
         ),
         labels=["nice-to-have", "priority: low", "epic: users"],
-        milestone="Week 3 – Polish, Testing & Deployment",
-        priority="Low",
-        effort="Large",
-        duration="2 days",
-        dependencies="All core APIs",
+        milestone="Week 3 - Polish, Testing & Deployment",
+        size="M",
     ),
-
     Issue(
         title="[NICE] CSV / Excel export for registry records",
         body=_body(
@@ -1423,175 +1091,697 @@ ISSUES: list[Issue] = [
                 "Export respects the active search/filter parameters.",
                 "File is streamed (not loaded entirely into memory).",
             ],
-            priority="Low",
-            effort="Medium",
-            duration="1 day",
-            dependencies="#20, #22, #25 – Registry APIs",
         ),
         labels=["nice-to-have", "priority: low", "epic: asset-mgmt"],
-        milestone="Week 3 – Polish, Testing & Deployment",
-        priority="Low",
-        effort="Medium",
-        duration="1 day",
-        dependencies="#20, #22, #25",
+        milestone="Week 3 - Polish, Testing & Deployment",
+        size="M",
     ),
 ]
 
-
 # ---------------------------------------------------------------------------
-# GitHub CLI helpers
+# GitHub helpers
 # ---------------------------------------------------------------------------
 
-def _run(cmd: list[str], dry_run: bool, capture: bool = False) -> Optional[str]:
-    """Execute a gh CLI command, optionally printing it instead."""
-    if dry_run:
-        print("DRY-RUN:", " ".join(cmd))
-        return None
-    result = subprocess.run(cmd, capture_output=capture, text=True, check=False)
-    if result.returncode != 0:
-        # Print but don't abort — some errors are non-fatal (e.g. label already exists)
-        print(f"  ⚠  Command failed (exit {result.returncode}): {result.stderr.strip()}", file=sys.stderr)
-        return None
-    return result.stdout.strip() if capture else None
+
+def parse_iso8601_datetime(value: str) -> datetime:
+    """Parse ISO-8601 date strings, including trailing Z UTC marker."""
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def get_repo_and_github(repo_str: str) -> Any:
+    """Get the GitHub repo object using PyGithub."""
+    token = os.getenv("GITHUB_TOKEN")
+    if not token:
+        sys.exit("Error: GITHUB_TOKEN environment variable not set.")
+
+    try:
+        auth = Auth.Token(token)
+        g = Github(auth=auth)
+        owner, repo_name = repo_str.split("/", maxsplit=1)
+        user = g.get_user(owner)
+        repo = user.get_repo(repo_name)
+        print(f"✓ Connected to GitHub repository: {owner}/{repo_name}")
+        return repo
+    except Exception as e:
+        sys.exit(f"Error connecting to GitHub: {e}")
 
 
 def get_repo(specified: Optional[str]) -> str:
+    """Get repo in OWNER/REPO format."""
     if specified:
         return specified
-    result = subprocess.run(
-        ["git", "remote", "get-url", "origin"],
-        capture_output=True, text=True,
+
+    repo_owner = os.getenv("GITHUB_REPO_OWNER")
+    repo_name = os.getenv("GITHUB_REPO_NAME")
+    if repo_owner and repo_name:
+        return f"{repo_owner}/{repo_name}"
+
+    sys.exit(
+        "Error: Set GITHUB_REPO_OWNER and GITHUB_REPO_NAME in .env "
+        "or pass --repo OWNER/REPO."
     )
-    if result.returncode != 0:
-        sys.exit("Could not determine repo from git remote. Pass --repo OWNER/REPO.")
-    url = result.stdout.strip()
-    # Handles https://github.com/owner/repo and git@github.com:owner/repo
-    # Use urlparse / explicit prefix checks to avoid matching arbitrary domains
-    # that merely contain the substring "github.com" (e.g. "evilgithub.com").
-    if url.startswith("https://github.com/"):
-        url = url.removeprefix("https://github.com/").removesuffix(".git")
-        return url
-    if url.startswith("git@github.com:"):
-        url = url.removeprefix("git@github.com:").removesuffix(".git")
-        return url
-    sys.exit(f"Unexpected remote URL format: {url}. Pass --repo OWNER/REPO.")
 
 
-def get_assignee(specified: Optional[str]) -> str:
-    if specified:
-        return specified
-    result = subprocess.run(
-        ["gh", "api", "user", "--jq", ".login"],
-        capture_output=True, text=True,
+def get_project_number() -> int:
+    """Get project number from env, defaulting to 8."""
+    raw = os.getenv("GITHUB_PROJECT_NUMBER", "8").strip()
+    try:
+        number = int(raw)
+    except ValueError as e:
+        raise ValueError(
+            f"Invalid GITHUB_PROJECT_NUMBER '{raw}'. Expected an integer."
+        ) from e
+
+    if number <= 0:
+        raise ValueError("GITHUB_PROJECT_NUMBER must be greater than zero.")
+    return number
+
+
+def normalize_name(value: str) -> str:
+    """Normalize field and option names for tolerant matching."""
+    normalized = value.strip().lower()
+    for ch in (":", "-", "_"):
+        normalized = normalized.replace(ch, " ")
+    return " ".join(normalized.split())
+
+
+def run_graphql_query(
+    query: str, variables: Optional[dict[str, Any]] = None
+) -> dict[str, Any]:
+    """Run a GitHub GraphQL query with token auth."""
+    token = os.getenv("GITHUB_TOKEN")
+    if not token:
+        raise RuntimeError("GITHUB_TOKEN environment variable not set.")
+
+    payload = json.dumps({"query": query, "variables": variables or {}}).encode(
+        "utf-8"
     )
-    if result.returncode != 0:
-        sys.exit("Could not determine current gh user. Pass --assignee USERNAME.")
-    return result.stdout.strip()
+    req = request.Request(
+        "https://api.github.com/graphql",
+        data=payload,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+    )
 
+    try:
+        with request.urlopen(req, timeout=30) as response:
+            raw = response.read().decode("utf-8")
+    except error.HTTPError as exc:
+        details = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"GraphQL HTTP {exc.code}: {details}") from exc
+    except error.URLError as exc:
+        raise RuntimeError(f"GraphQL connection error: {exc.reason}") from exc
 
-def create_labels(repo: str, dry_run: bool) -> None:
-    print("\n=== Creating labels ===")
-    for label in LABELS:
-        print(f"  Label: {label.name}")
-        _run([
-            "gh", "label", "create", label.name,
-            "--repo", repo,
-            "--color", label.color,
-            "--description", label.description,
-            "--force",   # update if already exists
-        ], dry_run)
-
-
-def create_milestones(repo: str, dry_run: bool) -> dict[str, int]:
-    """Create milestones and return a mapping of title -> number."""
-    print("\n=== Creating milestones ===")
-    title_to_number: dict[str, int] = {}
-    for ms in MILESTONES:
-        print(f"  Milestone: {ms.title}")
-        output = _run([
-            "gh", "api",
-            f"repos/{repo}/milestones",
-            "--method", "POST",
-            "-f", f"title={ms.title}",
-            "-f", f"description={ms.description}",
-            "-f", f"due_on={ms.due_on}",
-        ], dry_run, capture=True)
-        if output:
-            try:
-                data = json.loads(output)
-                title_to_number[ms.title] = data["number"]
-            except (json.JSONDecodeError, KeyError):
-                pass
-    # Also fetch existing milestones to fill in any that already existed
-    if not dry_run:
-        existing = subprocess.run(
-            ["gh", "api", f"repos/{repo}/milestones", "--jq", ".[] | {title: .title, number: .number}"],
-            capture_output=True, text=True,
+    parsed = json.loads(raw)
+    if parsed.get("errors"):
+        messages = "; ".join(
+            err.get("message", "Unknown GraphQL error") for err in parsed["errors"]
         )
-        if existing.returncode == 0:
-            for line in existing.stdout.strip().splitlines():
-                try:
-                    obj = json.loads(line)
-                    title_to_number.setdefault(obj["title"], obj["number"])
-                except (json.JSONDecodeError, KeyError):
-                    pass
-    return title_to_number
+        raise RuntimeError(messages)
+
+    return parsed.get("data", {})
+
+
+def get_project_context(
+    project_owner: str,
+    project_number: int,
+    default_status: str,
+) -> Optional[dict[str, Any]]:
+    """Resolve a personal GitHub Project V2 and cache key single-select fields."""
+    print(
+        f"\n=== Resolving personal Project V2 #{project_number} for user '{project_owner}' ==="
+    )
+    query = """
+    query($login: String!, $projectNumber: Int!) {
+      user(login: $login) {
+        projectV2(number: $projectNumber) {
+          id
+          title
+          number
+          fields(first: 50) {
+            nodes {
+              ... on ProjectV2SingleSelectField {
+                id
+                name
+                options {
+                  id
+                  name
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    try:
+        data = run_graphql_query(
+            query,
+            {"login": project_owner, "projectNumber": project_number},
+        )
+    except RuntimeError as exc:
+        print(f"  ⚠  Could not fetch project metadata: {exc}", file=sys.stderr)
+        return None
+
+    user_data = data.get("user") or {}
+    project = user_data.get("projectV2")
+    if not project:
+        print(
+            "  ⚠  Project not found. Issue creation will continue without project linking.",
+            file=sys.stderr,
+        )
+        return None
+
+    fields: dict[str, dict[str, Any]] = {}
+    for node in project.get("fields", {}).get("nodes", []):
+        if not isinstance(node, dict):
+            continue
+
+        field_name = node.get("name")
+        field_id = node.get("id")
+        options = node.get("options")
+        if not field_name or not field_id or not options:
+            continue
+
+        normalized_field_name = normalize_name(field_name)
+        if normalized_field_name not in {"priority", "size", "status"}:
+            continue
+
+        option_lookup: dict[str, str] = {}
+        option_names: dict[str, str] = {}
+        for option in options:
+            if not isinstance(option, dict):
+                continue
+            option_id = option.get("id")
+            option_name = option.get("name")
+            if not option_id or not option_name:
+                continue
+            option_key = normalize_name(option_name)
+            option_lookup[option_key] = option_id
+            option_names[option_key] = option_name
+
+        fields[normalized_field_name] = {
+            "id": field_id,
+            "options": option_lookup,
+            "option_names": option_names,
+        }
+
+    print(f"  ✓ Found project: {project.get('title', 'Unknown')} (#{project_number})")
+    for tracked in ("priority", "size", "status"):
+        field = fields.get(tracked)
+        if field:
+            print(
+                f"    ✓ Field '{tracked}' found with {len(field['options'])} options"
+            )
+        else:
+            print(f"    ⚠  Field '{tracked}' not found; it will be skipped")
+
+    return {
+        "id": project.get("id"),
+        "title": project.get("title", "Unnamed project"),
+        "owner": project_owner,
+        "number": project_number,
+        "default_status": default_status,
+        "fields": fields,
+    }
+
+
+def get_project_item_lookup(project_id: str) -> dict[int, str]:
+    """Return issue_number -> project_item_id for issues already on the project."""
+    query = """
+    query($projectId: ID!) {
+      node(id: $projectId) {
+        ... on ProjectV2 {
+          items(first: 100) {
+            nodes {
+              id
+              content {
+                ... on Issue {
+                  number
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    try:
+        data = run_graphql_query(query, {"projectId": project_id})
+    except RuntimeError as exc:
+        print(f"  ⚠  Could not fetch existing project items: {exc}", file=sys.stderr)
+        return {}
+
+    lookup: dict[int, str] = {}
+    nodes = ((data.get("node") or {}).get("items") or {}).get("nodes") or []
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+        item_id = node.get("id")
+        issue_number = (node.get("content") or {}).get("number")
+        if item_id and isinstance(issue_number, int):
+            lookup[issue_number] = item_id
+
+    return lookup
+
+
+def resolve_single_select_option(
+    field: dict[str, Any],
+    candidates: list[str],
+) -> tuple[Optional[str], Optional[str]]:
+    """Resolve a project single-select option id by trying candidate names."""
+    option_lookup = field.get("options", {})
+    option_names = field.get("option_names", {})
+
+    for candidate in candidates:
+        candidate_key = normalize_name(candidate)
+        if candidate_key in option_lookup:
+            return option_lookup[candidate_key], option_names.get(candidate_key, candidate)
+
+    return None, None
+
+
+def get_priority_candidates(issue: Issue) -> list[str]:
+    """Build candidate priority option names from issue labels."""
+    priority_level = ""
+    for label in issue.labels:
+        if label.lower().startswith("priority:"):
+            priority_level = label.split(":", maxsplit=1)[1].strip().lower()
+            break
+
+    if not priority_level:
+        return []
+
+    aliases = {
+        "high": ["P0", "P1", "high", "priority high", "p0 critical", "p1 high"],
+        "medium": ["P1", "P2", "medium", "priority medium", "p2 medium"],
+        "low": ["P2", "low", "priority low", "p3 low"],
+    }
+    return aliases.get(priority_level, [priority_level, f"priority {priority_level}"])
+
+
+def get_size_candidates(size: str) -> list[str]:
+    """Build candidate size option names from issue size."""
+    normalized_size = size.strip().upper()
+    aliases = {
+        "XS": ["XS", "Extra Small", "X Small", "Small"],
+        "S": ["S", "Small", "Effort Small"],
+        "M": ["M", "Medium", "Effort Medium"],
+        "L": ["L", "Large", "Effort Large"],
+        "XL": ["XL", "Extra Large", "X Large", "Large"],
+    }
+    return aliases.get(normalized_size, [normalized_size])
+
+
+def get_status_candidates(default_status: str) -> list[str]:
+    """Build candidate status option names from configured default."""
+    configured = default_status.strip() or "Todo"
+    candidates = [configured, configured.replace("-", " "), configured.replace(" ", "")]
+    for fallback in ("To Do", "Todo", "Backlog"):
+        if fallback not in candidates:
+            candidates.append(fallback)
+    return candidates
+
+
+def add_issue_to_project(project_id: str, issue_node_id: str) -> Optional[str]:
+    """Create a project item from an issue node id and return item id."""
+    mutation = """
+    mutation($projectId: ID!, $contentId: ID!) {
+      addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
+        item {
+          id
+        }
+      }
+    }
+    """
+
+    try:
+        data = run_graphql_query(
+            mutation,
+            {"projectId": project_id, "contentId": issue_node_id},
+        )
+    except RuntimeError as exc:
+        print(f"      ⚠  Could not add issue to project: {exc}", file=sys.stderr)
+        return None
+
+    item = (data.get("addProjectV2ItemById") or {}).get("item") or {}
+    return item.get("id")
+
+
+def update_project_single_select_field(
+    project_id: str,
+    item_id: str,
+    field_id: str,
+    option_id: str,
+) -> bool:
+    """Set a single-select project field on a project item."""
+    mutation = """
+    mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+      updateProjectV2ItemFieldValue(
+        input: {
+          projectId: $projectId
+          itemId: $itemId
+          fieldId: $fieldId
+          value: {singleSelectOptionId: $optionId}
+        }
+      ) {
+        projectV2Item {
+          id
+        }
+      }
+    }
+    """
+
+    try:
+        run_graphql_query(
+            mutation,
+            {
+                "projectId": project_id,
+                "itemId": item_id,
+                "fieldId": field_id,
+                "optionId": option_id,
+            },
+        )
+        return True
+    except RuntimeError as exc:
+        print(f"      ⚠  Could not update project field: {exc}", file=sys.stderr)
+        return False
+
+
+def apply_project_fields_to_item(
+    project_ctx: dict[str, Any],
+    item_id: str,
+    issue: Issue,
+    issue_ref: str,
+    dry_run: bool,
+) -> None:
+    """Apply Priority/Size/Status project field values for an issue."""
+    updates = [
+        ("priority", get_priority_candidates(issue)),
+        ("size", get_size_candidates(issue.size)),
+        ("status", get_status_candidates(project_ctx.get("default_status", "Todo"))),
+    ]
+
+    for field_name, candidates in updates:
+        field = project_ctx.get("fields", {}).get(field_name)
+        if not field:
+            continue
+
+        option_id, option_name = resolve_single_select_option(field, candidates)
+        if not option_id:
+            print(
+                f"      ⚠  No matching '{field_name}' option found in project for {issue_ref}",
+                file=sys.stderr,
+            )
+            continue
+
+        if dry_run:
+            print(
+                f"      [DRY RUN] Would set {field_name.title()}='{option_name}' on project item for {issue_ref}"
+            )
+            continue
+
+        if update_project_single_select_field(
+            project_ctx["id"],
+            item_id,
+            field["id"],
+            option_id,
+        ):
+            print(f"      ✓ Set {field_name.title()}='{option_name}' for {issue_ref}")
+
+
+def ensure_issue_linked_to_project(
+    issue_obj: Any,
+    issue_definition: Issue,
+    project_ctx: dict[str, Any],
+    project_item_lookup: dict[int, str],
+    dry_run: bool,
+) -> None:
+    """Ensure issue is present on the project and fields are set."""
+    issue_number = issue_obj.number
+    issue_ref = f"issue #{issue_number}"
+
+    item_id = project_item_lookup.get(issue_number)
+    if item_id:
+        print(f"      ✓ {issue_ref} already linked to project")
+    elif dry_run:
+        print(
+            f"      [DRY RUN] Would add {issue_ref} to project '{project_ctx['title']}'"
+        )
+        item_id = "DRY_RUN_ITEM"
+    else:
+        issue_node_id = getattr(issue_obj, "node_id", "")
+        if not issue_node_id:
+            print(
+                f"      ⚠  Could not resolve node id for {issue_ref}; skipping project link",
+                file=sys.stderr,
+            )
+            return
+
+        item_id = add_issue_to_project(project_ctx["id"], issue_node_id)
+        if not item_id:
+            print(f"      ⚠  Failed to link {issue_ref} to project", file=sys.stderr)
+            return
+
+        project_item_lookup[issue_number] = item_id
+        print(f"      ✓ Linked {issue_ref} to project '{project_ctx['title']}'")
+
+    apply_project_fields_to_item(
+        project_ctx,
+        item_id,
+        issue_definition,
+        issue_ref,
+        dry_run,
+    )
+
+
+def create_labels(repo, dry_run: bool) -> None:
+    """Create or update all labels in the repository."""
+    print(f"\n=== Creating/updating {len(LABELS)} labels ===")
+    for i, label in enumerate(LABELS, start=1):
+        print(f"  ({i}/{len(LABELS)}) Label: {label.name}")
+        if dry_run:
+            print(
+                f"    [DRY RUN] Would create label '{label.name}' with color {label.color}"
+            )
+            continue
+
+        try:
+            try:
+                existing_label = repo.get_label(label.name)
+                existing_label.edit(
+                    name=label.name,
+                    color=label.color,
+                    description=label.description,
+                )
+                print(f"    ✓ Updated label '{label.name}'")
+            except GithubException:
+                repo.create_label(
+                    name=label.name,
+                    color=label.color,
+                    description=label.description,
+                )
+                print(f"    ✓ Created label '{label.name}'")
+        except Exception as e:
+            print(f"    ⚠  Error creating label '{label.name}': {e}", file=sys.stderr)
+
+
+def create_milestones(repo, dry_run: bool) -> dict[str, Any]:
+    """Create or update milestones and return a dict of title -> milestone object."""
+    print(f"\n=== Creating/updating {len(MILESTONES)} milestones ===")
+    milestones_dict: dict[str, Any] = {}
+
+    existing_milestones: dict[str, Any] = {}
+    if not dry_run:
+        try:
+            existing_milestones = {
+                milestone.title: milestone for milestone in repo.get_milestones(state="all")
+            }
+        except Exception as e:
+            print(f"  ⚠  Could not fetch milestones: {e}", file=sys.stderr)
+
+    for i, milestone in enumerate(MILESTONES, start=1):
+        print(f"  ({i}/{len(MILESTONES)}) Milestone: {milestone.title}")
+
+        if dry_run:
+            print(f"    [DRY RUN] Would create milestone '{milestone.title}'")
+            milestones_dict[milestone.title] = None
+            continue
+
+        try:
+            if milestone.title in existing_milestones:
+                print(f"    ✓ Milestone '{milestone.title}' already exists")
+                milestones_dict[milestone.title] = existing_milestones[milestone.title]
+            else:
+                new_milestone = repo.create_milestone(
+                    title=milestone.title,
+                    description=milestone.description,
+                    due_on=parse_iso8601_datetime(milestone.due_on),
+                )
+                print(f"    ✓ Created milestone '{milestone.title}'")
+                milestones_dict[milestone.title] = new_milestone
+                existing_milestones[milestone.title] = new_milestone
+        except Exception as e:
+            print(f"    ⚠  Error creating milestone '{milestone.title}': {e}", file=sys.stderr)
+            milestones_dict[milestone.title] = None
+
+    return milestones_dict
 
 
 def create_issues(
-    repo: str,
-    assignee: str,
-    milestone_map: dict[str, int],
+    repo,
+    milestones_dict: dict[str, Any],
     dry_run: bool,
+    project_ctx: Optional[dict[str, Any]] = None,
 ) -> None:
-    print(f"\n=== Creating {len(ISSUES)} issues (assignee: {assignee}) ===")
+    """Create all issues in the repository and optionally link them to Project V2."""
+    print(f"\n=== Creating {len(ISSUES)} issues ===")
+
+    existing_issues_by_title: dict[str, Any] = {}
+    try:
+        existing_issues_by_title = {
+            existing_issue.title: existing_issue
+            for existing_issue in repo.get_issues(state="open")
+        }
+        if existing_issues_by_title:
+            print(f"  ℹ  Found {len(existing_issues_by_title)} existing open issues")
+    except Exception as e:
+        print(f"  ⚠  Could not fetch existing issues: {e}", file=sys.stderr)
+
+    project_item_lookup: dict[int, str] = {}
+    if project_ctx and project_ctx.get("id"):
+        project_item_lookup = get_project_item_lookup(project_ctx["id"])
+        print(
+            f"  ℹ  Found {len(project_item_lookup)} issues already linked to project '{project_ctx['title']}'"
+        )
+
     for i, issue in enumerate(ISSUES, start=1):
         print(f"  [{i:02d}/{len(ISSUES)}] {issue.title}")
-        cmd = [
-            "gh", "issue", "create",
-            "--repo", repo,
-            "--title", issue.title,
-            "--body", issue.body,
-            "--assignee", assignee,
-        ]
-        for label in issue.labels:
-            cmd += ["--label", label]
-        milestone_number = milestone_map.get(issue.milestone)
-        if milestone_number:
-            cmd += ["--milestone", str(milestone_number)]
-        _run(cmd, dry_run)
+
+        github_issue = existing_issues_by_title.get(issue.title)
+        expected_milestone = milestones_dict.get(issue.milestone)
+
+        if github_issue:
+            print("    ✓ Issue already exists. Reusing it.")
+        elif dry_run:
+            print(
+                f"    [DRY RUN] Would create issue with {len(issue.labels)} labels and milestone '{issue.milestone}'"
+            )
+        else:
+            try:
+                create_kwargs: dict[str, Any] = {
+                    "title": issue.title,
+                    "body": issue.body,
+                    "labels": issue.labels,
+                }
+                if expected_milestone:
+                    create_kwargs["milestone"] = expected_milestone
+                github_issue = repo.create_issue(**create_kwargs)
+                existing_issues_by_title[issue.title] = github_issue
+                print(f"    ✓ Created issue: {github_issue.html_url}")
+            except Exception as e:
+                print(f"    ⚠  Error creating issue '{issue.title}': {e}", file=sys.stderr)
+                continue
+
+        if github_issue and expected_milestone:
+            current_milestone = github_issue.milestone.title if github_issue.milestone else ""
+            if current_milestone != issue.milestone:
+                if dry_run:
+                    print(
+                        f"      [DRY RUN] Would assign milestone '{issue.milestone}' to issue #{github_issue.number}"
+                    )
+                else:
+                    try:
+                        github_issue.edit(milestone=expected_milestone)
+                        print(f"      ✓ Assigned milestone '{issue.milestone}'")
+                    except Exception as e:
+                        print(f"      ⚠  Could not assign milestone: {e}", file=sys.stderr)
+
+        if project_ctx and project_ctx.get("id") and github_issue:
+            ensure_issue_linked_to_project(
+                github_issue,
+                issue,
+                project_ctx,
+                project_item_lookup,
+                dry_run,
+            )
+        elif project_ctx and project_ctx.get("id") and dry_run and not github_issue:
+            print(
+                f"      [DRY RUN] Would add newly-created issue to project '{project_ctx['title']}'"
+            )
+            apply_project_fields_to_item(
+                project_ctx,
+                "DRY_RUN_ITEM",
+                issue,
+                f"new issue '{issue.title}'",
+                dry_run=True,
+            )
 
 
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Create AssetSafe MVP GitHub issues via the gh CLI.",
+        description="Create AssetSafe MVP GitHub issues using PyGithub.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("--repo", help="OWNER/REPO (default: detected from git remote)")
-    parser.add_argument("--assignee", help="GitHub username to assign issues to (default: current gh user)")
-    parser.add_argument("--dry-run", action="store_true", help="Print commands without executing")
+    parser.add_argument(
+        "--repo",
+        help="OWNER/REPO (default: GITHUB_REPO_OWNER/GITHUB_REPO_NAME from .env)",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Print actions without executing"
+    )
     args = parser.parse_args()
 
-    repo = get_repo(args.repo)
-    assignee = get_assignee(args.assignee)
+    repo_str = get_repo(args.repo)
+    repo_owner, _repo_name = repo_str.split("/", maxsplit=1)
 
-    print(f"Repository : {repo}")
-    print(f"Assignee   : {assignee}")
+    try:
+        project_number = get_project_number()
+    except ValueError as exc:
+        sys.exit(f"Error: {exc}")
+
+    project_owner = os.getenv("GITHUB_PROJECT_OWNER", repo_owner)
+    project_default_status = os.getenv("GITHUB_PROJECT_DEFAULT_STATUS", "Todo")
+
+    print(f"Repository : {repo_str}")
+    print(f"Project    : {project_owner}#{project_number} (personal)")
     print(f"Dry-run    : {args.dry_run}")
     print(f"Issues     : {len(ISSUES)}")
     print(f"Milestones : {len(MILESTONES)}")
     print(f"Labels     : {len(LABELS)}")
 
-    create_labels(repo, args.dry_run)
-    milestone_map = create_milestones(repo, args.dry_run)
-    create_issues(repo, assignee, milestone_map, args.dry_run)
+    # Get repo object
+    repo = get_repo_and_github(repo_str)
 
-    print("\n✅  Done! Visit https://github.com/{}/issues to review.".format(repo))
+    # Resolve personal project metadata and project field mappings
+    project_ctx = get_project_context(
+        project_owner=project_owner,
+        project_number=project_number,
+        default_status=project_default_status,
+    )
+
+    # Create labels, milestones, and issues
+    create_labels(repo, args.dry_run)
+    milestones_dict = create_milestones(repo, args.dry_run)
+    create_issues(
+        repo,
+        milestones_dict,
+        args.dry_run,
+        project_ctx=project_ctx,
+    )
+
+    print(f"\n✅  Done! Visit https://github.com/{repo_str}/issues to review.")
 
 
 if __name__ == "__main__":
