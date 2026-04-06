@@ -1211,9 +1211,7 @@ def run_graphql_query(
     if not token:
         raise RuntimeError("GITHUB_TOKEN environment variable not set.")
 
-    payload = json.dumps({"query": query, "variables": variables or {}}).encode(
-        "utf-8"
-    )
+    payload = json.dumps({"query": query, "variables": variables or {}}).encode("utf-8")
     req = request.Request(
         "https://api.github.com/graphql",
         data=payload,
@@ -1381,7 +1379,9 @@ def get_project_context(
         elif tracked in required_fields:
             print(f"    ⚠  Field '{tracked}' not found; it will be skipped")
         elif tracked in optional_fields:
-            print(f"    ℹ  Optional field '{tracked}' not found; duration will stay in issue body only")
+            print(
+                f"    ℹ  Optional field '{tracked}' not found; duration will stay in issue body only"
+            )
 
     return {
         "id": project.get("id"),
@@ -1444,7 +1444,9 @@ def resolve_single_select_option(
     for candidate in candidates:
         candidate_key = normalize_name(candidate)
         if candidate_key in option_lookup:
-            return option_lookup[candidate_key], option_names.get(candidate_key, candidate)
+            return option_lookup[candidate_key], option_names.get(
+                candidate_key, candidate
+            )
 
     return None, None
 
@@ -1770,7 +1772,8 @@ def create_milestones(repo, dry_run: bool) -> dict[str, Any]:
     if not dry_run:
         try:
             existing_milestones = {
-                milestone.title: milestone for milestone in repo.get_milestones(state="all")
+                milestone.title: milestone
+                for milestone in repo.get_milestones(state="all")
             }
         except Exception as e:
             print(f"  ⚠  Could not fetch milestones: {e}", file=sys.stderr)
@@ -1797,7 +1800,10 @@ def create_milestones(repo, dry_run: bool) -> dict[str, Any]:
                 milestones_dict[milestone.title] = new_milestone
                 existing_milestones[milestone.title] = new_milestone
         except Exception as e:
-            print(f"    ⚠  Error creating milestone '{milestone.title}': {e}", file=sys.stderr)
+            print(
+                f"    ⚠  Error creating milestone '{milestone.title}': {e}",
+                file=sys.stderr,
+            )
             milestones_dict[milestone.title] = None
 
     return milestones_dict
@@ -1857,7 +1863,9 @@ def create_issues(
                 existing_issues_by_title[issue.title] = github_issue
                 print(f"    ✓ Created issue: {github_issue.html_url}")
             except Exception as e:
-                print(f"    ⚠  Error creating issue '{issue.title}': {e}", file=sys.stderr)
+                print(
+                    f"    ⚠  Error creating issue '{issue.title}': {e}", file=sys.stderr
+                )
                 continue
 
         if issue_existed and github_issue:
@@ -1876,10 +1884,15 @@ def create_issues(
                         github_issue.edit(body=body_with_duration)
                         print("      ✓ Added Estimated Duration section")
                     except Exception as e:
-                        print(f"      ⚠  Could not update issue body: {e}", file=sys.stderr)
+                        print(
+                            f"      ⚠  Could not update issue body: {e}",
+                            file=sys.stderr,
+                        )
 
         if github_issue and expected_milestone:
-            current_milestone = github_issue.milestone.title if github_issue.milestone else ""
+            current_milestone = (
+                github_issue.milestone.title if github_issue.milestone else ""
+            )
             if current_milestone != issue.milestone:
                 if dry_run:
                     print(
@@ -1890,7 +1903,9 @@ def create_issues(
                         github_issue.edit(milestone=expected_milestone)
                         print(f"      ✓ Assigned milestone '{issue.milestone}'")
                     except Exception as e:
-                        print(f"      ⚠  Could not assign milestone: {e}", file=sys.stderr)
+                        print(
+                            f"      ⚠  Could not assign milestone: {e}", file=sys.stderr
+                        )
 
         if project_ctx and project_ctx.get("id") and github_issue:
             ensure_issue_linked_to_project(
