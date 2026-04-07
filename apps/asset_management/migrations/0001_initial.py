@@ -8,38 +8,172 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='AssetRegistration',
+            name="AssetRegistration",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('registration_number', models.CharField(db_index=True, editable=False, help_text='Internally generated sequential identifier, e.g. AR000001.', max_length=20, unique=True, verbose_name='Registration Number')),
-                ('owner_type', models.CharField(choices=[('individual', 'Individual'), ('company', 'Company')], db_index=True, max_length=20, verbose_name='Owner Type')),
-                ('owner_asset_number', models.CharField(blank=True, help_text="Company's own internal code for this asset, if applicable.", max_length=100, verbose_name='Owner Asset Number')),
-                ('asset_type', models.CharField(choices=[('computers', 'Computers'), ('machinery', 'Machinery'), ('equipment', 'Equipment'), ('vehicles', 'Vehicles'), ('land', 'Land'), ('building', 'Building'), ('furniture', 'Furniture'), ('shares', 'Shares')], db_index=True, max_length=30, verbose_name='Asset Type')),
-                ('make', models.CharField(blank=True, max_length=100, verbose_name='Make')),
-                ('model', models.CharField(blank=True, max_length=100, verbose_name='Model')),
-                ('year_of_make', models.PositiveSmallIntegerField(blank=True, null=True, verbose_name='Year of Make')),
-                ('condition', models.CharField(blank=True, choices=[('new', 'New'), ('second_hand', 'Second Hand'), ('reconditioned', 'Reconditioned'), ('non_functioning', 'Non Functioning')], max_length=20, verbose_name='Condition')),
-                ('mv_registration_number', models.CharField(blank=True, db_index=True, help_text="Number plate. Required when asset_type is 'vehicles'; grey out otherwise.", max_length=50, verbose_name='MV Registration Number')),
-                ('chassis_number', models.CharField(blank=True, db_index=True, max_length=100, verbose_name='Chassis Number')),
-                ('engine_number', models.CharField(blank=True, max_length=100, verbose_name='Engine Number')),
-                ('serial_number', models.CharField(blank=True, db_index=True, help_text='For non-vehicle assets that carry a serial number.', max_length=100, verbose_name='Serial Number')),
-                ('estimated_value', models.DecimalField(decimal_places=2, max_digits=18, validators=[django.core.validators.MinValueValidator(0)], verbose_name='Estimated Value')),
-                ('location_address', models.TextField(help_text="Physical address where the asset is normally kept. For moveable assets, use the owner's address.", verbose_name='Location Address')),
-                ('lodge_date', models.DateField(auto_now_add=True, db_index=True, verbose_name='Lodge Date')),
-                ('subscription_start_date', models.DateField(db_index=True, verbose_name='Subscription Start Date')),
-                ('subscription_end_date', models.DateField(db_index=True, verbose_name='Subscription End Date')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "registration_number",
+                    models.CharField(
+                        db_index=True,
+                        editable=False,
+                        help_text="Internally generated sequential identifier, e.g. AR000001.",
+                        max_length=20,
+                        unique=True,
+                        verbose_name="Registration Number",
+                    ),
+                ),
+                (
+                    "owner_type",
+                    models.CharField(
+                        choices=[("individual", "Individual"), ("company", "Company")],
+                        db_index=True,
+                        max_length=20,
+                        verbose_name="Owner Type",
+                    ),
+                ),
+                (
+                    "owner_asset_number",
+                    models.CharField(
+                        blank=True,
+                        help_text="Company's own internal code for this asset, if applicable.",
+                        max_length=100,
+                        verbose_name="Owner Asset Number",
+                    ),
+                ),
+                (
+                    "asset_type",
+                    models.CharField(
+                        choices=[
+                            ("computers", "Computers"),
+                            ("machinery", "Machinery"),
+                            ("equipment", "Equipment"),
+                            ("vehicles", "Vehicles"),
+                            ("land", "Land"),
+                            ("building", "Building"),
+                            ("furniture", "Furniture"),
+                            ("shares", "Shares"),
+                        ],
+                        db_index=True,
+                        max_length=30,
+                        verbose_name="Asset Type",
+                    ),
+                ),
+                (
+                    "make",
+                    models.CharField(blank=True, max_length=100, verbose_name="Make"),
+                ),
+                (
+                    "model",
+                    models.CharField(blank=True, max_length=100, verbose_name="Model"),
+                ),
+                (
+                    "year_of_make",
+                    models.PositiveSmallIntegerField(
+                        blank=True, null=True, verbose_name="Year of Make"
+                    ),
+                ),
+                (
+                    "condition",
+                    models.CharField(
+                        blank=True,
+                        choices=[
+                            ("new", "New"),
+                            ("second_hand", "Second Hand"),
+                            ("reconditioned", "Reconditioned"),
+                            ("non_functioning", "Non Functioning"),
+                        ],
+                        max_length=20,
+                        verbose_name="Condition",
+                    ),
+                ),
+                (
+                    "mv_registration_number",
+                    models.CharField(
+                        blank=True,
+                        db_index=True,
+                        help_text="Number plate. Required when asset_type is 'vehicles'; grey out otherwise.",
+                        max_length=50,
+                        verbose_name="MV Registration Number",
+                    ),
+                ),
+                (
+                    "chassis_number",
+                    models.CharField(
+                        blank=True,
+                        db_index=True,
+                        max_length=100,
+                        verbose_name="Chassis Number",
+                    ),
+                ),
+                (
+                    "engine_number",
+                    models.CharField(
+                        blank=True, max_length=100, verbose_name="Engine Number"
+                    ),
+                ),
+                (
+                    "serial_number",
+                    models.CharField(
+                        blank=True,
+                        db_index=True,
+                        help_text="For non-vehicle assets that carry a serial number.",
+                        max_length=100,
+                        verbose_name="Serial Number",
+                    ),
+                ),
+                (
+                    "estimated_value",
+                    models.DecimalField(
+                        decimal_places=2,
+                        max_digits=18,
+                        validators=[django.core.validators.MinValueValidator(0)],
+                        verbose_name="Estimated Value",
+                    ),
+                ),
+                (
+                    "location_address",
+                    models.TextField(
+                        help_text="Physical address where the asset is normally kept. For moveable assets, use the owner's address.",
+                        verbose_name="Location Address",
+                    ),
+                ),
+                (
+                    "lodge_date",
+                    models.DateField(
+                        auto_now_add=True, db_index=True, verbose_name="Lodge Date"
+                    ),
+                ),
+                (
+                    "subscription_start_date",
+                    models.DateField(
+                        db_index=True, verbose_name="Subscription Start Date"
+                    ),
+                ),
+                (
+                    "subscription_end_date",
+                    models.DateField(
+                        db_index=True, verbose_name="Subscription End Date"
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Asset Registration',
-                'verbose_name_plural': 'Asset Registrations',
-                'ordering': ['-lodge_date'],
+                "verbose_name": "Asset Registration",
+                "verbose_name_plural": "Asset Registrations",
+                "ordering": ["-lodge_date"],
             },
         ),
     ]
