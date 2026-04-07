@@ -123,9 +123,11 @@ class AssetRegistration(TimeStampedModel):
         verbose_name=_("Serial Number"),
         help_text=_("For non-vehicle assets that carry a serial number."),
     )
-    currency = models.CharField(
-        max_length=10,
-        choices=Currency.choices,
+    currency = models.ForeignKey(
+        Currency,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
         verbose_name=_("Currency"),
     )
     estimated_value = models.DecimalField(

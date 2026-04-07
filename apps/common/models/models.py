@@ -61,14 +61,20 @@ class AssetCondition(models.TextChoices):
     NON_FUNCTIONING = "non_functioning", _("Non Functioning")
 
 
-class Currency(models.TextChoices):
+class Currency(models.Model):
     """Supported currencies. Extend as the product expands to new markets."""
 
-    USD = "USD", _("US Dollar")
-    ZWL = "ZWL", _("Zimbabwean Dollar")
-    ZAR = "ZAR", _("South African Rand")
-    GBP = "GBP", _("British Pound")
-    EUR = "EUR", _("Euro")
+    code = models.CharField(max_length=3, unique=True)
+    name = models.CharField(max_length=100)
+    symbol = models.CharField(max_length=10)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        app_label = "common"
+        verbose_name = "Currency"
+        verbose_name_plural = "Currencies"
 
 
 # ---------------------------------------------------------------------------
