@@ -115,10 +115,8 @@ class HirePurchaseRegistration(TimeStampedModel):
     )
 
     # ---- Financials ----
-    currency = models.CharField(
-        max_length=10,
-        choices=Currency.choices,
-        verbose_name=_("Currency"),
+    currency = models.ForeignKey(
+        Currency, on_delete=models.PROTECT, null=True, blank=True
     )
     purchase_amount = models.DecimalField(
         max_digits=18,

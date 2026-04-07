@@ -140,10 +140,11 @@ class CollateralRegistration(TimeStampedModel):
     )
 
     # ---- Financials ----
-    currency = models.CharField(
-        max_length=10,
-        choices=Currency.choices,
-        verbose_name=_("Currency"),
+    currency = models.ForeignKey(
+        Currency,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
     )
     total_debt = models.DecimalField(
         max_digits=18,
