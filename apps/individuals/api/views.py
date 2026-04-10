@@ -6,7 +6,7 @@ from rest_framework.exceptions import ValidationError
 
 from apps.individuals.api.serializers import (
     IndividualAddressSerializer,
-    IndividualClaimSerializer,
+    # IndividualClaimSerializer,
     IndividualSerializer,
     IndividualCreateSerializer,
     IndividualSearchSerializer,

@@ -37,8 +37,8 @@ from django.db import transaction
 import logging
 import re
 
-from apps.legal.api.serializers.claim_serializers import ClaimMinimalSerializer
-from apps.legal.models.claims import Claim
+# from apps.legal.api.serializers.claim_serializers import ClaimMinimalSerializer
+# from apps.legal.models.claims import Claim
 
 
 logger = logging.getLogger("individuals")
@@ -525,27 +525,27 @@ class IndividualAddressSerializer(serializers.ModelSerializer):
         return None
 
 
-class IndividualClaimSerializer(serializers.ModelSerializer):
-    claims = serializers.SerializerMethodField()
+# class IndividualClaimSerializer(serializers.ModelSerializer):
+#     claims = serializers.SerializerMethodField()
 
-    class Meta:
-        model = Individual
-        fields = [
-            "id",
-            "identification_number",
-            "first_name",
-            "last_name",
-            "phone",
-            "claims",
-        ]
+#     class Meta:
+#         model = Individual
+#         fields = [
+#             "id",
+#             "identification_number",
+#             "first_name",
+#             "last_name",
+#             "phone",
+#             "claims",
+#         ]
 
-    def get_claims(self, obj):
-        claim_qs = Claim.objects.filter(
-            debtor_content_type__model="individual",
-            debtor_object_id=obj.id,
-            is_verified=True,
-        ).select_related("client", "currency", "debtor_content_type")
+#     def get_claims(self, obj):
+#         claim_qs = Claim.objects.filter(
+#             debtor_content_type__model="individual",
+#             debtor_object_id=obj.id,
+#             is_verified=True,
+#         ).select_related("client", "currency", "debtor_content_type")
 
-        if claim_qs.exists():
-            return ClaimMinimalSerializer(claim_qs, many=True).data
-        return []
+#         if claim_qs.exists():
+#             return ClaimMinimalSerializer(claim_qs, many=True).data
+#         return []

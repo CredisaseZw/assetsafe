@@ -20,11 +20,11 @@ from django.db.models import Q
 import logging
 from django.db import transaction
 
-from apps.legal.api.serializers.claim_serializers import ClaimMinimalSerializer
-from apps.legal.models.claims import Claim
+# # from apps.legal.api.serializers.claim_serializers import ClaimMinimalSerializer
+# from apps.legal.models.claims import Claim
 
-from apps.legal.api.serializers.claim_serializers import ClaimMinimalSerializer
-from apps.legal.models.claims import Claim
+# from apps.legal.api.serializers.claim_serializers import ClaimMinimalSerializer
+# from apps.legal.models.claims import Claim
 
 logger = logging.getLogger(__name__)
 
@@ -506,21 +506,21 @@ class CompanyBranchLeaseDetailSerializer(serializers.ModelSerializer):
         return AddressSerializer(primary_address).data if primary_address else None
 
 
-class CompanyClaimSerializer(serializers.ModelSerializer):
-    claims = serializers.SerializerMethodField()
-    company = CompanyMinimalSerializer(read_only=True)
+# class CompanyClaimSerializer(serializers.ModelSerializer):
+#     claims = serializers.SerializerMethodField()
+#     company = CompanyMinimalSerializer(read_only=True)
 
-    class Meta:
-        model = CompanyBranch
-        fields = ["id", "company", "claims"]
+#     class Meta:
+#         model = CompanyBranch
+#         fields = ["id", "company", "claims"]
 
-    def get_claims(self, obj):
-        claim_qs = Claim.objects.filter(
-            debtor_content_type__model="companybranch",
-            debtor_object_id=obj.id,
-            is_verified=True,
-        ).select_related("client", "currency", "debtor_content_type")
+#     def get_claims(self, obj):
+#         claim_qs = Claim.objects.filter(
+#             debtor_content_type__model="companybranch",
+#             debtor_object_id=obj.id,
+#             is_verified=True,
+#         ).select_related("client", "currency", "debtor_content_type")
 
-        if claim_qs.exists():
-            return ClaimMinimalSerializer(claim_qs, many=True).data
-        return []
+#         if claim_qs.exists():
+#             return ClaimMinimalSerializer(claim_qs, many=True).data
+#         return []

@@ -15,7 +15,7 @@ from apps.common.utils.caching import CacheService
 from apps.common.api.serializers import DocumentSerializer
 from apps.companies.models.models import Company, CompanyBranch
 from apps.companies.api.serializers import (
-    CompanyClaimSerializer,
+    # CompanyClaimSerializer,
     CompanyCreateSerializer,
     CompanyUpdateSerializer,
     CompanyDetailSerializer,
