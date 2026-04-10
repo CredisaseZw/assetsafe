@@ -206,6 +206,14 @@ STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Celery
+# https://docs.celeryq.dev/en/stable/django/first-steps-with-django.html
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+
 SPECTACULAR_SETTINGS = {
     "TITLE": "Credisafe API(s)",
     "DESCRIPTION": "AssetSafe API Documentation",
