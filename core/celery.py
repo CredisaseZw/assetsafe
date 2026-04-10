@@ -19,8 +19,6 @@ app.autodiscover_tasks()
 app.autodiscover_tasks(
     [
         "apps.common",
-        "apps.individuals",
-        "apps.companies",
     ],
     related_name="services.tasks",
 )
