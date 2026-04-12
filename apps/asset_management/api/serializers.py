@@ -6,7 +6,6 @@ Serializers for AssetRegistration model.
 
 from __future__ import annotations
 
-from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
@@ -14,13 +13,13 @@ from rest_framework import serializers
 from apps.common.models import BaseAssetType
 from apps.asset_management.models import AssetRegistration
 
-User = get_user_model()
-
 _VEHICLE_ONLY_FIELDS: tuple[str, ...] = (
     "mv_registration_number",
     "chassis_number",
     "engine_number",
 )
+_OWNER_TYPE_INDIVIDUAL = "individual"
+_OWNER_TYPE_COMPANY = "company"
 
 
 # ---------------------------------------------------------------------------
@@ -35,7 +34,7 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
     Read-only computed properties
     ------------------------------
     ``is_active``        — whether today is within the subscription window.
-    ``owner_display``    — human-readable owner name (avoids a second lookup).
+    ``owner_display``    — human-readable owner/branch display label.
     ``registration_number`` — server-generated; clients must never supply it.
     """
 
@@ -43,15 +42,14 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
         read_only=True,
         help_text="True when today is within the subscription window.",
     )
-    owner_display = serializers.StringRelatedField(
-        source="owner",
+    owner_display = serializers.SerializerMethodField(
         read_only=True,
         help_text="Human-readable owner name; for display purposes only.",
     )
 
     class Meta:
         model = AssetRegistration
-        fields = ["__all__"]
+        fields = "__all__"
         read_only_fields = [
             "id",
             "registration_number",
@@ -67,6 +65,18 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
     def get_is_active(self, obj: AssetRegistration) -> bool:
         """Delegates to the model's own ``is_active()`` helper."""
         return obj.is_active()
+
+    def get_owner_display(self, obj: AssetRegistration) -> str | None:
+        """Returns a human-readable label for whichever owner relation is populated."""
+        if obj.owner_type == _OWNER_TYPE_INDIVIDUAL and obj.individual_owner:
+            return str(obj.individual_owner)
+        if obj.owner_type == _OWNER_TYPE_COMPANY and obj.company_owner:
+            return str(obj.company_owner)
+        if obj.individual_owner:
+            return str(obj.individual_owner)
+        if obj.company_owner:
+            return str(obj.company_owner)
+        return None
 
     # ------------------------------------------------------------------
     # Field-level validation
@@ -96,9 +106,63 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
     def validate(self, attrs: dict) -> dict:
         """
         Cross-field validation covering:
-        1. Vehicle-specific fields must be empty when the asset type is not 'vehicles'.
-        2. Subscription end date must be strictly after start date.
+        1. Owner fields must be consistent with ``owner_type``.
+        2. Vehicle-specific fields must be empty when the asset type is not 'vehicles'.
+        3. Subscription end date must be strictly after start date.
         """
+        # --- 1. Owner consistency ---
+        owner_type: str | None = attrs.get(
+            "owner_type",
+            getattr(self.instance, "owner_type", None),
+        )
+
+        individual_owner = attrs.get(
+            "individual_owner",
+            getattr(self.instance, "individual_owner", None),
+        )
+        company_owner = attrs.get(
+            "company_owner",
+            getattr(self.instance, "company_owner", None),
+        )
+
+        # If owner_type is being switched, treat the opposite owner relation as cleared
+        # unless the client explicitly provides it.
+        if (
+            "owner_type" in attrs
+            and owner_type == _OWNER_TYPE_INDIVIDUAL
+            and "company_owner" not in attrs
+        ):
+            company_owner = None
+        if (
+            "owner_type" in attrs
+            and owner_type == _OWNER_TYPE_COMPANY
+            and "individual_owner" not in attrs
+        ):
+            individual_owner = None
+
+        owner_errors: dict[str, str] = {}
+        if owner_type == _OWNER_TYPE_INDIVIDUAL:
+            if not individual_owner:
+                owner_errors["individual_owner"] = (
+                    "Individual owner is required when owner_type is 'individual'."
+                )
+            if company_owner:
+                owner_errors["company_owner"] = (
+                    "Company owner must be empty when owner_type is 'individual'."
+                )
+        elif owner_type == _OWNER_TYPE_COMPANY:
+            if not company_owner:
+                owner_errors["company_owner"] = (
+                    "Company owner is required when owner_type is 'company'."
+                )
+            if individual_owner:
+                owner_errors["individual_owner"] = (
+                    "Individual owner must be empty when owner_type is 'company'."
+                )
+
+        if owner_errors:
+            raise serializers.ValidationError(owner_errors)
+
         # --- 1. Vehicle-only field guard ---
         asset_type: str = attrs.get(
             "asset_type",
@@ -116,7 +180,7 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
                         }
                     )
 
-        # --- 2. Subscription date ordering ---
+        # --- 3. Subscription date ordering ---
         start = attrs.get(
             "subscription_start_date",
             getattr(self.instance, "subscription_start_date", None),
