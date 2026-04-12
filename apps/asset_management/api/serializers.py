@@ -20,6 +20,19 @@ _VEHICLE_ONLY_FIELDS: tuple[str, ...] = (
 )
 _OWNER_TYPE_INDIVIDUAL = "individual"
 _OWNER_TYPE_COMPANY = "company"
+_UNIQUE_ASSET_IDENTIFIER_FIELDS: tuple[tuple[str, str], ...] = (
+    ("mv_registration_number", "MV registration number"),
+    ("chassis_number", "chassis number"),
+    ("engine_number", "engine number"),
+    ("serial_number", "serial number"),
+)
+_IDENTIFIER_TEXT_FIELDS: tuple[str, ...] = (
+    "mv_registration_number",
+    "chassis_number",
+    "engine_number",
+    "serial_number",
+    "owner_asset_number",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -107,8 +120,9 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
         """
         Cross-field validation covering:
         1. Owner fields must be consistent with ``owner_type``.
-        2. Vehicle-specific fields must be empty when the asset type is not 'vehicles'.
-        3. Subscription end date must be strictly after start date.
+        2. Duplicate identifiers are rejected before save.
+        3. Vehicle-specific fields must be empty when the asset type is not 'vehicles'.
+        4. Subscription end date must be strictly after start date.
         """
         # --- 1. Owner consistency ---
         owner_type: str | None = attrs.get(
@@ -163,7 +177,75 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
         if owner_errors:
             raise serializers.ValidationError(owner_errors)
 
-        # --- 1. Vehicle-only field guard ---
+        # --- 2. Normalize and validate uniqueness of asset identifiers ---
+        for field_name in _IDENTIFIER_TEXT_FIELDS:
+            value = attrs.get(field_name)
+            if isinstance(value, str):
+                attrs[field_name] = value.strip()
+
+        duplicate_errors: dict[str, str] = {}
+
+        for field_name, label in _UNIQUE_ASSET_IDENTIFIER_FIELDS:
+            # On update, only re-check identifiers that are being changed.
+            if self.instance and field_name not in attrs:
+                continue
+
+            value = attrs.get(field_name, getattr(self.instance, field_name, ""))
+            if not value:
+                continue
+
+            duplicates = AssetRegistration.objects.filter(
+                **{f"{field_name}__iexact": value}
+            )
+            if self.instance:
+                duplicates = duplicates.exclude(pk=self.instance.pk)
+
+            if duplicates.exists():
+                duplicate_errors[field_name] = (
+                    f"An asset with this {label} already exists."
+                )
+
+        owner_scope_changed = (
+            not self.instance
+            or "owner_asset_number" in attrs
+            or "owner_type" in attrs
+            or "individual_owner" in attrs
+            or "company_owner" in attrs
+        )
+        if owner_scope_changed:
+            owner_asset_number = attrs.get(
+                "owner_asset_number",
+                getattr(self.instance, "owner_asset_number", ""),
+            )
+            if owner_asset_number:
+                owner_duplicates = AssetRegistration.objects.filter(
+                    owner_asset_number__iexact=owner_asset_number,
+                    owner_type=owner_type,
+                )
+
+                if owner_type == _OWNER_TYPE_INDIVIDUAL and individual_owner:
+                    owner_duplicates = owner_duplicates.filter(
+                        individual_owner=individual_owner
+                    )
+                elif owner_type == _OWNER_TYPE_COMPANY and company_owner:
+                    owner_duplicates = owner_duplicates.filter(
+                        company_owner=company_owner
+                    )
+                else:
+                    owner_duplicates = AssetRegistration.objects.none()
+
+                if self.instance:
+                    owner_duplicates = owner_duplicates.exclude(pk=self.instance.pk)
+
+                if owner_duplicates.exists():
+                    duplicate_errors["owner_asset_number"] = (
+                        "This owner asset number already exists for the selected owner."
+                    )
+
+        if duplicate_errors:
+            raise serializers.ValidationError(duplicate_errors)
+
+        # --- 3. Vehicle-only field guard ---
         asset_type: str = attrs.get(
             "asset_type",
             getattr(self.instance, "asset_type", None),
@@ -180,7 +262,7 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
                         }
                     )
 
-        # --- 3. Subscription date ordering ---
+        # --- 4. Subscription date ordering ---
         start = attrs.get(
             "subscription_start_date",
             getattr(self.instance, "subscription_start_date", None),
