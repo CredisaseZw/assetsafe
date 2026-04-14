@@ -16,7 +16,7 @@ from rest_framework.response import Response
 
 from django_filters.rest_framework import DjangoFilterBackend
 
-from apps.asset_management.models.models import AssetRegistration
+from apps.asset_management.models import AssetRegistration
 from .serializers import (
     AssetRegistrationSerializer,
     AssetRegistryDashboardSerializer,
@@ -65,7 +65,8 @@ class AssetRegistrationViewSet(viewsets.ModelViewSet):
     filterset_fields: list[str] = [
         "asset_type",
         "owner_type",
-        "owner",
+        "individual_owner",
+        "company_owner",
         "condition",
         "currency",
     ]
@@ -73,9 +74,12 @@ class AssetRegistrationViewSet(viewsets.ModelViewSet):
     # Full-text search across the most commonly queried identifier columns.
     search_fields: list[str] = [
         "registration_number",
-        "owner__username",
-        "owner__first_name",
-        "owner__last_name",
+        "individual_owner__first_name",
+        "individual_owner__last_name",
+        "individual_owner__identification_number",
+        "company_owner__branch_name",
+        "company_owner__company__registration_name",
+        "company_owner__company__trading_name",
         "serial_number",
         "mv_registration_number",
         "make",
@@ -94,15 +98,19 @@ class AssetRegistrationViewSet(viewsets.ModelViewSet):
         """
         Returns the base queryset for this ViewSet.
 
-        ``select_related("owner")`` is always applied to prevent an N+1 query
-        when the serializer renders ``owner_display`` on a list of records.
+        ``select_related(...)`` is always applied to prevent N+1 queries when
+        the serializer renders ``owner_display`` on a list of records.
 
         By default, only records with an active subscription window are returned,
         matching the dashboard's "Active Agreements" view.  Clients can pass
         ``?show_all=true`` to include expired records (e.g., for an audit search).
         """
         queryset: QuerySet[AssetRegistration] = (
-            AssetRegistration.objects.select_related("owner").all()
+            AssetRegistration.objects.select_related(
+                "individual_owner",
+                "company_owner",
+                "company_owner__company",
+            ).all()
         )
 
         show_all: bool = (

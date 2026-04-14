@@ -4,7 +4,6 @@ models.py — Asset Management
 
 from __future__ import annotations
 
-from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator
 from django.db import models, transaction
 from django.utils import timezone
@@ -17,19 +16,13 @@ from apps.common.models import (
     Currency,
     TimeStampedModel,
 )
-
-User = get_user_model()
+from apps.companies.models.models import CompanyBranch
+from apps.individuals.models.models import Individual
 
 
 class AssetRegistration(TimeStampedModel):
     """
     An asset lodged in the Asset Registry by an individual or company.
-
-    Purpose
-    -------
-    Allows the asset owner to prove ownership to third parties and aids
-    recovery in cases of theft.  The record is only "active" while the
-    subscription window is open.
 
     Registration number
     -------------------
@@ -59,13 +52,19 @@ class AssetRegistration(TimeStampedModel):
         db_index=True,
         verbose_name=_("Owner Type"),
     )
-    owner = models.ForeignKey(
-        User,
-        on_delete=models.PROTECT,
-        related_name="registered_assets",
-        db_index=True,
-        verbose_name=_("Owner"),
-        help_text=_("Must already exist as a user in the system."),
+    individual_owner = models.ForeignKey(
+        Individual,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name=_("Individual Owner"),
+    )
+    company_owner = models.ForeignKey(
+        CompanyBranch,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name=_("Company Owner"),
     )
     owner_asset_number = models.CharField(
         max_length=100,
@@ -148,15 +147,12 @@ class AssetRegistration(TimeStampedModel):
     lodge_date = models.DateField(
         auto_now_add=True,
         editable=False,
-        db_index=True,
         verbose_name=_("Lodge Date"),
     )
     subscription_start_date = models.DateField(
-        db_index=True,
         verbose_name=_("Subscription Start Date"),
     )
     subscription_end_date = models.DateField(
-        db_index=True,
         verbose_name=_("Subscription End Date"),
     )
 
@@ -170,15 +166,20 @@ class AssetRegistration(TimeStampedModel):
                 fields=["subscription_start_date", "subscription_end_date"],
                 name="ar_sub_period_idx",
             ),
-            # Covers owner-centric queries (e.g., all assets belonging to a company).
+            # Covers owner-centric queries across both owner relations.
             models.Index(
-                fields=["owner_type", "owner"],
-                name="ar_owner_type_idx",
+                fields=["owner_type", "individual_owner"],
+                name="ar_owner_ind_idx",
+            ),
+            models.Index(
+                fields=["owner_type", "company_owner"],
+                name="ar_owner_comp_idx",
             ),
         ]
 
     def __str__(self) -> str:
-        return f"{self.registration_number} — {self.make} {self.model} ({self.owner})"
+        owner = self.individual_owner or self.company_owner or _("Unassigned Owner")
+        return f"{self.registration_number} — {self.make} {self.model} ({owner})"
 
     # ------------------------------------------------------------------
     # Business-logic helpers

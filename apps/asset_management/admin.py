@@ -6,14 +6,25 @@ from .models import AssetRegistration
 class AssetRegistrationAdmin(admin.ModelAdmin):
     list_display = (
         "registration_number",
-        "owner",
+        "owner_display",
+        "owner_type",
         "asset_type",
         "make",
         "model",
         "lodge_date",
     )
     list_filter = ("asset_type", "owner_type", "condition", "lodge_date")
-    search_fields = ("registration_number", "owner__username", "make", "model")
+    search_fields = (
+        "registration_number",
+        "individual_owner__first_name",
+        "individual_owner__last_name",
+        "individual_owner__identification_number",
+        "company_owner__branch_name",
+        "company_owner__company__registration_name",
+        "company_owner__company__trading_name",
+        "make",
+        "model",
+    )
     readonly_fields = ("registration_number", "lodge_date", "created_at", "updated_at")
     fieldsets = (
         (
@@ -30,7 +41,8 @@ class AssetRegistrationAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "owner_type",
-                    "owner",
+                    "individual_owner",
+                    "company_owner",
                     "owner_asset_number",
                 )
             },
@@ -88,3 +100,11 @@ class AssetRegistrationAdmin(admin.ModelAdmin):
             },
         ),
     )
+
+    @admin.display(description="Owner")
+    def owner_display(self, obj: AssetRegistration) -> str:
+        if obj.individual_owner:
+            return str(obj.individual_owner)
+        if obj.company_owner:
+            return str(obj.company_owner)
+        return "-"
