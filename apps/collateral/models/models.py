@@ -4,7 +4,7 @@ models.py — Collateral
 
 from __future__ import annotations
 
-from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
@@ -17,8 +17,21 @@ from apps.common.models import (
     Currency,
     TimeStampedModel,
 )
+from apps.companies.models.models import CompanyBranch
+from apps.individuals.models.models import Individual
 
-User = get_user_model()
+_PARTY_INDIVIDUAL = "individual"
+_PARTY_COMPANY = "company"
+_ASSET_IDENTIFIER_FIELDS = (
+    "asset_registration_number",
+    "chassis_number",
+    "serial_number",
+)
+_ASSET_IDENTIFIER_LABELS = {
+    "asset_registration_number": "asset registration number",
+    "chassis_number": "chassis number",
+    "serial_number": "serial number",
+}
 
 
 class CollateralRegistration(TimeStampedModel):
@@ -48,12 +61,19 @@ class CollateralRegistration(TimeStampedModel):
         db_index=True,
         verbose_name=_("Financier Type"),
     )
-    financier = models.ForeignKey(
-        User,
+    individual_financier = models.ForeignKey(
+        Individual,
         on_delete=models.PROTECT,
-        related_name="collateral_records_as_financier",
-        db_index=True,
-        verbose_name=_("Financier"),
+        null=True,
+        blank=True,
+        related_name="collateral_records_as_individual_financier",
+    )
+    company_financier = models.ForeignKey(
+        CompanyBranch,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="collateral_records_as_company_financier",
     )
     data_source_name = models.CharField(
         max_length=200,
@@ -80,12 +100,19 @@ class CollateralRegistration(TimeStampedModel):
         db_index=True,
         verbose_name=_("Debtor Type"),
     )
-    debtor = models.ForeignKey(
-        User,
+    individual_debtor = models.ForeignKey(
+        Individual,
         on_delete=models.PROTECT,
-        related_name="collateral_records_as_debtor",
-        db_index=True,
-        verbose_name=_("Debtor"),
+        null=True,
+        blank=True,
+        related_name="collateral_records_as_individual_debtor",
+    )
+    company_debtor = models.ForeignKey(
+        CompanyBranch,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="collateral_records_as_company_debtor",
     )
 
     # ---- Agreement & asset details ----
@@ -224,9 +251,179 @@ class CollateralRegistration(TimeStampedModel):
                 name="col_discharge_status_idx",
             ),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["asset_registration_number"],
+                condition=(
+                    models.Q(is_discharged=False)
+                    & ~models.Q(asset_registration_number="")
+                ),
+                name="col_uq_open_asset_reg",
+            ),
+            models.UniqueConstraint(
+                fields=["chassis_number"],
+                condition=(
+                    models.Q(is_discharged=False) & ~models.Q(chassis_number="")
+                ),
+                name="col_uq_open_chassis",
+            ),
+            models.UniqueConstraint(
+                fields=["serial_number"],
+                condition=(models.Q(is_discharged=False) & ~models.Q(serial_number="")),
+                name="col_uq_open_serial",
+            ),
+        ]
 
     def __str__(self) -> str:
-        return f"{self.agreement_number} — {self.debtor} ({self.currency} {self.total_debt})"
+        return (
+            f"{self.agreement_number} — {self.debtor_display} "
+            f"({self.currency} {self.total_debt})"
+        )
+
+    @property
+    def financier_display(self) -> str:
+        if (
+            self.financier_type == _PARTY_INDIVIDUAL
+            and self.individual_financier is not None
+        ):
+            return str(self.individual_financier)
+        if self.financier_type == _PARTY_COMPANY and self.company_financier is not None:
+            return str(self.company_financier)
+        if self.individual_financier is not None:
+            return str(self.individual_financier)
+        if self.company_financier is not None:
+            return str(self.company_financier)
+        return str(_("Unassigned Financier"))
+
+    @property
+    def debtor_display(self) -> str:
+        if self.debtor_type == _PARTY_INDIVIDUAL and self.individual_debtor is not None:
+            return str(self.individual_debtor)
+        if self.debtor_type == _PARTY_COMPANY and self.company_debtor is not None:
+            return str(self.company_debtor)
+        if self.individual_debtor is not None:
+            return str(self.individual_debtor)
+        if self.company_debtor is not None:
+            return str(self.company_debtor)
+        return str(_("Unassigned Debtor"))
+
+    def _validate_party(self, role: str, errors: dict[str, object]) -> None:
+        party_type = getattr(self, f"{role}_type", None)
+        individual = getattr(self, f"individual_{role}", None)
+        company = getattr(self, f"company_{role}", None)
+
+        if party_type == _PARTY_INDIVIDUAL:
+            if not individual:
+                errors[f"individual_{role}"] = (
+                    f"Individual {role} is required when {role}_type is 'individual'."
+                )
+            if company:
+                errors[f"company_{role}"] = (
+                    f"Company {role} must be empty when {role}_type is 'individual'."
+                )
+        elif party_type == _PARTY_COMPANY:
+            if not company:
+                errors[f"company_{role}"] = (
+                    f"Company {role} is required when {role}_type is 'company'."
+                )
+            if individual:
+                errors[f"individual_{role}"] = (
+                    f"Individual {role} must be empty when {role}_type is 'company'."
+                )
+
+    def _validate_unique_asset_identifiers(self, errors: dict[str, object]) -> None:
+        """
+        Prevent duplicate open collateral registrations for the same asset.
+
+        Duplicate checks are only enforced when ``is_discharged=False`` so an
+        asset can be re-registered once the previous encumbrance has been
+        discharged.
+        """
+        if self.is_discharged:
+            return
+
+        identifiers: dict[str, str] = {}
+        for field_name in _ASSET_IDENTIFIER_FIELDS:
+            raw_value = getattr(self, field_name, "")
+            value = raw_value.strip() if isinstance(raw_value, str) else raw_value
+            if isinstance(raw_value, str):
+                setattr(self, field_name, value)
+            if value:
+                identifiers[field_name] = value
+
+        if not identifiers:
+            return
+
+        existing_qs = CollateralRegistration._default_manager.filter(
+            is_discharged=False
+        )
+        if self.pk:
+            existing_qs = existing_qs.exclude(pk=self.pk)
+
+        for field_name, value in identifiers.items():
+            if existing_qs.filter(**{f"{field_name}__iexact": value}).exists():
+                label = _ASSET_IDENTIFIER_LABELS.get(
+                    field_name,
+                    field_name.replace("_", " "),
+                )
+                errors[field_name] = (
+                    f"An active collateral registration already exists with this {label}."
+                )
+
+    def clean(self) -> None:
+        super().clean()
+
+        errors: dict[str, object] = {}
+        self._validate_party("financier", errors)
+        self._validate_party("debtor", errors)
+
+        if (
+            self.financier_type == self.debtor_type == _PARTY_INDIVIDUAL
+            and self.individual_financier is not None
+            and self.individual_debtor is not None
+            and self.individual_financier == self.individual_debtor
+        ):
+            errors["individual_debtor"] = (
+                "Debtor cannot be the same individual as the financier."
+            )
+
+        if (
+            self.financier_type == self.debtor_type == _PARTY_COMPANY
+            and self.company_financier is not None
+            and self.company_debtor is not None
+            and self.company_financier == self.company_debtor
+        ):
+            errors["company_debtor"] = (
+                "Debtor cannot be the same company as the financier."
+            )
+
+        if (
+            self.agreement_start_date is not None
+            and self.agreement_end_date is not None
+            and self.agreement_end_date <= self.agreement_start_date
+        ):
+            errors["agreement_end_date"] = (
+                "Agreement end date must be after start date."
+            )
+
+        if self.total_debt is not None and self.total_paid_to_date is not None:
+            if self.total_paid_to_date > self.total_debt:
+                errors["total_paid_to_date"] = (
+                    "Total paid to date cannot exceed total debt."
+                )
+
+            expected_balance = self.total_debt - self.total_paid_to_date
+            if self.balance is None:
+                self.balance = expected_balance
+            elif self.balance != expected_balance:
+                errors["balance"] = (
+                    "Balance must equal total_debt - total_paid_to_date."
+                )
+
+        self._validate_unique_asset_identifiers(errors)
+
+        if errors:
+            raise ValidationError(errors)
 
     # ------------------------------------------------------------------
     # Business-logic helpers

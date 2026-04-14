@@ -6,8 +6,8 @@ from .models import CollateralRegistration
 class CollateralRegistrationAdmin(admin.ModelAdmin):
     list_display = (
         "agreement_number",
-        "financier",
-        "debtor",
+        "financier_display",
+        "debtor_display",
         "total_debt",
         "balance",
         "is_discharged",
@@ -16,15 +16,41 @@ class CollateralRegistrationAdmin(admin.ModelAdmin):
     list_filter = (
         "asset_type",
         "financier_type",
+        "individual_financier",
+        "company_financier",
         "debtor_type",
+        "individual_debtor",
+        "company_debtor",
         "is_discharged",
         "agreement_start_date",
         "agreement_end_date",
     )
     search_fields = (
         "agreement_number",
-        "financier__username",
-        "debtor__username",
+        "individual_financier__first_name",
+        "individual_financier__last_name",
+        "individual_financier__identification_number",
+        "company_financier__branch_name",
+        "company_financier__company__registration_name",
+        "company_financier__company__trading_name",
+        "individual_debtor__first_name",
+        "individual_debtor__last_name",
+        "individual_debtor__identification_number",
+        "company_debtor__branch_name",
+        "company_debtor__company__registration_name",
+        "company_debtor__company__trading_name",
+        "asset_registration_number",
+        "chassis_number",
+        "serial_number",
+    )
+    list_select_related = (
+        "individual_financier",
+        "company_financier",
+        "company_financier__company",
+        "individual_debtor",
+        "company_debtor",
+        "company_debtor__company",
+        "currency",
     )
     readonly_fields = (
         "lodge_date",
@@ -47,7 +73,8 @@ class CollateralRegistrationAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "financier_type",
-                    "financier",
+                    "individual_financier",
+                    "company_financier",
                     "data_source_name",
                     "position",
                     "data_date",
@@ -59,7 +86,8 @@ class CollateralRegistrationAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "debtor_type",
-                    "debtor",
+                    "individual_debtor",
+                    "company_debtor",
                 )
             },
         ),
@@ -128,3 +156,11 @@ class CollateralRegistrationAdmin(admin.ModelAdmin):
             },
         ),
     )
+
+    @admin.display(description="Financier")
+    def financier_display(self, obj: CollateralRegistration) -> str:
+        return obj.financier_display
+
+    @admin.display(description="Debtor")
+    def debtor_display(self, obj: CollateralRegistration) -> str:
+        return obj.debtor_display
