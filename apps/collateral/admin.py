@@ -15,9 +15,7 @@ class CollateralRegistrationAdmin(admin.ModelAdmin):
     )
     list_filter = (
         "asset_type",
-        "financier_type",
-        "individual_financier",
-        "company_financier",
+        "financier",
         "debtor_type",
         "individual_debtor",
         "company_debtor",
@@ -27,12 +25,8 @@ class CollateralRegistrationAdmin(admin.ModelAdmin):
     )
     search_fields = (
         "agreement_number",
-        "individual_financier__first_name",
-        "individual_financier__last_name",
-        "individual_financier__identification_number",
-        "company_financier__branch_name",
-        "company_financier__company__registration_name",
-        "company_financier__company__trading_name",
+        "financier__name",
+        "financier__external_client_id",
         "individual_debtor__first_name",
         "individual_debtor__last_name",
         "individual_debtor__identification_number",
@@ -44,9 +38,7 @@ class CollateralRegistrationAdmin(admin.ModelAdmin):
         "serial_number",
     )
     list_select_related = (
-        "individual_financier",
-        "company_financier",
-        "company_financier__company",
+        "financier",
         "individual_debtor",
         "company_debtor",
         "company_debtor__company",
@@ -72,9 +64,7 @@ class CollateralRegistrationAdmin(admin.ModelAdmin):
             "Financier Information",
             {
                 "fields": (
-                    "financier_type",
-                    "individual_financier",
-                    "company_financier",
+                    "financier",
                     "data_source_name",
                     "position",
                     "data_date",

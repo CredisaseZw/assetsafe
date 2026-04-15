@@ -64,26 +64,21 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
     def get_is_pending_discharge(self, obj: CollateralRegistration) -> bool:
         return obj.is_pending_discharge()
 
-    def _get_party_display(self, obj: CollateralRegistration, role: str) -> str | None:
-        party_type = getattr(obj, f"{role}_type")
-        individual = getattr(obj, f"individual_{role}")
-        company = getattr(obj, f"company_{role}")
-
-        if party_type == _PARTY_INDIVIDUAL and individual:
-            return str(individual)
-        if party_type == _PARTY_COMPANY and company:
-            return str(company)
-        if individual:
-            return str(individual)
-        if company:
-            return str(company)
+    def get_financier_display(self, obj: CollateralRegistration) -> str | None:
+        if obj.financier:
+            return str(obj.financier)
         return None
 
-    def get_financier_display(self, obj: CollateralRegistration) -> str | None:
-        return self._get_party_display(obj, "financier")
-
     def get_debtor_display(self, obj: CollateralRegistration) -> str | None:
-        return self._get_party_display(obj, "debtor")
+        if obj.debtor_type == _PARTY_INDIVIDUAL and obj.individual_debtor:
+            return str(obj.individual_debtor)
+        if obj.debtor_type == _PARTY_COMPANY and obj.company_debtor:
+            return str(obj.company_debtor)
+        if obj.individual_debtor:
+            return str(obj.individual_debtor)
+        if obj.company_debtor:
+            return str(obj.company_debtor)
+        return None
 
     # ------------------------------------------------------------------
     # Field-level validation
@@ -223,7 +218,7 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
         2. Instalment cannot exceed total debt.
         3. Total paid cannot exceed total debt.
         4. Balance must match (total_debt - total_paid_to_date).
-        5. Financier/debtor relation fields must match party types.
+        5. Debtor relation fields must match debtor_type.
         6. Financier and debtor cannot be the same party.
         7. Active asset/device identifiers must be unique.
         """
@@ -276,10 +271,11 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
         if total_debt is not None and total_paid is not None:
             attrs["balance"] = total_debt - total_paid
 
-        # --- 5. Financier/debtor party shape ---
-        financier_type, individual_financier, company_financier = (
-            self._resolve_party_for_validation(attrs, "financier")
-        )
+        # --- 5. Debtor party shape ---
+        financier = attrs.get("financier", getattr(self.instance, "financier", None))
+        if financier is None:
+            raise serializers.ValidationError({"financier": "Financier is required."})
+
         debtor_type, individual_debtor, company_debtor = (
             self._resolve_party_for_validation(
                 attrs,
@@ -288,14 +284,6 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
         )
 
         party_errors: dict[str, str] = {}
-        party_errors.update(
-            self._validate_party_shape(
-                "financier",
-                financier_type,
-                individual_financier,
-                company_financier,
-            )
-        )
         party_errors.update(
             self._validate_party_shape(
                 "debtor",
@@ -309,10 +297,10 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
 
         # --- 6. Financier ≠ debtor ---
         if (
-            financier_type == debtor_type == _PARTY_INDIVIDUAL
-            and individual_financier is not None
+            debtor_type == _PARTY_INDIVIDUAL
             and individual_debtor is not None
-            and individual_financier == individual_debtor
+            and financier.is_individual_client
+            and financier.linked_individual == individual_debtor
         ):
             raise serializers.ValidationError(
                 {
@@ -323,10 +311,10 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
             )
 
         if (
-            financier_type == debtor_type == _PARTY_COMPANY
-            and company_financier is not None
+            debtor_type == _PARTY_COMPANY
             and company_debtor is not None
-            and company_financier == company_debtor
+            and financier.is_company_client
+            and financier.linked_company_branch == company_debtor
         ):
             raise serializers.ValidationError(
                 {

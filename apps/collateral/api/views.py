@@ -45,13 +45,11 @@ class CollateralRegistrationViewSet(viewsets.ModelViewSet):
 
     filterset_fields: list[str] = [
         "asset_type",
-        "individual_financier",
-        "company_financier",
+        "financier",
         "individual_debtor",
         "company_debtor",
         "is_discharged",
         "currency",
-        "financier_type",
         "debtor_type",
     ]
     search_fields: list[str] = [
@@ -65,12 +63,8 @@ class CollateralRegistrationViewSet(viewsets.ModelViewSet):
         "serial_number",
         "asset_registration_number",
         "chassis_number",
-        "individual_financier__first_name",
-        "individual_financier__last_name",
-        "individual_financier__identification_number",
-        "company_financier__branch_name",
-        "company_financier__company__registration_name",
-        "company_financier__company__trading_name",
+        "financier__name",
+        "financier__external_client_id",
     ]
     ordering_fields: list[str] = [
         "lodge_date",
@@ -87,9 +81,7 @@ class CollateralRegistrationViewSet(viewsets.ModelViewSet):
         ``financier_display`` and ``debtor_display``.
         """
         return CollateralRegistration.objects.select_related(
-            "individual_financier",
-            "company_financier",
-            "company_financier__company",
+            "financier",
             "individual_debtor",
             "company_debtor",
             "company_debtor__company",

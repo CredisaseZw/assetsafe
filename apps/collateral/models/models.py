@@ -17,6 +17,7 @@ from apps.common.models import (
     Currency,
     TimeStampedModel,
 )
+from apps.clients.models.models import Client
 from apps.companies.models.models import CompanyBranch
 from apps.individuals.models.models import Individual
 
@@ -55,25 +56,13 @@ class CollateralRegistration(TimeStampedModel):
     """
 
     # ---- Financier (the lender) ----
-    financier_type = models.CharField(
-        max_length=20,
-        choices=PartyType.choices,
-        db_index=True,
-        verbose_name=_("Financier Type"),
-    )
-    individual_financier = models.ForeignKey(
-        Individual,
+    financier = models.ForeignKey(
+        Client,
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        related_name="collateral_records_as_individual_financier",
-    )
-    company_financier = models.ForeignKey(
-        CompanyBranch,
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        related_name="collateral_records_as_company_financier",
+        related_name="collateral_records_as_financier",
+        verbose_name=_("Financier"),
     )
     data_source_name = models.CharField(
         max_length=200,
@@ -282,17 +271,8 @@ class CollateralRegistration(TimeStampedModel):
 
     @property
     def financier_display(self) -> str:
-        if (
-            self.financier_type == _PARTY_INDIVIDUAL
-            and self.individual_financier is not None
-        ):
-            return str(self.individual_financier)
-        if self.financier_type == _PARTY_COMPANY and self.company_financier is not None:
-            return str(self.company_financier)
-        if self.individual_financier is not None:
-            return str(self.individual_financier)
-        if self.company_financier is not None:
-            return str(self.company_financier)
+        if self.financier is not None:
+            return str(self.financier)
         return str(_("Unassigned Financier"))
 
     @property
@@ -330,6 +310,31 @@ class CollateralRegistration(TimeStampedModel):
                 errors[f"individual_{role}"] = (
                     f"Individual {role} must be empty when {role}_type is 'company'."
                 )
+
+    def _validate_financier_debtor_distinct(self, errors: dict[str, object]) -> None:
+        if self.financier is None:
+            errors["financier"] = "Financier is required."
+            return
+
+        if (
+            self.debtor_type == _PARTY_INDIVIDUAL
+            and self.individual_debtor is not None
+            and self.financier.is_individual_client
+            and self.financier.linked_individual == self.individual_debtor
+        ):
+            errors["individual_debtor"] = (
+                "Debtor cannot be the same individual as the financier."
+            )
+
+        if (
+            self.debtor_type == _PARTY_COMPANY
+            and self.company_debtor is not None
+            and self.financier.is_company_client
+            and self.financier.linked_company_branch == self.company_debtor
+        ):
+            errors["company_debtor"] = (
+                "Debtor cannot be the same company as the financier."
+            )
 
     def _validate_unique_asset_identifiers(self, errors: dict[str, object]) -> None:
         """
@@ -374,28 +379,8 @@ class CollateralRegistration(TimeStampedModel):
         super().clean()
 
         errors: dict[str, object] = {}
-        self._validate_party("financier", errors)
         self._validate_party("debtor", errors)
-
-        if (
-            self.financier_type == self.debtor_type == _PARTY_INDIVIDUAL
-            and self.individual_financier is not None
-            and self.individual_debtor is not None
-            and self.individual_financier == self.individual_debtor
-        ):
-            errors["individual_debtor"] = (
-                "Debtor cannot be the same individual as the financier."
-            )
-
-        if (
-            self.financier_type == self.debtor_type == _PARTY_COMPANY
-            and self.company_financier is not None
-            and self.company_debtor is not None
-            and self.company_financier == self.company_debtor
-        ):
-            errors["company_debtor"] = (
-                "Debtor cannot be the same company as the financier."
-            )
+        self._validate_financier_debtor_distinct(errors)
 
         if (
             self.agreement_start_date is not None
