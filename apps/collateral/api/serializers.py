@@ -56,21 +56,11 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
     def get_is_pending_discharge(self, obj: CollateralRegistration) -> bool:
         return obj.is_pending_discharge()
 
-    def get_financier_display(self, obj: CollateralRegistration) -> str | None:
-        if obj.financier:
-            return str(obj.financier)
-        return None
+    def get_financier_display(self, obj: CollateralRegistration) -> str:
+        return obj.financier_display
 
-    def get_debtor_display(self, obj: CollateralRegistration) -> str | None:
-        if obj.debtor_type == DEBTOR_TYPE_INDIVIDUAL and obj.individual_debtor:
-            return str(obj.individual_debtor)
-        if obj.debtor_type == DEBTOR_TYPE_COMPANY and obj.company_debtor:
-            return str(obj.company_debtor)
-        if obj.individual_debtor:
-            return str(obj.individual_debtor)
-        if obj.company_debtor:
-            return str(obj.company_debtor)
-        return None
+    def get_debtor_display(self, obj: CollateralRegistration) -> str:
+        return obj.debtor_display
 
     # ------------------------------------------------------------------
     # Field-level validation

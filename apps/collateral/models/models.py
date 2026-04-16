@@ -7,11 +7,13 @@ from __future__ import annotations
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models.functions import Lower
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.collateral.constants import ASSET_IDENTIFIER_FIELDS, ASSET_IDENTIFIER_LABELS
 from apps.common.models import (
+    PartyType,
     CollateralAssetType,
     AssetCondition,
     Currency,
@@ -21,12 +23,9 @@ from apps.clients.models.models import Client
 from apps.companies.models.models import CompanyBranch
 from apps.individuals.models.models import Individual
 
-DEBTOR_TYPE_INDIVIDUAL = "individual"
-DEBTOR_TYPE_COMPANY = "company"
-DEBTOR_TYPE_CHOICES = (
-    (DEBTOR_TYPE_INDIVIDUAL, _("Individual")),
-    (DEBTOR_TYPE_COMPANY, _("Company")),
-)
+DEBTOR_TYPE_INDIVIDUAL = PartyType.INDIVIDUAL.value
+DEBTOR_TYPE_COMPANY = PartyType.COMPANY.value
+DEBTOR_TYPE_CHOICES = PartyType.choices
 
 
 class CollateralRegistration(TimeStampedModel):
@@ -234,24 +233,24 @@ class CollateralRegistration(TimeStampedModel):
         ]
         constraints = [
             models.UniqueConstraint(
-                fields=["asset_registration_number"],
+                Lower("asset_registration_number"),
                 condition=(
                     models.Q(is_discharged=False)
                     & ~models.Q(asset_registration_number="")
                 ),
-                name="col_uq_open_asset_reg",
+                name="col_uq_open_asset_reg_ci",
             ),
             models.UniqueConstraint(
-                fields=["chassis_number"],
+                Lower("chassis_number"),
                 condition=(
                     models.Q(is_discharged=False) & ~models.Q(chassis_number="")
                 ),
-                name="col_uq_open_chassis",
+                name="col_uq_open_chassis_ci",
             ),
             models.UniqueConstraint(
-                fields=["serial_number"],
+                Lower("serial_number"),
                 condition=(models.Q(is_discharged=False) & ~models.Q(serial_number="")),
-                name="col_uq_open_serial",
+                name="col_uq_open_serial_ci",
             ),
         ]
 
