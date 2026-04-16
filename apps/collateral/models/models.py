@@ -10,6 +10,7 @@ from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from apps.collateral.constants import ASSET_IDENTIFIER_FIELDS, ASSET_IDENTIFIER_LABELS
 from apps.common.models import (
     CollateralAssetType,
     AssetCondition,
@@ -26,16 +27,6 @@ DEBTOR_TYPE_CHOICES = (
     (DEBTOR_TYPE_INDIVIDUAL, _("Individual")),
     (DEBTOR_TYPE_COMPANY, _("Company")),
 )
-_ASSET_IDENTIFIER_FIELDS = (
-    "asset_registration_number",
-    "chassis_number",
-    "serial_number",
-)
-_ASSET_IDENTIFIER_LABELS = {
-    "asset_registration_number": "asset registration number",
-    "chassis_number": "chassis number",
-    "serial_number": "serial number",
-}
 
 
 class CollateralRegistration(TimeStampedModel):
@@ -352,7 +343,7 @@ class CollateralRegistration(TimeStampedModel):
             return
 
         identifiers: dict[str, str] = {}
-        for field_name in _ASSET_IDENTIFIER_FIELDS:
+        for field_name in ASSET_IDENTIFIER_FIELDS:
             raw_value = getattr(self, field_name, "")
             value = raw_value.strip() if isinstance(raw_value, str) else raw_value
             if isinstance(raw_value, str):
@@ -371,7 +362,7 @@ class CollateralRegistration(TimeStampedModel):
 
         for field_name, value in identifiers.items():
             if existing_qs.filter(**{f"{field_name}__iexact": value}).exists():
-                label = _ASSET_IDENTIFIER_LABELS.get(
+                label = ASSET_IDENTIFIER_LABELS.get(
                     field_name,
                     field_name.replace("_", " "),
                 )

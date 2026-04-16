@@ -9,22 +9,12 @@ from __future__ import annotations
 from django.utils import timezone
 from rest_framework import serializers
 
+from apps.collateral.constants import ASSET_IDENTIFIER_FIELDS, ASSET_IDENTIFIER_LABELS
 from apps.collateral.models.models import (
     CollateralRegistration,
     DEBTOR_TYPE_COMPANY,
     DEBTOR_TYPE_INDIVIDUAL,
 )
-
-_ASSET_IDENTIFIER_FIELDS = (
-    "asset_registration_number",
-    "chassis_number",
-    "serial_number",
-)
-_ASSET_IDENTIFIER_LABELS = {
-    "asset_registration_number": "asset registration number",
-    "chassis_number": "chassis number",
-    "serial_number": "serial number",
-}
 
 
 # ---------------------------------------------------------------------------
@@ -176,7 +166,7 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
             return {}
 
         identifiers: dict[str, str] = {}
-        for field_name in _ASSET_IDENTIFIER_FIELDS:
+        for field_name in ASSET_IDENTIFIER_FIELDS:
             raw_value = attrs.get(
                 field_name,
                 getattr(self.instance, field_name, ""),
@@ -199,7 +189,7 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
         errors: dict[str, str] = {}
         for field_name, value in identifiers.items():
             if existing_qs.filter(**{f"{field_name}__iexact": value}).exists():
-                label = _ASSET_IDENTIFIER_LABELS.get(
+                label = ASSET_IDENTIFIER_LABELS.get(
                     field_name,
                     field_name.replace("_", " "),
                 )
