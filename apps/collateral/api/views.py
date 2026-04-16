@@ -46,23 +46,25 @@ class CollateralRegistrationViewSet(viewsets.ModelViewSet):
     filterset_fields: list[str] = [
         "asset_type",
         "financier",
-        "debtor",
+        "individual_debtor",
+        "company_debtor",
         "is_discharged",
         "currency",
-        "financier_type",
         "debtor_type",
     ]
     search_fields: list[str] = [
         "agreement_number",
-        "debtor__username",
-        "debtor__first_name",
-        "debtor__last_name",
+        "individual_debtor__first_name",
+        "individual_debtor__last_name",
+        "individual_debtor__identification_number",
+        "company_debtor__branch_name",
+        "company_debtor__company__registration_name",
+        "company_debtor__company__trading_name",
         "serial_number",
         "asset_registration_number",
         "chassis_number",
-        "financier__username",
-        "financier__first_name",
-        "financier__last_name",
+        "financier__name",
+        "financier__external_client_id",
     ]
     ordering_fields: list[str] = [
         "lodge_date",
@@ -74,12 +76,16 @@ class CollateralRegistrationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self) -> QuerySet[CollateralRegistration]:
         """
-        Returns all collateral records with ``financier`` and ``debtor``
-        eagerly loaded via ``select_related`` to prevent N+1 queries when
-        the serializer renders both ``*_display`` fields on a list response.
+        Returns all collateral records with party relations eagerly loaded via
+        ``select_related`` to prevent N+1 queries when list responses render
+        ``financier_display`` and ``debtor_display``.
         """
         return CollateralRegistration.objects.select_related(
-            "financier", "debtor"
+            "financier",
+            "individual_debtor",
+            "company_debtor",
+            "company_debtor__company",
+            "currency",
         ).all()
 
     # ------------------------------------------------------------------
