@@ -9,10 +9,12 @@ from __future__ import annotations
 from django.utils import timezone
 from rest_framework import serializers
 
-from apps.collateral.models import CollateralRegistration
+from apps.collateral.models.models import (
+    CollateralRegistration,
+    DEBTOR_TYPE_COMPANY,
+    DEBTOR_TYPE_INDIVIDUAL,
+)
 
-_PARTY_INDIVIDUAL = "individual"
-_PARTY_COMPANY = "company"
 _ASSET_IDENTIFIER_FIELDS = (
     "asset_registration_number",
     "chassis_number",
@@ -70,9 +72,9 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
         return None
 
     def get_debtor_display(self, obj: CollateralRegistration) -> str | None:
-        if obj.debtor_type == _PARTY_INDIVIDUAL and obj.individual_debtor:
+        if obj.debtor_type == DEBTOR_TYPE_INDIVIDUAL and obj.individual_debtor:
             return str(obj.individual_debtor)
-        if obj.debtor_type == _PARTY_COMPANY and obj.company_debtor:
+        if obj.debtor_type == DEBTOR_TYPE_COMPANY and obj.company_debtor:
             return str(obj.company_debtor)
         if obj.individual_debtor:
             return str(obj.individual_debtor)
@@ -118,14 +120,14 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
 
         if (
             f"{role}_type" in attrs
-            and party_type == _PARTY_INDIVIDUAL
+            and party_type == DEBTOR_TYPE_INDIVIDUAL
             and f"company_{role}" not in attrs
         ):
             attrs[f"company_{role}"] = None
             company = None
         if (
             f"{role}_type" in attrs
-            and party_type == _PARTY_COMPANY
+            and party_type == DEBTOR_TYPE_COMPANY
             and f"individual_{role}" not in attrs
         ):
             attrs[f"individual_{role}"] = None
@@ -141,7 +143,7 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
         company: object | None,
     ) -> dict[str, str]:
         errors: dict[str, str] = {}
-        if party_type == _PARTY_INDIVIDUAL:
+        if party_type == DEBTOR_TYPE_INDIVIDUAL:
             if not individual:
                 errors[f"individual_{role}"] = (
                     f"Individual {role} is required when {role}_type is 'individual'."
@@ -150,7 +152,7 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
                 errors[f"company_{role}"] = (
                     f"Company {role} must be empty when {role}_type is 'individual'."
                 )
-        elif party_type == _PARTY_COMPANY:
+        elif party_type == DEBTOR_TYPE_COMPANY:
             if not company:
                 errors[f"company_{role}"] = (
                     f"Company {role} is required when {role}_type is 'company'."
@@ -269,7 +271,16 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
             )
 
         if total_debt is not None and total_paid is not None:
-            attrs["balance"] = total_debt - total_paid
+            expected_balance = total_debt - total_paid
+            if "balance" in attrs:
+                if attrs["balance"] != expected_balance:
+                    raise serializers.ValidationError(
+                        {
+                            "balance": "Balance must equal total debt minus total paid to date."
+                        }
+                    )
+            else:
+                attrs["balance"] = expected_balance
 
         # --- 5. Debtor party shape ---
         financier = attrs.get("financier", getattr(self.instance, "financier", None))
@@ -297,7 +308,7 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
 
         # --- 6. Financier ≠ debtor ---
         if (
-            debtor_type == _PARTY_INDIVIDUAL
+            debtor_type == DEBTOR_TYPE_INDIVIDUAL
             and individual_debtor is not None
             and financier.is_individual_client
             and financier.linked_individual == individual_debtor
@@ -311,7 +322,7 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
             )
 
         if (
-            debtor_type == _PARTY_COMPANY
+            debtor_type == DEBTOR_TYPE_COMPANY
             and company_debtor is not None
             and financier.is_company_client
             and financier.linked_company_branch == company_debtor

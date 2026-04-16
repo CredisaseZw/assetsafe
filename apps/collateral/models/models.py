@@ -11,7 +11,6 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.common.models import (
-    PartyType,
     CollateralAssetType,
     AssetCondition,
     Currency,
@@ -21,8 +20,12 @@ from apps.clients.models.models import Client
 from apps.companies.models.models import CompanyBranch
 from apps.individuals.models.models import Individual
 
-_PARTY_INDIVIDUAL = "individual"
-_PARTY_COMPANY = "company"
+DEBTOR_TYPE_INDIVIDUAL = "individual"
+DEBTOR_TYPE_COMPANY = "company"
+DEBTOR_TYPE_CHOICES = (
+    (DEBTOR_TYPE_INDIVIDUAL, _("Individual")),
+    (DEBTOR_TYPE_COMPANY, _("Company")),
+)
 _ASSET_IDENTIFIER_FIELDS = (
     "asset_registration_number",
     "chassis_number",
@@ -59,8 +62,6 @@ class CollateralRegistration(TimeStampedModel):
     financier = models.ForeignKey(
         Client,
         on_delete=models.PROTECT,
-        null=True,
-        blank=True,
         related_name="collateral_records_as_financier",
         verbose_name=_("Financier"),
     )
@@ -85,7 +86,7 @@ class CollateralRegistration(TimeStampedModel):
     # ---- Debtor (the borrower) ----
     debtor_type = models.CharField(
         max_length=20,
-        choices=PartyType.choices,
+        choices=DEBTOR_TYPE_CHOICES,
         db_index=True,
         verbose_name=_("Debtor Type"),
     )
@@ -277,9 +278,12 @@ class CollateralRegistration(TimeStampedModel):
 
     @property
     def debtor_display(self) -> str:
-        if self.debtor_type == _PARTY_INDIVIDUAL and self.individual_debtor is not None:
+        if (
+            self.debtor_type == DEBTOR_TYPE_INDIVIDUAL
+            and self.individual_debtor is not None
+        ):
             return str(self.individual_debtor)
-        if self.debtor_type == _PARTY_COMPANY and self.company_debtor is not None:
+        if self.debtor_type == DEBTOR_TYPE_COMPANY and self.company_debtor is not None:
             return str(self.company_debtor)
         if self.individual_debtor is not None:
             return str(self.individual_debtor)
@@ -292,7 +296,7 @@ class CollateralRegistration(TimeStampedModel):
         individual = getattr(self, f"individual_{role}", None)
         company = getattr(self, f"company_{role}", None)
 
-        if party_type == _PARTY_INDIVIDUAL:
+        if party_type == DEBTOR_TYPE_INDIVIDUAL:
             if not individual:
                 errors[f"individual_{role}"] = (
                     f"Individual {role} is required when {role}_type is 'individual'."
@@ -301,7 +305,7 @@ class CollateralRegistration(TimeStampedModel):
                 errors[f"company_{role}"] = (
                     f"Company {role} must be empty when {role}_type is 'individual'."
                 )
-        elif party_type == _PARTY_COMPANY:
+        elif party_type == DEBTOR_TYPE_COMPANY:
             if not company:
                 errors[f"company_{role}"] = (
                     f"Company {role} is required when {role}_type is 'company'."
@@ -317,7 +321,7 @@ class CollateralRegistration(TimeStampedModel):
             return
 
         if (
-            self.debtor_type == _PARTY_INDIVIDUAL
+            self.debtor_type == DEBTOR_TYPE_INDIVIDUAL
             and self.individual_debtor is not None
             and self.financier.is_individual_client
             and self.financier.linked_individual == self.individual_debtor
@@ -327,7 +331,7 @@ class CollateralRegistration(TimeStampedModel):
             )
 
         if (
-            self.debtor_type == _PARTY_COMPANY
+            self.debtor_type == DEBTOR_TYPE_COMPANY
             and self.company_debtor is not None
             and self.financier.is_company_client
             and self.financier.linked_company_branch == self.company_debtor

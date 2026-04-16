@@ -13,7 +13,7 @@ from drf_spectacular.views import (
     SpectacularRedocView,
 )
 
-admin.site.site_header = "Assetface Admin"
+admin.site.site_header = "Assetsafe Admin"
 admin.site.site_title = "Admin Portal"
 admin.site.index_title = "Welcome to Assetsafe Admin Dashboard"
 
