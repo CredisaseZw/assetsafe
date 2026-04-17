@@ -37,13 +37,50 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = HirePurchaseRegistration
-        fields = ["__all__"]
+        fields = [
+            "id",
+            "financier",
+            "financier_display",
+            "purchaser",
+            "purchaser_display",
+            "purchaser_type",
+            "data_date",
+            "agreement_number",
+            "asset_type",
+            "make",
+            "model",
+            "year_of_make",
+            "condition",
+            "mv_registration_number",
+            "chassis_number",
+            "engine_number",
+            "serial_number",
+            "currency",
+            "purchase_amount",
+            "instalment_amount",
+            "instalment_day",
+            "total_paid_to_date",
+            "balance",
+            "agreement_start_date",
+            "agreement_end_date",
+            "lodge_date",
+            "closure_confirmed",
+            "closure_confirmed_at",
+            "is_active",
+            "is_pending_closure",
+            "created_at",
+            "updated_at",
+        ]
         read_only_fields = [
             "id",
             "lodge_date",
             "closure_confirmed_at",
             "created_at",
             "updated_at",
+            "is_active",
+            "is_pending_closure",
+            "financier_display",
+            "purchaser_display",
         ]
 
     # ------------------------------------------------------------------

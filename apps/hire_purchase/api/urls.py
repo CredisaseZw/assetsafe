@@ -9,7 +9,7 @@ from .views import HirePurchaseRegistrationViewSet
 
 router = SimpleRouter()
 router.register(  # type: ignore
-    r"hire-purchase-registrations",
+    r"",
     HirePurchaseRegistrationViewSet,
     basename="hire-purchase-registration",
 )
