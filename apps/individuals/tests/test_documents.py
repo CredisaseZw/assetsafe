@@ -185,11 +185,7 @@ class IndividualDocumentTests(TestCase):
         response = self.client_api.post(
             url, {"file": f, "document_type": "id"}, format="multipart"
         )
-        # get_object() raises 404 when pk is not found
-        self.assertIn(
-            response.status_code,
-            [status.HTTP_404_NOT_FOUND, status.HTTP_500_INTERNAL_SERVER_ERROR],
-        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     # ------------------------------------------------------------------
     # DELETE – remove a document

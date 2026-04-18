@@ -1,4 +1,5 @@
 from django.db.models import Q
+from django.http import Http404
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
@@ -372,7 +373,7 @@ class IndividualViewSet(BaseViewSet):
             return self._create_rendered_response(
                 {"error": extract_error_message(e)}, status.HTTP_400_BAD_REQUEST
             )
-        except Individual.DoesNotExist:
+        except (Individual.DoesNotExist, Http404):
             return self._create_rendered_response(
                 {"error": "Individual not found"}, status.HTTP_404_NOT_FOUND
             )
@@ -399,15 +400,13 @@ class IndividualViewSet(BaseViewSet):
                     {"error": "Document not found"}, status.HTTP_404_NOT_FOUND
                 )
             doc.delete()
-            return self._create_rendered_response(
-                {"message": "Document deleted successfully."}, status.HTTP_204_NO_CONTENT
-            )
+            return self._create_rendered_response(None, status.HTTP_204_NO_CONTENT)
 
         except PermissionDenied as e:
             return self._create_rendered_response(
                 {"error": str(e)}, status.HTTP_403_FORBIDDEN
             )
-        except Individual.DoesNotExist:
+        except (Individual.DoesNotExist, Http404):
             return self._create_rendered_response(
                 {"error": "Individual not found"}, status.HTTP_404_NOT_FOUND
             )
