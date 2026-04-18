@@ -7,6 +7,7 @@ from __future__ import annotations
 from django.contrib.auth import get_user_model
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -17,6 +18,7 @@ from apps.common.models import (
     Currency,
     TimeStampedModel,
 )
+from apps.clients.models import Client
 
 User = get_user_model()
 
@@ -37,7 +39,7 @@ class HirePurchaseRegistration(TimeStampedModel):
 
     # ---- Financier ----
     financier = models.ForeignKey(
-        User,
+        Client,
         on_delete=models.PROTECT,
         related_name="hp_records_as_financier",
         db_index=True,
@@ -49,24 +51,30 @@ class HirePurchaseRegistration(TimeStampedModel):
         help_text=_("Date the record is lodged; defaults to today."),
     )
 
-    # ---- Purchaser (formerly "Lessee") ----
-    purchaser_type = models.CharField(
-        max_length=20,
-        choices=PartyType.choices,
-        db_index=True,
-        verbose_name=_("Purchaser Type"),
-    )
-    purchaser = models.ForeignKey(
-        User,
+    # ---- Purchaser ----
+    purchaser_individual = models.ForeignKey(
+        "individuals.Individual",
         on_delete=models.PROTECT,
+        null=True,
+        blank=True,
         related_name="hp_records_as_purchaser",
         db_index=True,
-        verbose_name=_("Purchaser"),
+        verbose_name=_("Purchaser (Individual)"),
+    )
+    purchaser_company = models.ForeignKey(
+        "companies.CompanyBranch",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="hp_records_as_purchaser",
+        db_index=True,
+        verbose_name=_("Purchaser (Company Branch)"),
     )
 
     # ---- Agreement & asset details ----
     agreement_number = models.CharField(
         max_length=100,
+        unique=True,
         db_index=True,
         verbose_name=_("Agreement Number"),
         help_text=_("The financier's own agreement reference number."),
@@ -205,6 +213,50 @@ class HirePurchaseRegistration(TimeStampedModel):
                 name="hp_financier_closure_idx",
             ),
         ]
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    Q(purchaser_individual__isnull=False, purchaser_company__isnull=True) |
+                    Q(purchaser_individual__isnull=True, purchaser_company__isnull=False)
+                ),
+                name='hp_exclusive_purchaser',
+                violation_error_message=_("Either purchaser_individual or purchaser_company must be provided, but not both.")
+            ),
+            models.UniqueConstraint(
+                fields=["financier", "purchaser_individual", "make", "mv_registration_number"],
+                condition=~Q(mv_registration_number="") & Q(purchaser_individual__isnull=False),
+                name="hp_uniq_mv_reg_ind",
+            ),
+            models.UniqueConstraint(
+                fields=["financier", "purchaser_company", "make", "mv_registration_number"],
+                condition=~Q(mv_registration_number="") & Q(purchaser_company__isnull=False),
+                name="hp_uniq_mv_reg_comp",
+            ),
+            models.UniqueConstraint(
+                fields=["financier", "purchaser_individual", "make", "serial_number"],
+                condition=~Q(serial_number="") & Q(purchaser_individual__isnull=False),
+                name="hp_uniq_serial_ind",
+            ),
+            models.UniqueConstraint(
+                fields=["financier", "purchaser_company", "make", "serial_number"],
+                condition=~Q(serial_number="") & Q(purchaser_company__isnull=False),
+                name="hp_uniq_serial_comp",
+            ),
+            models.UniqueConstraint(
+                fields=["financier", "purchaser_individual", "make"],
+                condition=Q(mv_registration_number="", serial_number="") & Q(purchaser_individual__isnull=False),
+                name="hp_uniq_no_id_ind",
+            ),
+            models.UniqueConstraint(
+                fields=["financier", "purchaser_company", "make"],
+                condition=Q(mv_registration_number="", serial_number="") & Q(purchaser_company__isnull=False),
+                name="hp_uniq_no_id_comp",
+            ),
+        ]
+
+    @property
+    def purchaser(self):
+        return self.purchaser_individual or self.purchaser_company
 
     def __str__(self) -> str:
         return (
