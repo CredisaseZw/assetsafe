@@ -43,6 +43,48 @@ import re
 
 logger = logging.getLogger("individuals")
 
+MAX_DOCUMENT_SIZE = 10 * 1024 * 1024  # 10 MB
+
+ALLOWED_DOCUMENT_MIME_TYPES = [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/tiff",
+    "image/webp",
+]
+
+
+class IndividualDocumentUploadSerializer(serializers.ModelSerializer):
+    """Serializer for uploading and retrieving individual documents."""
+
+    file = serializers.FileField()
+    file_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Document
+        fields = ["id", "document_type", "file", "file_url", "description", "is_verified"]
+        read_only_fields = ["id", "is_verified", "file_url"]
+
+    def get_file_url(self, obj):
+        request = self.context.get("request")
+        if obj.file and request:
+            return request.build_absolute_uri(obj.file.url)
+        return None
+
+    def validate_file(self, value):
+        if value.size > MAX_DOCUMENT_SIZE:
+            raise ValidationError(
+                "File size must not exceed 10 MB."
+            )
+        content_type = getattr(value, "content_type", None)
+        if content_type not in ALLOWED_DOCUMENT_MIME_TYPES:
+            raise ValidationError(
+                f"Unsupported file type '{content_type}'. "
+                "Allowed types: PDF, JPEG, PNG, GIF, TIFF, WEBP."
+            )
+        return value
+
 
 class EmploymentDetailSerializer(serializers.ModelSerializer):
     start_date = serializers.DateField(allow_null=True, required=False)
