@@ -11,6 +11,7 @@ Covers:
 
 import io
 import os
+import tempfile
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase, override_settings
 from rest_framework import status
@@ -19,6 +20,8 @@ from rest_framework.test import APIClient
 from apps.common.models.models import Document
 from apps.individuals.models.models import Individual
 from apps.users.models.models import CustomUser
+
+_TEMP_MEDIA = tempfile.mkdtemp(prefix="assetsafe_test_media_")
 
 
 def _make_individual(**kwargs):
@@ -53,7 +56,7 @@ def _fake_file(name="doc.pdf", content_type="application/pdf", size_bytes=1024):
 
 
 @override_settings(
-    MEDIA_ROOT="/tmp/test_media_assetsafe",
+    MEDIA_ROOT=_TEMP_MEDIA,
     DEFAULT_FILE_STORAGE="django.core.files.storage.FileSystemStorage",
 )
 class IndividualDocumentTests(TestCase):

@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from django.contrib.contenttypes.models import ContentType
+from django.conf import settings
 
 from apps.common.models.models import Country
 from apps.individuals.models.models import (
@@ -43,8 +44,6 @@ import re
 
 logger = logging.getLogger("individuals")
 
-MAX_DOCUMENT_SIZE = 10 * 1024 * 1024  # 10 MB
-
 ALLOWED_DOCUMENT_MIME_TYPES = [
     "application/pdf",
     "image/jpeg",
@@ -73,9 +72,10 @@ class IndividualDocumentUploadSerializer(serializers.ModelSerializer):
         return None
 
     def validate_file(self, value):
-        if value.size > MAX_DOCUMENT_SIZE:
+        max_size = getattr(settings, "MAX_DOCUMENT_UPLOAD_SIZE", 10 * 1024 * 1024)
+        if value.size > max_size:
             raise ValidationError(
-                "File size must not exceed 10 MB."
+                f"File size must not exceed {max_size // (1024 * 1024)} MB."
             )
         content_type = getattr(value, "content_type", None)
         if content_type not in ALLOWED_DOCUMENT_MIME_TYPES:

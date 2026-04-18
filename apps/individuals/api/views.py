@@ -394,8 +394,9 @@ class IndividualViewSet(BaseViewSet):
             individual = self.get_object()
             self._check_document_permission(request, individual)
 
-            doc = individual.documents.filter(pk=doc_id).first()
-            if doc is None:
+            try:
+                doc = individual.documents.get(pk=doc_id)
+            except Document.DoesNotExist:
                 return self._create_rendered_response(
                     {"error": "Document not found"}, status.HTTP_404_NOT_FOUND
                 )
