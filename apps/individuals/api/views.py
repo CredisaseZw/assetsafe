@@ -1,9 +1,8 @@
 from django.db.models import Q
-from django.http import Http404
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError, PermissionDenied
+from rest_framework.exceptions import ValidationError
 
 from apps.individuals.api.serializers import (
     IndividualAddressSerializer,
@@ -12,14 +11,11 @@ from apps.individuals.api.serializers import (
     IndividualCreateSerializer,
     IndividualSearchSerializer,
     IndividualMinimalSerializer,
-    IndividualDocumentUploadSerializer,
 )
 from apps.individuals.models import Individual
 from apps.common.api.views import BaseViewSet
-from apps.common.models.models import Document
 from apps.common.utils import CacheService, extract_error_message
 from apps.individuals.services.tasks import process_individuals_csv
-from django.contrib.contenttypes.models import ContentType
 
 import logging
 
@@ -315,104 +311,6 @@ class IndividualViewSet(BaseViewSet):
             logger.error(
                 f"Error retrieving claims for individuals: {extract_error_message(e)}"
             )
-            return self._create_rendered_response(
-                {"error": "Something went wrong"}, status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    def _check_document_permission(self, request, individual):
-        """Raise PermissionDenied if user is not allowed to manage docs for this individual."""
-        if request.user.is_staff:
-            return
-        user_client = getattr(request.user, "client", None)
-        if user_client is None:
-            raise PermissionDenied(
-                "You do not have permission to manage documents for this individual."
-            )
-        individual_ct = ContentType.objects.get_for_model(individual)
-        if not (
-            user_client.client_content_type_id == individual_ct.id
-            and user_client.client_object_id == individual.id
-        ):
-            raise PermissionDenied(
-                "You do not have permission to manage documents for this individual."
-            )
-
-    @action(detail=True, methods=["GET", "POST"], url_path="documents")
-    def documents(self, request, pk=None):
-        """List or upload documents for an individual."""
-        try:
-            individual = self.get_object()
-            self._check_document_permission(request, individual)
-
-            if request.method == "GET":
-                docs = individual.documents.all()
-                serializer = IndividualDocumentUploadSerializer(
-                    docs, many=True, context=self.get_serializer_context()
-                )
-                return self._create_rendered_response(serializer.data, status.HTTP_200_OK)
-
-            # POST – upload a new document
-            serializer = IndividualDocumentUploadSerializer(
-                data=request.data, context=self.get_serializer_context()
-            )
-            serializer.is_valid(raise_exception=True)
-            individual_ct = ContentType.objects.get_for_model(individual)
-            serializer.save(
-                content_type=individual_ct,
-                object_id=individual.pk,
-            )
-            return self._create_rendered_response(
-                serializer.data, status.HTTP_201_CREATED
-            )
-
-        except PermissionDenied as e:
-            return self._create_rendered_response(
-                {"error": str(e)}, status.HTTP_403_FORBIDDEN
-            )
-        except ValidationError as e:
-            return self._create_rendered_response(
-                {"error": extract_error_message(e)}, status.HTTP_400_BAD_REQUEST
-            )
-        except (Individual.DoesNotExist, Http404):
-            return self._create_rendered_response(
-                {"error": "Individual not found"}, status.HTTP_404_NOT_FOUND
-            )
-        except Exception as e:
-            logger.error(f"Error managing individual documents: {e}")
-            return self._create_rendered_response(
-                {"error": "Something went wrong"}, status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @action(
-        detail=True,
-        methods=["DELETE"],
-        url_path=r"documents/(?P<doc_id>[^/.]+)",
-    )
-    def document_detail(self, request, pk=None, doc_id=None):
-        """Delete a document for an individual."""
-        try:
-            individual = self.get_object()
-            self._check_document_permission(request, individual)
-
-            try:
-                doc = individual.documents.get(pk=doc_id)
-            except Document.DoesNotExist:
-                return self._create_rendered_response(
-                    {"error": "Document not found"}, status.HTTP_404_NOT_FOUND
-                )
-            doc.delete()
-            return self._create_rendered_response(None, status.HTTP_204_NO_CONTENT)
-
-        except PermissionDenied as e:
-            return self._create_rendered_response(
-                {"error": str(e)}, status.HTTP_403_FORBIDDEN
-            )
-        except (Individual.DoesNotExist, Http404):
-            return self._create_rendered_response(
-                {"error": "Individual not found"}, status.HTTP_404_NOT_FOUND
-            )
-        except Exception as e:
-            logger.error(f"Error deleting individual document: {e}")
             return self._create_rendered_response(
                 {"error": "Something went wrong"}, status.HTTP_500_INTERNAL_SERVER_ERROR
             )

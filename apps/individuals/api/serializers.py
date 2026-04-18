@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from django.contrib.contenttypes.models import ContentType
-from django.conf import settings
 
 from apps.common.models.models import Country
 from apps.individuals.models.models import (
@@ -43,47 +42,6 @@ import re
 
 
 logger = logging.getLogger("individuals")
-
-ALLOWED_DOCUMENT_MIME_TYPES = [
-    "application/pdf",
-    "image/jpeg",
-    "image/png",
-    "image/gif",
-    "image/tiff",
-    "image/webp",
-]
-
-
-class IndividualDocumentUploadSerializer(serializers.ModelSerializer):
-    """Serializer for uploading and retrieving individual documents."""
-
-    file = serializers.FileField()
-    file_url = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Document
-        fields = ["id", "document_type", "file", "file_url", "description", "is_verified"]
-        read_only_fields = ["id", "is_verified", "file_url"]
-
-    def get_file_url(self, obj):
-        request = self.context.get("request")
-        if obj.file and request:
-            return request.build_absolute_uri(obj.file.url)
-        return None
-
-    def validate_file(self, value):
-        max_size = getattr(settings, "MAX_DOCUMENT_UPLOAD_SIZE", 10 * 1024 * 1024)
-        if value.size > max_size:
-            raise ValidationError(
-                f"File size must not exceed {max_size // (1024 * 1024)} MB."
-            )
-        content_type = getattr(value, "content_type", None)
-        if content_type not in ALLOWED_DOCUMENT_MIME_TYPES:
-            raise ValidationError(
-                f"Unsupported file type '{content_type}'. "
-                "Allowed types: PDF, JPEG, PNG, GIF, TIFF, WEBP."
-            )
-        return value
 
 
 class EmploymentDetailSerializer(serializers.ModelSerializer):
