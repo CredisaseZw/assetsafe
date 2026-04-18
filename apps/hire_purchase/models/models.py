@@ -4,7 +4,6 @@ models.py — Hire Purchase
 
 from __future__ import annotations
 
-from django.contrib.auth import get_user_model
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
@@ -19,8 +18,6 @@ from apps.common.models import (
     TimeStampedModel,
 )
 from apps.clients.models import Client
-
-User = get_user_model()
 
 
 class HirePurchaseRegistration(TimeStampedModel):
@@ -52,6 +49,12 @@ class HirePurchaseRegistration(TimeStampedModel):
     )
 
     # ---- Purchaser ----
+    purchaser_type = models.CharField(
+        max_length=20,
+        choices=PartyType.choices,
+        db_index=True,
+        verbose_name=_("Purchaser Type"),
+    )
     purchaser_individual = models.ForeignKey(
         "individuals.Individual",
         on_delete=models.PROTECT,
@@ -216,20 +219,46 @@ class HirePurchaseRegistration(TimeStampedModel):
         constraints = [
             models.CheckConstraint(
                 check=(
-                    Q(purchaser_individual__isnull=False, purchaser_company__isnull=True) |
-                    Q(purchaser_individual__isnull=True, purchaser_company__isnull=False)
+                    (
+                        Q(purchaser_type="individual")
+                        & Q(
+                            purchaser_individual__isnull=False,
+                            purchaser_company__isnull=True,
+                        )
+                    )
+                    | (
+                        Q(purchaser_type="company")
+                        & Q(
+                            purchaser_individual__isnull=True,
+                            purchaser_company__isnull=False,
+                        )
+                    )
                 ),
-                name='hp_exclusive_purchaser',
-                violation_error_message=_("Either purchaser_individual or purchaser_company must be provided, but not both.")
+                name="hp_exclusive_purchaser",
+                violation_error_message=_(
+                    "Purchaser type must match the provided purchaser (Individual or Company Branch), and only one must be provided."
+                ),
             ),
             models.UniqueConstraint(
-                fields=["financier", "purchaser_individual", "make", "mv_registration_number"],
-                condition=~Q(mv_registration_number="") & Q(purchaser_individual__isnull=False),
+                fields=[
+                    "financier",
+                    "purchaser_individual",
+                    "make",
+                    "mv_registration_number",
+                ],
+                condition=~Q(mv_registration_number="")
+                & Q(purchaser_individual__isnull=False),
                 name="hp_uniq_mv_reg_ind",
             ),
             models.UniqueConstraint(
-                fields=["financier", "purchaser_company", "make", "mv_registration_number"],
-                condition=~Q(mv_registration_number="") & Q(purchaser_company__isnull=False),
+                fields=[
+                    "financier",
+                    "purchaser_company",
+                    "make",
+                    "mv_registration_number",
+                ],
+                condition=~Q(mv_registration_number="")
+                & Q(purchaser_company__isnull=False),
                 name="hp_uniq_mv_reg_comp",
             ),
             models.UniqueConstraint(
@@ -244,12 +273,14 @@ class HirePurchaseRegistration(TimeStampedModel):
             ),
             models.UniqueConstraint(
                 fields=["financier", "purchaser_individual", "make"],
-                condition=Q(mv_registration_number="", serial_number="") & Q(purchaser_individual__isnull=False),
+                condition=Q(mv_registration_number="", serial_number="")
+                & Q(purchaser_individual__isnull=False),
                 name="hp_uniq_no_id_ind",
             ),
             models.UniqueConstraint(
                 fields=["financier", "purchaser_company", "make"],
-                condition=Q(mv_registration_number="", serial_number="") & Q(purchaser_company__isnull=False),
+                condition=Q(mv_registration_number="", serial_number="")
+                & Q(purchaser_company__isnull=False),
                 name="hp_uniq_no_id_comp",
             ),
         ]
@@ -257,6 +288,14 @@ class HirePurchaseRegistration(TimeStampedModel):
     @property
     def purchaser(self):
         return self.purchaser_individual or self.purchaser_company
+
+    def save(self, *args, **kwargs):
+        if self.purchaser_individual:
+            self.purchaser_type = "individual"
+        elif self.purchaser_company:
+            self.purchaser_type = "company"
+
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return (

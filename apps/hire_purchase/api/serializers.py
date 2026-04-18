@@ -6,13 +6,10 @@ Serializers for HirePurchaseRegistration model.
 
 from __future__ import annotations
 
-from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import serializers
 
 from apps.hire_purchase.models import HirePurchaseRegistration
-
-User = get_user_model()
 
 
 # ---------------------------------------------------------------------------
@@ -42,6 +39,7 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
             "purchaser_individual",
             "purchaser_company",
             "purchaser_display",
+            "purchaser_type",
             "data_date",
             "agreement_number",
             "asset_type",
@@ -71,6 +69,7 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
+            "purchaser_type",
             "lodge_date",
             "closure_confirmed_at",
             "created_at",
@@ -179,13 +178,19 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
 
         # --- 4. Financier ≠ purchaser ---
         financier = attrs.get("financier", getattr(self.instance, "financier", None))
-        purchaser_ind = attrs.get("purchaser_individual", getattr(self.instance, "purchaser_individual", None))
-        purchaser_comp = attrs.get("purchaser_company", getattr(self.instance, "purchaser_company", None))
-        
+        purchaser_ind = attrs.get(
+            "purchaser_individual", getattr(self.instance, "purchaser_individual", None)
+        )
+        purchaser_comp = attrs.get(
+            "purchaser_company", getattr(self.instance, "purchaser_company", None)
+        )
+
         if (purchaser_ind and purchaser_comp) or not (purchaser_ind or purchaser_comp):
             raise serializers.ValidationError(
                 "Provide exactly one: purchaser_individual or purchaser_company."
             )
+
+        attrs["purchaser_type"] = "individual" if purchaser_ind else "company"
 
         if financier:
             # Client cannot be the same Individual or Company records if they use the same underlying entity IDs,

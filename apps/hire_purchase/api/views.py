@@ -46,6 +46,7 @@ class HirePurchaseRegistrationViewSet(viewsets.ModelViewSet):
     filterset_fields: list[str] = [
         "asset_type",
         "financier",
+        "purchaser_type",
         "purchaser_individual",
         "purchaser_company",
         "closure_confirmed",
@@ -80,7 +81,10 @@ class HirePurchaseRegistrationViewSet(viewsets.ModelViewSet):
         Returns all HP records eagerly loaded via ``select_related``.
         """
         return HirePurchaseRegistration.objects.select_related(
-            "financier", "purchaser_individual", "purchaser_company", "purchaser_company__company"
+            "financier",
+            "purchaser_individual",
+            "purchaser_company",
+            "purchaser_company__company",
         ).all()
 
     # ------------------------------------------------------------------

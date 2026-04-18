@@ -27,7 +27,13 @@ class HirePurchaseRegistrationAdmin(admin.ModelAdmin):
         "purchaser_company__company__registration_name",
         "financier__username",
     )
-    readonly_fields = ("purchaser", "lodge_date", "closure_confirmed_at", "created_at", "updated_at")
+    readonly_fields = (
+        "purchaser",
+        "lodge_date",
+        "closure_confirmed_at",
+        "created_at",
+        "updated_at",
+    )
     fieldsets = (
         (
             "Agreement",
@@ -51,6 +57,7 @@ class HirePurchaseRegistrationAdmin(admin.ModelAdmin):
             "Purchaser Information",
             {
                 "fields": (
+                    "purchaser_type",
                     "purchaser_individual",
                     "purchaser_company",
                 )
