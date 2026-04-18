@@ -6,13 +6,10 @@ Serializers for HirePurchaseRegistration model.
 
 from __future__ import annotations
 
-from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import serializers
 
 from apps.hire_purchase.models import HirePurchaseRegistration
-
-User = get_user_model()
 
 
 # ---------------------------------------------------------------------------
@@ -31,20 +28,63 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
     financier_display = serializers.StringRelatedField(
         source="financier", read_only=True
     )
-    purchaser_display = serializers.StringRelatedField(
-        source="purchaser", read_only=True
-    )
+    purchaser_display = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = HirePurchaseRegistration
-        fields = ["__all__"]
+        fields = [
+            "id",
+            "financier",
+            "financier_display",
+            "purchaser_individual",
+            "purchaser_company",
+            "purchaser_display",
+            "purchaser_type",
+            "data_date",
+            "agreement_number",
+            "asset_type",
+            "make",
+            "model",
+            "year_of_make",
+            "condition",
+            "mv_registration_number",
+            "chassis_number",
+            "engine_number",
+            "serial_number",
+            "currency",
+            "purchase_amount",
+            "instalment_amount",
+            "instalment_day",
+            "total_paid_to_date",
+            "balance",
+            "agreement_start_date",
+            "agreement_end_date",
+            "lodge_date",
+            "closure_confirmed",
+            "closure_confirmed_at",
+            "is_active",
+            "is_pending_closure",
+            "created_at",
+            "updated_at",
+        ]
         read_only_fields = [
             "id",
+            "purchaser_type",
             "lodge_date",
             "closure_confirmed_at",
             "created_at",
             "updated_at",
+            "is_active",
+            "is_pending_closure",
+            "financier_display",
+            "purchaser_display",
         ]
+        extra_kwargs = {
+            "mv_registration_number": {"required": False},
+            "serial_number": {"required": False},
+            "make": {"required": False},
+        }
+        validators = []
 
     # ------------------------------------------------------------------
     # Computed field implementations
@@ -55,6 +95,13 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
 
     def get_is_pending_closure(self, obj: HirePurchaseRegistration) -> bool:
         return obj.is_pending_closure()
+
+    def get_purchaser_display(self, obj: HirePurchaseRegistration) -> str:
+        if obj.purchaser_individual:
+            return str(obj.purchaser_individual)
+        if obj.purchaser_company:
+            return str(obj.purchaser_company)
+        return ""
 
     # ------------------------------------------------------------------
     # Field-level validation
@@ -79,6 +126,7 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
         2. Instalment cannot exceed purchase amount.
         3. Auto-derive balance when not supplied.
         4. Financier and purchaser must be different users.
+        5. Duplicate registrations of the same asset.
         """
         # --- 1. Date ordering ---
         start = attrs.get(
@@ -130,11 +178,67 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
 
         # --- 4. Financier ≠ purchaser ---
         financier = attrs.get("financier", getattr(self.instance, "financier", None))
-        purchaser = attrs.get("purchaser", getattr(self.instance, "purchaser", None))
-        if financier and purchaser and financier == purchaser:
+        purchaser_ind = attrs.get(
+            "purchaser_individual", getattr(self.instance, "purchaser_individual", None)
+        )
+        purchaser_comp = attrs.get(
+            "purchaser_company", getattr(self.instance, "purchaser_company", None)
+        )
+
+        if (purchaser_ind and purchaser_comp) or not (purchaser_ind or purchaser_comp):
             raise serializers.ValidationError(
-                "Financier and purchaser cannot be the same user."
+                "Provide exactly one: purchaser_individual or purchaser_company."
             )
+
+        attrs["purchaser_type"] = "individual" if purchaser_ind else "company"
+
+        if financier:
+            # Client cannot be the same Individual or Company records if they use the same underlying entity IDs,
+            # but strictly speaking `financier` is a Client and purchaser is Individual/Company.
+            pass
+
+        # --- 5. Duplicate prevention ---
+        make = attrs.get("make", getattr(self.instance, "make", ""))
+
+        if financier and (purchaser_ind or purchaser_comp):
+            mv_reg = attrs.get(
+                "mv_registration_number",
+                getattr(self.instance, "mv_registration_number", ""),
+            )
+            serial = attrs.get(
+                "serial_number", getattr(self.instance, "serial_number", "")
+            )
+
+            qs = HirePurchaseRegistration.objects.filter(financier=financier, make=make)
+            if purchaser_ind:
+                qs = qs.filter(purchaser_individual=purchaser_ind)
+            else:
+                qs = qs.filter(purchaser_company=purchaser_comp)
+
+            if self.instance and self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+
+            # Check matching MV registration number if provided
+            if mv_reg and qs.filter(mv_registration_number=mv_reg).exists():
+                raise serializers.ValidationError(
+                    {"mv_registration_number": "Duplicate MV registration number."}
+                )
+
+            # Check matching serial number if provided
+            if serial and qs.filter(serial_number=serial).exists():
+                raise serializers.ValidationError(
+                    {"serial_number": "Duplicate serial number."}
+                )
+
+            # Check if both identifiers are missing and a corresponding record already exists
+            if (
+                not mv_reg
+                and not serial
+                and qs.filter(mv_registration_number="", serial_number="").exists()
+            ):
+                raise serializers.ValidationError(
+                    "Duplicate asset without registration or serial numbers."
+                )
 
         return attrs
 

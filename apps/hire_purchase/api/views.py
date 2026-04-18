@@ -46,16 +46,19 @@ class HirePurchaseRegistrationViewSet(viewsets.ModelViewSet):
     filterset_fields: list[str] = [
         "asset_type",
         "financier",
-        "purchaser",
         "purchaser_type",
+        "purchaser_individual",
+        "purchaser_company",
         "closure_confirmed",
         "currency",
     ]
     search_fields: list[str] = [
         "agreement_number",
-        "purchaser__username",
-        "purchaser__first_name",
-        "purchaser__last_name",
+        "purchaser_individual__first_name",
+        "purchaser_individual__last_name",
+        "purchaser_company__branch_name",
+        "purchaser_company__company__trading_name",
+        "purchaser_company__company__registration_name",
         "serial_number",
         "mv_registration_number",
         "chassis_number",
@@ -75,12 +78,13 @@ class HirePurchaseRegistrationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self) -> QuerySet[HirePurchaseRegistration]:
         """
-        Returns all HP records with ``financier`` and ``purchaser`` eagerly
-        loaded via ``select_related`` to eliminate N+1 queries during
-        list serialisation.
+        Returns all HP records eagerly loaded via ``select_related``.
         """
         return HirePurchaseRegistration.objects.select_related(
-            "financier", "purchaser"
+            "financier",
+            "purchaser_individual",
+            "purchaser_company",
+            "purchaser_company__company",
         ).all()
 
     # ------------------------------------------------------------------

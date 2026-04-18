@@ -15,17 +15,25 @@ class HirePurchaseRegistrationAdmin(admin.ModelAdmin):
     )
     list_filter = (
         "asset_type",
-        "purchaser_type",
         "closure_confirmed",
         "agreement_start_date",
         "agreement_end_date",
     )
     search_fields = (
         "agreement_number",
-        "purchaser__username",
+        "purchaser_individual__first_name",
+        "purchaser_individual__last_name",
+        "purchaser_company__branch_name",
+        "purchaser_company__company__registration_name",
         "financier__username",
     )
-    readonly_fields = ("lodge_date", "closure_confirmed_at", "created_at", "updated_at")
+    readonly_fields = (
+        "purchaser",
+        "lodge_date",
+        "closure_confirmed_at",
+        "created_at",
+        "updated_at",
+    )
     fieldsets = (
         (
             "Agreement",
@@ -50,7 +58,8 @@ class HirePurchaseRegistrationAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "purchaser_type",
-                    "purchaser",
+                    "purchaser_individual",
+                    "purchaser_company",
                 )
             },
         ),
