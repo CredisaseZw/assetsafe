@@ -295,6 +295,9 @@ class HirePurchaseRegistration(TimeStampedModel):
         elif self.purchaser_company:
             self.purchaser_type = "company"
 
+        if self.purchase_amount is not None and self.total_paid_to_date is not None:
+            self.balance = self.purchase_amount - self.total_paid_to_date
+
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:
