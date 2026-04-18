@@ -70,6 +70,7 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "id",
             "purchaser_type",
+            "balance",
             "lodge_date",
             "closure_confirmed_at",
             "created_at",
@@ -124,9 +125,8 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
         Cross-field validation covering:
         1. Agreement date ordering.
         2. Instalment cannot exceed purchase amount.
-        3. Auto-derive balance when not supplied.
-        4. Financier and purchaser must be different users.
-        5. Duplicate registrations of the same asset.
+        3. Financier and purchaser must be different users.
+        4. Duplicate registrations of the same asset.
         """
         # --- 1. Date ordering ---
         start = attrs.get(
@@ -167,14 +167,6 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
                     )
                 }
             )
-
-        # --- 3. Auto-derive balance ---
-        if purchase_amount is not None and "balance" not in attrs:
-            total_paid = attrs.get(
-                "total_paid_to_date",
-                getattr(self.instance, "total_paid_to_date", 0),
-            )
-            attrs["balance"] = purchase_amount - total_paid
 
         # --- 4. Financier ≠ purchaser ---
         financier = attrs.get("financier", getattr(self.instance, "financier", None))

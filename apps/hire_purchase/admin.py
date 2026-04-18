@@ -29,6 +29,7 @@ class HirePurchaseRegistrationAdmin(admin.ModelAdmin):
     )
     readonly_fields = (
         "purchaser",
+        "balance",
         "lodge_date",
         "closure_confirmed_at",
         "created_at",
