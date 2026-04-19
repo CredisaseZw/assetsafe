@@ -221,6 +221,8 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     "SWAGGER_UI_SETTINGS": {
         "persistAuthorization": True,
+        "deepLinking": True,
+        "displayOperationId": True,
     },
     "APPEND_COMPONENTS": {
         "securitySchemes": {
