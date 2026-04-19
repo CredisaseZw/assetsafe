@@ -1,3 +1,5 @@
+"""Init file for common models."""
+
 from .models import (
     PartyType,
     BaseAssetType,
