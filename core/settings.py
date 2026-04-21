@@ -26,6 +26,38 @@ load_dotenv()
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv("SECRET_KEY")
 
+
+def getenv_required(key: str) -> str:
+    """Get a required environment variable."""
+    value = os.getenv(key)
+    if value is None:
+        raise ValueError(f"Required environment variable '{key}' is not set")
+    return value
+
+
+def getenv_bool(key: str, default: bool = False) -> bool:
+    """Get a boolean environment variable."""
+    value = os.getenv(key, str(default)).lower()
+    return value in ("true", "1", "yes", "on")
+
+
+def getenv_int(key: str, default: int = 0) -> int:
+    """Get an integer environment variable."""
+    value = os.getenv(key, str(default))
+    try:
+        return int(value)
+    except ValueError:
+        raise ValueError(
+            f"Environment variable '{key}' must be an integer, got '{value}'"
+        )
+
+
+def getenv_list(key: str, default: str = "") -> list[str]:
+    """Get a list environment variable (comma-separated)."""
+    value = os.getenv(key, default)
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG") == "True"
 
@@ -103,7 +135,18 @@ DATABASES = {
         "PORT": os.getenv("DB_PORT"),
     }
 }
+# ==================== EMAIL SETTINGS ====================
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND")
+EMAIL_HOST = os.getenv("EMAIL_HOST")
+EMAIL_PORT = getenv_int("EMAIL_PORT", 587)
+EMAIL_USE_TLS = getenv_bool("EMAIL_USE_TLS", True)
+EMAIL_USE_SSL = getenv_bool("EMAIL_USE_SSL", False)
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
 
+FRONTEND_LOGIN_URL = os.getenv("FRONTEND_URL")
+PLATFORM_NAME = os.getenv("PLATFORM_NAME")
 
 # REST Framework
 # https://www.django-rest-framework.org/api-guide/settings/
