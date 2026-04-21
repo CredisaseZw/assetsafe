@@ -37,3 +37,37 @@ class CanCreateCompanyUsers(permissions.BasePermission):
             return False
 
         return True
+
+class HasRole(permissions.BasePermission):
+    """
+    Allows access only to users who have a specific role.
+    Usage:
+        class MyView(APIView):
+            permission_classes = [HasRole]
+            required_roles = ['admin', 'financier']
+    """
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        required_roles = getattr(view, 'required_roles', [])
+        if not required_roles:
+            return True
+
+        if request.user.is_superuser:
+            return True
+
+        return request.user.roles.filter(name__in=required_roles).exists()
+
+class IsVerified(permissions.BasePermission):
+    """
+    Allows access only to verified users.
+    """
+    message = _("Your account must be verified to access this resource.")
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user and
+            request.user.is_authenticated and
+            request.user.is_verified
+        )
