@@ -182,3 +182,37 @@ class MinimalUserSerializer(serializers.ModelSerializer):
         model = User
         fields = ["id", "username", "email", "user_type", "is_verified", "client"]
         read_only_fields = fields
+
+
+class PasswordChangeSerializer(serializers.Serializer):
+    current_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True)
+    confirm_password = serializers.CharField(required=True)
+
+    def validate_current_password(self, value):
+        if not self.context["request"].user.check_password(value):
+            raise serializers.ValidationError("Current password is not correct")
+        return value
+
+    def validate(self, data):
+        if data["new_password"] != data["confirm_password"]:
+            raise serializers.ValidationError("New passwords must match")
+        if self.context["request"].user.check_password(data["new_password"]):
+            raise serializers.ValidationError(
+                "New password cannot be the same as the old password."
+            )
+        return data
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    new_password = serializers.CharField(required=True)
+    confirm_password = serializers.CharField(required=True)
+
+    def validate(self, data):
+        if data["new_password"] != data["confirm_password"]:
+            raise serializers.ValidationError("New passwords must match")
+        return data

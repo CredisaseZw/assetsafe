@@ -1,3 +1,4 @@
+import logging
 from django.db import transaction
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
@@ -7,7 +8,7 @@ from apps.individuals.models import Individual
 from apps.companies.models import CompanyBranch
 from apps.users.models.models import Role
 from django.conf import settings
-import logging
+from apps.common.services.tasks import send_notification
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,19 @@ class UserCreationService:
             except Role.DoesNotExist:
                 raise ValidationError("Specified role does not exist")
 
+        # Send welcome notification to client user
+        send_notification(
+            recipient_type="user",
+            recipient_id=user.id,
+            notification_type="WELCOME_CLIENT",
+            context={
+                "user": user,
+                "client": client,
+            },
+            template_name="welcome_client",
+            subject="Welcome to AssetSafe!",
+        )
+
         return user
 
     @classmethod
@@ -87,5 +101,17 @@ class UserCreationService:
 
         if role:
             user.roles.add(role)
+
+        # Send welcome notification to system user
+        send_notification(
+            recipient_type="user",
+            recipient_id=user.id,
+            notification_type="WELCOME_USER",
+            context={
+                "user": user,
+            },
+            template_name="welcome_user",
+            subject="Welcome to AssetSafe!",
+        )
 
         return user
