@@ -10,15 +10,17 @@ from django.utils import timezone
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.request import Request
 from rest_framework.response import Response
 
 from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.asset_management.models import AssetRegistration
+from apps.common.api.views import BaseViewSet
 from .serializers import (
     AssetRegistrationSerializer,
+    AssetRegistrationListSerializer,
     AssetRegistryDashboardSerializer,
 )
 
@@ -47,13 +49,13 @@ class StandardResultsSetPagination(PageNumberPagination):
 # ---------------------------------------------------------------------------
 
 
-class AssetRegistrationViewSet(viewsets.ModelViewSet):
+class AssetRegistrationViewSet(BaseViewSet):
     """
     CRUD ViewSet for the Asset Registry .
     """
 
     serializer_class = AssetRegistrationSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminUser]
     pagination_class = StandardResultsSetPagination
     filter_backends = [
         DjangoFilterBackend,
@@ -65,8 +67,6 @@ class AssetRegistrationViewSet(viewsets.ModelViewSet):
     filterset_fields: list[str] = [
         "asset_type",
         "owner_type",
-        "individual_owner",
-        "company_owner",
         "condition",
         "currency",
     ]
@@ -93,6 +93,15 @@ class AssetRegistrationViewSet(viewsets.ModelViewSet):
         "estimated_value",
     ]
     ordering: list[str] = ["-lodge_date"]
+
+    def get_serializer_class(self):
+        """
+        Return the appropriate serializer class based on the requested action.
+        We return the lighter ListSerializer for list actions for performance.
+        """
+        if self.action == "list":
+            return AssetRegistrationListSerializer
+        return super().get_serializer_class()
 
     def get_queryset(self) -> QuerySet[AssetRegistration]:
         """
@@ -129,8 +138,8 @@ class AssetRegistrationViewSet(viewsets.ModelViewSet):
     # Custom actions
     # ------------------------------------------------------------------
 
-    @action(detail=False, methods=["get"], url_path="dashboard")
-    def dashboard(self, request: Request) -> Response:
+    @action(detail=False, methods=["get"], url_path="stats")
+    def stats(self, request: Request) -> Response:
         """
         Returns the two headline statistics shown at the top of the Asset
         Registry dashboard: total active asset count and their combined

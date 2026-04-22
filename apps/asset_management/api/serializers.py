@@ -67,8 +67,8 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
             "id",
             "registration_number",
             "lodge_date",
-            "created_at",
-            "updated_at",
+            "date_created",
+            "date_updated",
         ]
 
     # ------------------------------------------------------------------
@@ -294,6 +294,62 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
         safely serialise the registration-number generation step.
         """
         return super().create(validated_data)
+
+
+class AssetRegistrationListSerializer(AssetRegistrationSerializer):
+    """
+    Lightweight read-only serializer optimized for list endpoints and dashboards.
+    """
+
+    primary_identifier = serializers.SerializerMethodField(
+        read_only=True,
+        help_text="Returns the MV registration number for vehicles, or the serial number otherwise.",
+    )
+    description = serializers.SerializerMethodField(
+        read_only=True,
+        help_text="Concatenated make and model for display purposes.",
+    )
+    lodge_date = serializers.DateField(read_only=True, format="%d-%b-%y")
+    currency_code = serializers.CharField(
+        source="currency.code",
+        read_only=True,
+    )
+    subscription_start_date = serializers.DateField(read_only=True, format="%d-%b-%y")
+    subscription_end_date = serializers.DateField(read_only=True, format="%d-%b-%y")
+
+    class Meta(AssetRegistrationSerializer.Meta):
+        """Class Meta inherits from AssetRegistrationSerializer.Meta, but overrides fields to a smaller subset for list performance."""
+
+        fields = [
+            "id",
+            "lodge_date",
+            "registration_number",
+            "owner_display",
+            "description",
+            "primary_identifier",
+            "currency_code",
+            "estimated_value",
+            "subscription_start_date",
+            "subscription_end_date",
+            "is_active",
+        ]
+        # read_only_fields are implicit since all output fields in Meta.fields are either standard model fields or explicitly defined read-only method fields.
+
+    def get_primary_identifier(self, obj: AssetRegistration) -> str:
+        """Gets the primary identifier for the asset, which is the MV registration number for vehicles or the serial number for other asset types."""
+        if obj.asset_type == "vehicles":
+            return obj.mv_registration_number
+        return obj.serial_number
+
+    def get_description(self, obj: AssetRegistration) -> str:
+        """Gets the description for the asset, which is a concatenation of the make and model."""
+        if obj.make and obj.model:
+            return f"{obj.make} {obj.model}"
+        if obj.make:
+            return obj.make
+        if obj.model:
+            return obj.model
+        return ""
 
 
 class AssetRegistryDashboardSerializer(serializers.Serializer):

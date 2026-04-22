@@ -9,7 +9,7 @@ from .views import AssetRegistrationViewSet
 
 router = SimpleRouter()
 router.register(  # type: ignore
-    r"asset-registrations",
+    r"",
     AssetRegistrationViewSet,
     basename="asset-registration",
 )
