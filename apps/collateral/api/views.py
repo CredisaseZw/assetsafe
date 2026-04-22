@@ -33,7 +33,7 @@ from .serializers import (
 
 class CollateralRegistrationViewSet(BaseViewSet):
     """
-    CRUD ViewSet for the Collateral Registry .
+    CRUD ViewSet for the Collateral Registry.
     """
 
     serializer_class = CollateralRegistrationSerializer
@@ -98,19 +98,19 @@ class CollateralRegistrationViewSet(BaseViewSet):
         ``select_related`` to prevent N+1 queries when list responses render
         ``financier_display`` and ``debtor_display``.
         """
-        if self.request.user.roles in [
-            "client_user",
-            "client_admin",
-            "individual_client",
-            "company_client",
-        ]:
+        if self.request.user.roles.filter(
+            name__in=[
+                "client_user",
+                "client_admin",
+                "individual_client",
+                "company_client",
+            ]
+        ).exists():
             return CollateralRegistration.objects.select_related(
                 "financier",
                 "individual_debtor",
                 "company_debtor",
-                "company_debtor__company",
-                "currency",
-            ).filter(created_by__client == self.request.user.client)
+            ).filter(created_by__client=self.request.user.client)
 
         return CollateralRegistration.objects.select_related(
             "financier",
