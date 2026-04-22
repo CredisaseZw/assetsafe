@@ -18,9 +18,10 @@ from apps.common.models import (
     TimeStampedModel,
 )
 from apps.clients.models import Client
+from apps.common.models.base_models import BaseModelWithUser
 
 
-class HirePurchaseRegistration(TimeStampedModel):
+class HirePurchaseRegistration(BaseModelWithUser):
     """
     An asset held under a Hire Purchase agreement.
 

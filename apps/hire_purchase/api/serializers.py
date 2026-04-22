@@ -64,8 +64,10 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
             "closure_confirmed_at",
             "is_active",
             "is_pending_closure",
-            "created_at",
-            "updated_at",
+            "date_created",
+            "date_updated",
+            "updated_by",
+            "created_by",
         ]
         read_only_fields = [
             "id",
@@ -274,7 +276,7 @@ class HirePurchaseClosureSerializer(serializers.ModelSerializer):
             "closure_confirmed", instance.closure_confirmed
         )
         instance.save(
-            update_fields=["closure_confirmed", "closure_confirmed_at", "updated_at"]
+            update_fields=["closure_confirmed", "closure_confirmed_at", "date_updated"]
         )
         return instance
 

@@ -32,8 +32,10 @@ class HirePurchaseRegistrationAdmin(admin.ModelAdmin):
         "balance",
         "lodge_date",
         "closure_confirmed_at",
-        "created_at",
-        "updated_at",
+        "date_created",
+        "date_updated",
+        "updated_by",
+        "created_by",
     )
     fieldsets = (
         (
@@ -129,8 +131,10 @@ class HirePurchaseRegistrationAdmin(admin.ModelAdmin):
             "Audit Timestamps",
             {
                 "fields": (
-                    "created_at",
-                    "updated_at",
+                    "date_created",
+                    "date_updated",
+                    "updated_by",
+                    "created_by",
                 ),
                 "classes": ("collapse",),
             },
