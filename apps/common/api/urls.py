@@ -1,7 +1,12 @@
 # apps/common/api/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from apps.common.api.views import LocationViewSet, SuburbViewSet, CurrencyViewSet
+from apps.common.api.views import (
+    LocationViewSet,
+    SuburbViewSet,
+    CurrencyViewSet,
+    CommonChoicesView,
+)
 
 router = DefaultRouter()
 router.register(r"locations", LocationViewSet, basename="location")
@@ -86,6 +91,11 @@ urlpatterns = [
         "currencies/",
         CurrencyViewSet.as_view({"get": "list"}),
         name="currency-list",
+    ),
+    path(
+        "choices/",
+        CommonChoicesView.as_view(),
+        name="common-choices",
     ),
     path("", include(router.urls)),
 ]

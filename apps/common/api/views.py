@@ -2,10 +2,21 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
-from apps.common.models import Country, Province, City, Suburb, Currency
+from apps.common.models import (
+    Country,
+    Province,
+    City,
+    Suburb,
+    Currency,
+    PartyType,
+    BaseAssetType,
+    CollateralAssetType,
+    AssetCondition,
+)
 from apps.common.api.serializers import (
     CountrySerializer,
     CurrencySerializer,
@@ -345,3 +356,42 @@ class CurrencyViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = CurrencySerializer
     permission_classes = [IsAuthenticated]
     pagination_class = None
+
+
+class CommonChoicesView(APIView):
+    """
+    Returns available lookup choices for enumeration fields like
+    PartyType, BaseAssetType, CollateralAssetType, AssetCondition.
+
+    Query parameters:
+    ?types=PartyTypeis(comma separated list to only return requested types)
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        all_choices = {
+            "PartyType": [
+                {"value": choice.value, "label": choice.label} for choice in PartyType
+            ],
+            "BaseAssetType": [
+                {"value": choice.value, "label": choice.label}
+                for choice in BaseAssetType
+            ],
+            "CollateralAssetType": [
+                {"value": choice.value, "label": choice.label}
+                for choice in CollateralAssetType
+            ],
+            "AssetCondition": [
+                {"value": choice.value, "label": choice.label}
+                for choice in AssetCondition
+            ],
+        }
+
+        requested_types = request.query_params.get("types")
+        if requested_types:
+            type_keys = [t.strip() for t in requested_types.split(",")]
+            filtered_choices = {k: v for k, v in all_choices.items() if k in type_keys}
+            return Response(filtered_choices)
+
+        return Response(all_choices)

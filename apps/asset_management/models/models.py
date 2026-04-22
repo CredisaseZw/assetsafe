@@ -14,13 +14,13 @@ from apps.common.models import (
     BaseAssetType,
     AssetCondition,
     Currency,
-    TimeStampedModel,
 )
+from apps.common.models.base_models import BaseModelWithUser
 from apps.companies.models.models import CompanyBranch
 from apps.individuals.models.models import Individual
 
 
-class AssetRegistration(TimeStampedModel):
+class AssetRegistration(BaseModelWithUser):
     """
     An asset lodged in the Asset Registry by an individual or company.
 
@@ -157,6 +157,8 @@ class AssetRegistration(TimeStampedModel):
     )
 
     class Meta:
+        """_summary_"""
+
         ordering = ["-lodge_date"]
         verbose_name = _("Asset Registration")
         verbose_name_plural = _("Asset Registrations")

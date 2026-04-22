@@ -25,7 +25,14 @@ class AssetRegistrationAdmin(admin.ModelAdmin):
         "make",
         "model",
     )
-    readonly_fields = ("registration_number", "lodge_date", "created_at", "updated_at")
+    readonly_fields = (
+        "registration_number",
+        "lodge_date",
+        "date_created",
+        "date_updated",
+        "created_by",
+        "updated_by",
+    )
     fieldsets = (
         (
             "Registration",
@@ -93,8 +100,10 @@ class AssetRegistrationAdmin(admin.ModelAdmin):
             "Audit Timestamps",
             {
                 "fields": (
-                    "created_at",
-                    "updated_at",
+                    "date_created",
+                    "date_updated",
+                    "created_by",
+                    "updated_by",
                 ),
                 "classes": ("collapse",),
             },
