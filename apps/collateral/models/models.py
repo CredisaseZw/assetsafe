@@ -34,7 +34,7 @@ class CollateralRegistration(BaseModelWithUser):
 
     Lifecycle
     ---------
-    * ``Active`` — ``agreement_start_date`` has passed and ``agreement_end_date``
+    * ``Active`` —  ``agreement_start_date`` has passed and ``agreement_end_date``
       has not yet arrived.
     * ``Pending Discharge Confirmation`` — ``agreement_end_date`` has passed but
       the financier has not yet clicked "Discharge" in the system.
