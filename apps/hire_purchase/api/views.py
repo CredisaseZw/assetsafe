@@ -17,6 +17,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.asset_management.api.views import StandardResultsSetPagination
 from apps.hire_purchase.models.models import HirePurchaseRegistration
+from apps.users.utils.permissions import HasRole
 from .serializers import (
     HirePurchaseClosureSerializer,
     HirePurchaseDashboardSerializer,
@@ -35,7 +36,8 @@ class HirePurchaseRegistrationViewSet(viewsets.ModelViewSet):
     """
 
     serializer_class = HirePurchaseRegistrationSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasRole]
+    role_required = ["admin", "client_admin"]
     pagination_class = StandardResultsSetPagination
     filter_backends = [
         DjangoFilterBackend,
