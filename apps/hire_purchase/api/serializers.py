@@ -109,7 +109,7 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
     # ------------------------------------------------------------------
 
     def validate_instalment_day(self, value: int) -> int:
-        """Day-of-month must be within calendar bounds (1–31)."""
+        """Day-of-month must be within calendar bounds (1-31)."""
         if not 1 <= value <= 31:
             raise serializers.ValidationError(
                 "Instalment day must be between 1 and 31."

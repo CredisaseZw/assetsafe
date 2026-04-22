@@ -17,8 +17,8 @@ from apps.common.models import (
     CollateralAssetType,
     AssetCondition,
     Currency,
-    TimeStampedModel,
 )
+from apps.common.models.base_models import BaseModelWithUser
 from apps.clients.models.models import Client
 from apps.companies.models.models import CompanyBranch
 from apps.individuals.models.models import Individual
@@ -28,7 +28,7 @@ DEBTOR_TYPE_COMPANY = PartyType.COMPANY.value
 DEBTOR_TYPE_CHOICES = PartyType.choices
 
 
-class CollateralRegistration(TimeStampedModel):
+class CollateralRegistration(BaseModelWithUser):
     """
     An asset lodged as collateral against a loan by a financier.
 
@@ -55,22 +55,9 @@ class CollateralRegistration(TimeStampedModel):
         related_name="collateral_records_as_financier",
         verbose_name=_("Financier"),
     )
-    data_source_name = models.CharField(
-        max_length=200,
-        verbose_name=_("Data Source Name"),
-        help_text=_("Full name of the financier representative supplying this record."),
-    )
     data_date = models.DateField(
         verbose_name=_("Data Date"),
         help_text=_("Date on which the financier wants the record lodged."),
-    )
-    position = models.CharField(
-        max_length=100,
-        blank=True,
-        verbose_name=_("Position"),
-        help_text=_(
-            "Job title of the data-source representative within the financier organisation."
-        ),
     )
 
     # ---- Debtor (the borrower) ----

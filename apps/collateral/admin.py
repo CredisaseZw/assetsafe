@@ -47,8 +47,10 @@ class CollateralRegistrationAdmin(admin.ModelAdmin):
     readonly_fields = (
         "lodge_date",
         "discharge_confirmed_at",
-        "created_at",
-        "updated_at",
+        "date_created",
+        "date_updated",
+        "created_by",
+        "updated_by",
     )
     fieldsets = (
         (
@@ -139,8 +141,10 @@ class CollateralRegistrationAdmin(admin.ModelAdmin):
             "Audit Timestamps",
             {
                 "fields": (
-                    "created_at",
-                    "updated_at",
+                    "date_created",
+                    "date_updated",
+                    "created_by",
+                    "updated_by",
                 ),
                 "classes": ("collapse",),
             },

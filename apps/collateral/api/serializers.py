@@ -67,7 +67,7 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
     # ------------------------------------------------------------------
 
     def validate_instalment_day(self, value: int) -> int:
-        """Day-of-month must be within calendar bounds (1–31)."""
+        """Day-of-month must be within calendar bounds (1-31)."""
         if not 1 <= value <= 31:
             raise serializers.ValidationError(
                 "Instalment day must be between 1 and 31."
@@ -361,7 +361,7 @@ class CollateralDischargeSerializer(serializers.ModelSerializer):
             "is_discharged", instance.is_discharged
         )
         instance.save(
-            update_fields=["is_discharged", "discharge_confirmed_at", "updated_at"]
+            update_fields=["is_discharged", "discharge_confirmed_at", "date_updated"]
         )
         return instance
 
@@ -373,3 +373,67 @@ class CollateralDashboardSerializer(serializers.Serializer):
 
     active_agreements = serializers.IntegerField(min_value=0)
     pending_discharge_confirmation = serializers.IntegerField(min_value=0)
+
+
+class CollateralRegistrationListSerializer(CollateralRegistrationSerializer):
+    """
+    Subclass of the full serializer, optimized for list views by including
+    related fields needed for display and skipping expensive computed fields.
+    """
+
+    lodge_date = serializers.DateField(read_only=True, format="%d-%b-%y")
+    agreement_start_date = serializers.DateField(read_only=True, format="%d-%b-%y")
+    agreement_end_date = serializers.DateField(read_only=True, format="%d-%b-%y")
+    currency_code = serializers.CharField(
+        source="currency.code",
+        read_only=True,
+    )
+    description = serializers.SerializerMethodField(
+        read_only=True,
+        help_text="Concatenated make and model for display purposes.",
+    )
+    primary_identifier = serializers.SerializerMethodField(
+        read_only=True,
+        help_text="Returns the MV registration number for vehicles, or the serial number otherwise.",
+    )
+
+    class Meta(CollateralRegistrationSerializer.Meta):
+        """class Meta for CollateralRegistrationListSerializer"""
+
+        fields = [
+            "id",
+            "lodge_date",
+            "agreement_number",
+            "financier_display",
+            "debtor_display",
+            "description",
+            "primary_identifier",
+            "currency_code",
+            "total_debt",
+            "agreement_start_date",
+            "agreement_end_date",
+            "is_discharged",
+        ]
+        read_only_fields = fields
+
+    def get_financier_display(self, obj: CollateralRegistration) -> str:
+        return obj.financier_display
+
+    def get_debtor_display(self, obj: CollateralRegistration) -> str:
+        return obj.debtor_display
+
+    def get_description(self, obj: CollateralRegistration) -> str:
+        """Gets the description for the asset, which is a concatenation of the make and model."""
+        if obj.make and obj.model:
+            return f"{obj.make} {obj.model}"
+        if obj.make:
+            return obj.make
+        if obj.model:
+            return obj.model
+        return ""
+
+    def get_primary_identifier(self, obj: CollateralRegistration) -> str:
+        """Gets the primary identifier for the asset, which is the MV registration number for vehicles or the serial number for other asset types."""
+        if obj.asset_type == "vehicles":
+            return obj.asset_registration_number
+        return obj.serial_number

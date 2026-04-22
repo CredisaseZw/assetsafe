@@ -7,19 +7,21 @@ from __future__ import annotations
 
 from django.db.models import Count, Q, QuerySet
 from django.utils import timezone
-from rest_framework import filters, status, viewsets
+from rest_framework import filters, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
 from django_filters.rest_framework import DjangoFilterBackend
-
+from apps.users.utils.permissions import HasRole, roles_allowed
 from apps.asset_management.api.views import StandardResultsSetPagination
 from apps.collateral.models.models import CollateralRegistration
+from apps.common.api.views import BaseViewSet
 from .serializers import (
     CollateralDashboardSerializer,
     CollateralDischargeSerializer,
+    CollateralRegistrationListSerializer,
     CollateralRegistrationSerializer,
 )
 
@@ -29,13 +31,20 @@ from .serializers import (
 # ---------------------------------------------------------------------------
 
 
-class CollateralRegistrationViewSet(viewsets.ModelViewSet):
+class CollateralRegistrationViewSet(BaseViewSet):
     """
-    CRUD ViewSet for the Collateral Registry .
+    CRUD ViewSet for the Collateral Registry.
     """
 
     serializer_class = CollateralRegistrationSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasRole]
+    required_roles = [
+        "admin",
+        "client_admin",
+        "client_user",
+        "company_client",
+        "individual_client",
+    ]
     pagination_class = StandardResultsSetPagination
     filter_backends = [
         DjangoFilterBackend,
@@ -74,12 +83,35 @@ class CollateralRegistrationViewSet(viewsets.ModelViewSet):
     ]
     ordering: list[str] = ["-lodge_date"]
 
+    def get_serializer_class(self):
+        """
+        Return the appropriate serializer class based on the requested action.
+        We return the lighter ListSerializer for list actions for performance.
+        """
+        if self.action == "list":
+            return CollateralRegistrationListSerializer
+        return super().get_serializer_class()
+
     def get_queryset(self) -> QuerySet[CollateralRegistration]:
         """
         Returns all collateral records with party relations eagerly loaded via
         ``select_related`` to prevent N+1 queries when list responses render
         ``financier_display`` and ``debtor_display``.
         """
+        if self.request.user.roles.filter(
+            name__in=[
+                "client_user",
+                "client_admin",
+                "individual_client",
+                "company_client",
+            ]
+        ).exists():
+            return CollateralRegistration.objects.select_related(
+                "financier",
+                "individual_debtor",
+                "company_debtor",
+            ).filter(created_by__client=self.request.user.client)
+
         return CollateralRegistration.objects.select_related(
             "financier",
             "individual_debtor",
@@ -91,7 +123,7 @@ class CollateralRegistrationViewSet(viewsets.ModelViewSet):
     # ------------------------------------------------------------------
     # Custom actions
     # ------------------------------------------------------------------
-
+    @roles_allowed(["admin", "client_admin"])
     @action(detail=True, methods=["patch"], url_path="discharge")
     def discharge(self, request: Request, pk: int | None = None) -> Response:
         """
@@ -116,8 +148,8 @@ class CollateralRegistrationViewSet(viewsets.ModelViewSet):
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @action(detail=False, methods=["get"], url_path="dashboard")
-    def dashboard(self, request: Request) -> Response:
+    @action(detail=False, methods=["get"], url_path="stats")
+    def stats(self, request: Request) -> Response:
         """
         Returns the two headline statistics shown at the top of the Collateral
 

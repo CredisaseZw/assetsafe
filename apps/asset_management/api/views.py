@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from django.db.models import Count, QuerySet, Sum
 from django.utils import timezone
-from rest_framework import filters, status, viewsets
+from rest_framework import filters, status
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
