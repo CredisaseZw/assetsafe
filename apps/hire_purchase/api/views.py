@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from django.db.models import Count, Q, QuerySet
 from django.utils import timezone
-from rest_framework import filters, status, viewsets
+from rest_framework import filters, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -16,7 +16,9 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.asset_management.api.views import StandardResultsSetPagination
+from apps.common.api.views import BaseViewSet
 from apps.hire_purchase.models.models import HirePurchaseRegistration
+from apps.users.utils.permissions import HasRole, roles_allowed
 from .serializers import (
     HirePurchaseClosureSerializer,
     HirePurchaseDashboardSerializer,
@@ -29,13 +31,13 @@ from .serializers import (
 # ---------------------------------------------------------------------------
 
 
-class HirePurchaseRegistrationViewSet(viewsets.ModelViewSet):
+class HirePurchaseRegistrationViewSet(BaseViewSet):
     """
     CRUD ViewSet for the Hire Purchase Registry.
     """
 
     serializer_class = HirePurchaseRegistrationSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasRole]
     pagination_class = StandardResultsSetPagination
     filter_backends = [
         DjangoFilterBackend,
@@ -91,6 +93,7 @@ class HirePurchaseRegistrationViewSet(viewsets.ModelViewSet):
     # Custom actions
     # ------------------------------------------------------------------
 
+    @roles_allowed(["admin", "client_admin"])
     @action(detail=True, methods=["patch"], url_path="confirm-closure")
     def confirm_closure(self, request: Request, pk: int | None = None) -> Response:
         """
