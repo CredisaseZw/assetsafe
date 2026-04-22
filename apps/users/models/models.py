@@ -92,6 +92,12 @@ class CustomUser(AbstractUser):
         default=timezone.now,
         help_text=_("The date and time of the user's last login."),
     )
+    position = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text=_("The user's job title or position within their organization."),
+    )
 
     objects = CustomUserManager()
 
@@ -179,9 +185,7 @@ class Role(models.Model):
     name = models.CharField(
         max_length=100,
         unique=True,
-        help_text=_(
-            "Unique name for the role (e.g., 'Property Manager', 'Tenant User')."
-        ),
+        help_text=_("Unique name for the role (e.g., 'Client Admin', 'Client User')."),
     )
     description = models.TextField(
         blank=True, help_text=_("Detailed description of what this role entails.")

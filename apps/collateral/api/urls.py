@@ -9,7 +9,7 @@ from .views import CollateralRegistrationViewSet
 
 router = SimpleRouter()
 router.register(  # type: ignore
-    r"collateral-registrations",
+    r"",
     CollateralRegistrationViewSet,
     basename="collateral-registration",
 )
