@@ -1,0 +1,68 @@
+services:
+  redis:
+    image: redis:7-alpine
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  app:
+    image: assetsafe:prod
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    volumes:
+      - static_volume:/app/staticfiles:z
+      - media_volume:/app/media:z
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  celery_worker:
+    image: assetsafe:prod
+    command: uv run celery -A core worker -l info --concurrency=4
+    env_file:
+      - .env
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+      - app
+    restart: unless-stopped
+
+  celery_beat:
+    image: assetsafe:prod
+    command: uv run celery -A core beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - app
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.29.1-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro,z
+      - static_volume:/app/staticfiles:z
+      - media_volume:/app/media:z
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  static_volume:
+  media_volume:

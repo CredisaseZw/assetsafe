@@ -15,7 +15,6 @@ from apps.common.models import (
     BaseAssetType,
     AssetCondition,
     Currency,
-    TimeStampedModel,
 )
 from apps.clients.models import Client
 from apps.common.models.base_models import BaseModelWithUser
