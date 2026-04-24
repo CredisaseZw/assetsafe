@@ -10,5 +10,14 @@ wheels/
 .venv
 
 .env
+.env.docker
 designs/
 notes.md
+*.log
+*.sqlite3
+*.db
+*.bak
+*.backup
+*.swp
+*.swo
+.DS_Store

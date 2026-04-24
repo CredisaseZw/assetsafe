@@ -3,9 +3,9 @@ from apps.common.models import Currency
 
 
 class Command(BaseCommand):
-    """Command to seed default currencies for RentSafe application."""
+    """Command to seed default currencies for Assetsafe application."""
 
-    help = "Seed default currencies for RentSafe application."
+    help = "Seed default currencies for Assetsafe application."
 
     def handle(self, *args, **kwargs):
         # Define the default currencies with their symbols

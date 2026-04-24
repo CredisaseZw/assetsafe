@@ -1,0 +1,41 @@
+# Virtual envs / caches
+.venv
+venv
+env
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.ruff_cache
+.mypy_cache
+
+# VCS / editors
+.git
+.gitignore
+.github
+.vscode
+.idea
+
+# Build artifacts / local data
+staticfiles
+media
+logs
+*.sqlite3
+*.db
+celerybeat-schedule*
+celerybeat.pid
+
+# Env files (mounted via env_file at runtime; never bake into image)
+.env
+.env.*
+
+
+# Compose / docs / tooling not needed in image
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+README.md
+docker-cheat-sheat.md
+designs
+locustfile.py
