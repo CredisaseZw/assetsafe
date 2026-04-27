@@ -1,5 +1,7 @@
 # To Do Is To Be
 
+[![CI](https://github.com/sehmaluva/assetsafe/actions/workflows/ci.yml/badge.svg)](https://github.com/sehmaluva/assetsafe/actions/workflows/ci.yml)
+
 *Esse est posse*
 
 > "To do is to be" is a Latin philosophical expression often interpreted as
