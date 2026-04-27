@@ -38,8 +38,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 RUN mkdir -p /app/static /app/media /app/logs /app/staticfiles
 
+RUN chmod +x /app/entrypoint.sh
+
 EXPOSE 8081
 
 # Run directly from the prebuilt virtualenv.
-ENTRYPOINT ["python", "/app/entrypoint.py"]
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["gunicorn", "core.wsgi:application", "--bind", "0.0.0.0:8081", "--workers", "3"]

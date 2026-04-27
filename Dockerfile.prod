@@ -31,6 +31,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 RUN mkdir -p /app/static /app/media /app/logs /app/staticfiles
 
+RUN chmod +x /app/entrypoint.sh
+
 EXPOSE 8000
 
-CMD ["/bin/bash", "-c", "uv run python manage.py collectstatic --noinput &&uv run python manage.py migrate --noinput &&uv run gunicorn core.wsgi:application --bind 0.0.0.0:8000 --workers 3"]
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["gunicorn", "core.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]

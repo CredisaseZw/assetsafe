@@ -1,4 +1,19 @@
 services:
+  db:
+    image: postgres:16-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${DB_NAME:-assetsafe}
+      POSTGRES_USER: ${DB_USER:-assetsafe}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-assetsafe}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-assetsafe} -d ${DB_NAME:-assetsafe}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   redis:
     image: redis:7-alpine
     command: redis-server --save 60 1 --loglevel warning
@@ -18,29 +33,36 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: gunicorn core.wsgi:application --bind 0.0.0.0:8081 --workers 3 --reload
+    entrypoint: ["/app/entrypoint.sh"]
+    command: ["gunicorn", "core.wsgi:application", "--bind", "0.0.0.0:8081", "--workers", "3", "--reload"]
     volumes:
       - .:/app:z
       - static_volume:/app/staticfiles:z
       - media_volume:/app/media:z
     env_file:
       - .env.docker
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
     ports:
       - "8081:8081"
     depends_on:
       redis:
         condition: service_healthy
-      # db:  
-      #   condition: service_healthy
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
   celery_worker:
     image: assetsafe:local
-    command: celery -A core worker -l info --concurrency=4
+    command: ["celery", "-A", "core", "worker", "-l", "info", "--concurrency=4"]
     volumes:
       - .:/app:z
     env_file:
       - .env.docker
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
     depends_on:
       - redis
       - app
@@ -48,11 +70,14 @@ services:
 
   celery_beat:
     image: assetsafe:local
-    command: celery -A core beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    command: ["celery", "-A", "core", "beat", "-l", "info", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
     volumes:
       - .:/app:z
     env_file:
       - .env.docker
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
     depends_on:
       - redis
       - app
