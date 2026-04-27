@@ -80,10 +80,20 @@ def _flatten_detail(detail):
     """
     Recursively extract the first human-readable string from a DRF
     ``detail`` value (which may be a string, list, or dict).
+
+    For dicts, the *first* value (in insertion order, Python 3.7+) is used
+    intentionally – the goal is a single short summary string, not an
+    exhaustive enumeration of every field error.
     """
     if isinstance(detail, dict):
-        for value in detail.values():
-            return _flatten_detail(value)
-    if isinstance(detail, list) and detail:
+        # Use the first value (insertion order is stable in Python 3.7+).
+        first_key = next(iter(detail), None)
+        if first_key is not None:
+            return _flatten_detail(detail[first_key])
+        return ""
+    if isinstance(detail, list):
+        # Empty list → no meaningful message available.
+        if not detail:
+            return ""
         return _flatten_detail(detail[0])
     return str(detail)
