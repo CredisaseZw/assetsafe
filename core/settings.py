@@ -229,6 +229,7 @@ REST_FRAMEWORK = {
         "rest_framework.renderers.JSONRenderer",
         "rest_framework.renderers.BrowsableAPIRenderer",
     ],
+    "EXCEPTION_HANDLER": "apps.common.utils.exception_handler.custom_exception_handler",
 }
 
 # SIMPLE JWT SETTINGS
