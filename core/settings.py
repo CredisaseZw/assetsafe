@@ -79,7 +79,7 @@ def getenv_list(key: str, default: str = "") -> list[str]:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG") == "True"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost").split(",")
 
 
 # Application definition
@@ -182,7 +182,7 @@ else:
                 "USER": parsed.username,
                 "PASSWORD": parsed.password,
                 "HOST": parsed.hostname,
-                "PORT": parsed.port or 5432,
+                "PORT": parsed.port ,
                 "OPTIONS": dict(parse_qsl(parsed.query)),
             },
             "pooler": {
@@ -191,7 +191,7 @@ else:
                 "USER": parsed.username,
                 "PASSWORD": parsed.password,
                 "HOST": parsed.hostname,
-                "PORT": parsed.port or 5432,
+                "PORT": parsed.port,
                 "OPTIONS": {
                     "sslmode": "require",
                     "options": "-c statement_timeout=30000",
