@@ -14,6 +14,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema, OpenApiResponse
 
 from apps.asset_management.api.views import StandardResultsSetPagination
 from apps.common.api.views import BaseViewSet
@@ -94,6 +95,20 @@ class HirePurchaseRegistrationViewSet(BaseViewSet):
     # ------------------------------------------------------------------
 
     @roles_allowed(["admin", "client_admin"])
+    @extend_schema(
+        summary="Confirm closure of a Hire Purchase agreement",
+        description=(
+            "Marks the HP agreement as closed (`closure_confirmed=True`) and "
+            "stamps `closure_confirmed_at` server-side. Only the "
+            "`closure_confirmed` flag may be set; other fields are ignored."
+        ),
+        request="HirePurchaseClosureSerializer",
+        responses={
+            200: "HirePurchaseClosureSerializer",
+            400: OpenApiResponse(description="Validation error"),
+            403: OpenApiResponse(description="Insufficient role permissions"),
+        },
+    )
     @action(detail=True, methods=["patch"], url_path="confirm-closure")
     def confirm_closure(self, request: Request, pk: int | None = None) -> Response:
         """
@@ -117,6 +132,16 @@ class HirePurchaseRegistrationViewSet(BaseViewSet):
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        summary="Hire Purchase dashboard statistics",
+        description=(
+            "Returns three headline counts: active agreements (end date in future), "
+            "agreements pending closure confirmation (ended but not yet confirmed), "
+            "and the number of distinct financiers."
+        ),
+        request=None,
+        responses={200: "HirePurchaseDashboardSerializer"},
+    )
     @action(detail=False, methods=["get"], url_path="stats")
     def stats(self, request: Request) -> Response:
         """

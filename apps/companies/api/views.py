@@ -10,6 +10,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import NotFound
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse, inline_serializer
+from rest_framework import serializers as drf_serializers
 from apps.common.api.views import BaseViewSet
 from apps.common.utils.caching import CacheService
 from apps.common.api.serializers import DocumentSerializer
@@ -190,6 +192,20 @@ class CompanyViewSet(BaseViewSet):
                 {"error": extract_error_message(e)}, status.HTTP_400_BAD_REQUEST
             )
 
+    @extend_schema(
+        summary="Toggle company active/inactive status",
+        request=None,
+        responses={
+            200: inline_serializer(
+                name="CompanyToggleActiveResponse",
+                fields={
+                    "message": drf_serializers.CharField(),
+                    "company": drf_serializers.DictField(),
+                },
+            ),
+            404: OpenApiResponse(description="Company not found"),
+        },
+    )
     @action(detail=True, methods=["post"], url_path="toggle-active")
     def toggle_active(self, request, pk=None):
         """Toggle company active/deleted status"""
@@ -209,6 +225,14 @@ class CompanyViewSet(BaseViewSet):
         except Company.DoesNotExist:
             raise NotFound({"error": "Company not found"})
 
+    @extend_schema(
+        summary="List branches for a company",
+        description="Returns all branches belonging to the company specified by `company_id` query parameter.",
+        parameters=[
+            OpenApiParameter(name="company_id", type=int, location=OpenApiParameter.QUERY, description="ID of the company whose branches to list"),
+        ],
+        responses={200: "CompanyBranchSearchSerializer(many=True)"},
+    )
     @action(detail=False, methods=["get"], url_path="company-branches")
     def company_branches(self, request):
         """Get all branches for all companies."""
@@ -227,6 +251,11 @@ class CompanyViewSet(BaseViewSet):
                 {"error": extract_error_message(e)}, status.HTTP_400_BAD_REQUEST
             )
 
+    @extend_schema(
+        summary="Toggle company verified status",
+        request=None,
+        responses={200: "CompanyUpdateSerializer"},
+    )
     @action(detail=True, methods=["post"], url_path="toggle-verified")
     def toggle_verified(self, request, pk=None):
         """Toggle company verified status"""
@@ -237,6 +266,14 @@ class CompanyViewSet(BaseViewSet):
         serializer = self.get_serializer(company)
         return self._create_rendered_response(serializer.data)
 
+    @extend_schema(
+        summary="Upload a document for a company",
+        request="DocumentSerializer",
+        responses={
+            201: "DocumentSerializer",
+            400: OpenApiResponse(description="Validation error"),
+        },
+    )
     @action(detail=True, methods=["post"], url_path="add-documents")
     def add_document(self, request, pk=None):
         try:
@@ -386,6 +423,15 @@ class CompanyBranchViewSet(BaseViewSet):
                 {"error": extract_error_message(e)}, status.HTTP_400_BAD_REQUEST
             )
 
+    @extend_schema(
+        summary="Permanently delete a branch",
+        description="Hard-deletes the branch record from the database. This action is irreversible.",
+        request=None,
+        responses={
+            204: OpenApiResponse(description="Branch permanently deleted"),
+            404: OpenApiResponse(description="Branch not found"),
+        },
+    )
     @action(detail=True, methods=["delete"], url_path="permanent")
     def permanent_delete(self, request, pk=None):
         """Permanently delete a specific branch."""
@@ -401,6 +447,17 @@ class CompanyBranchViewSet(BaseViewSet):
                 {"error": extract_error_message(e)}, status.HTTP_400_BAD_REQUEST
             )
 
+    @extend_schema(
+        summary="Search company branches",
+        description="Full-text search across branch name and parent company identifiers. Requires query parameter `q`.",
+        parameters=[
+            OpenApiParameter(name="q", type=str, location=OpenApiParameter.QUERY, required=True, description="Search term"),
+        ],
+        responses={
+            200: "CompanyBranchSearchSerializer(many=True)",
+            400: OpenApiResponse(description="Missing search term"),
+        },
+    )
     @action(detail=False, methods=["get"], url_path="search")
     @CacheService.cached(tag_prefix="branches:search")
     def search(self, request):

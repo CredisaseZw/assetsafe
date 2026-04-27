@@ -3,6 +3,8 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse, inline_serializer
+from rest_framework import serializers as drf_serializers
 
 from apps.individuals.api.serializers import (
     IndividualAddressSerializer,
@@ -186,6 +188,18 @@ class IndividualViewSet(BaseViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return self._create_rendered_response(serializer.data, status.HTTP_200_OK)
 
+    @extend_schema(
+        summary="Toggle verification status of an individual",
+        description="Toggles the `is_verified` flag for the specified individual.",
+        request=None,
+        responses={
+            200: inline_serializer(
+                name="IndividualVerifyResponse",
+                fields={"message": drf_serializers.CharField()},
+            ),
+            404: OpenApiResponse(description="Individual not found"),
+        },
+    )
     @action(detail=True, methods=["PUT", "PATCH"], url_path="verify")
     def verify_individual(self, request, pk=None):
         try:
@@ -208,6 +222,18 @@ class IndividualViewSet(BaseViewSet):
                 {"error": "Something went wrong"}, status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @extend_schema(
+        summary="Toggle active status of an individual",
+        description="Toggles the `is_active` flag for the specified individual.",
+        request=None,
+        responses={
+            200: inline_serializer(
+                name="IndividualActivateResponse",
+                fields={"message": drf_serializers.CharField()},
+            ),
+            404: OpenApiResponse(description="Individual not found"),
+        },
+    )
     @action(detail=True, methods=["PUT", "PATCH"], url_path="activate")
     def activate_individual(self, request, pk=None):
         try:
@@ -231,6 +257,15 @@ class IndividualViewSet(BaseViewSet):
                 {"error": "Something went wrong"}, status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @extend_schema(
+        summary="Restore a soft-deleted individual",
+        description="Sets `is_deleted=False` and `is_active=True` on the individual, effectively un-deleting it.",
+        request=None,
+        responses={
+            200: OpenApiResponse(description="Individual restored successfully"),
+            404: OpenApiResponse(description="Individual not found"),
+        },
+    )
     @action(detail=True, methods=["PATCH"], url_path="un-delete")
     def un_delete(self, request, pk=None):
         try:
@@ -255,6 +290,14 @@ class IndividualViewSet(BaseViewSet):
                 {"error": "Something went wrong"}, status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @extend_schema(
+        summary="List soft-deleted individuals",
+        description="Returns all individuals where `is_deleted=True`.",
+        responses={
+            200: "IndividualSearchSerializer(many=True)",
+            404: OpenApiResponse(description="No deleted individuals found"),
+        },
+    )
     @action(detail=False, methods=["GET"], url_path="view-deleted")
     def view_deleted(self, request, pk=None):
         try:
@@ -275,6 +318,14 @@ class IndividualViewSet(BaseViewSet):
             )
 
     @CacheService.cached(tag_prefix="individual:{pk}:full-details")
+    @extend_schema(
+        summary="Retrieve full individual details",
+        description="Returns the complete profile of an individual, including all related records (addresses, documents, next of kin, etc.).",
+        responses={
+            200: "IndividualSerializer",
+            404: OpenApiResponse(description="Individual not found"),
+        },
+    )
     @action(detail=True, methods=["GET"], url_path="full-details")
     def retrieve_full_individual_details(self, request, pk=None):
         """Retrieve full detailed information about an individual."""
@@ -319,6 +370,24 @@ class IndividualViewSet(BaseViewSet):
 class BulkUpload(BaseViewSet):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        summary="Bulk-upload individuals via CSV",
+        description=(
+            "Accepts a `.csv` file and asynchronously processes each row as an "
+            "individual record. Processing is handled by a background Celery task."
+        ),
+        request=inline_serializer(
+            name="BulkUploadRequest",
+            fields={"file": drf_serializers.FileField()},
+        ),
+        responses={
+            200: inline_serializer(
+                name="BulkUploadResponse",
+                fields={"message": drf_serializers.CharField()},
+            ),
+            400: OpenApiResponse(description="No file supplied or unsupported file type"),
+        },
+    )
     @action(detail=False, methods=["post"], url_path="run")
     def post(self, request):
         file = request.FILES.get("file")

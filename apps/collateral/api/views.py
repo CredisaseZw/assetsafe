@@ -14,6 +14,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema, OpenApiResponse
 from apps.users.utils.permissions import HasRole, roles_allowed
 from apps.asset_management.api.views import StandardResultsSetPagination
 from apps.collateral.models.models import CollateralRegistration

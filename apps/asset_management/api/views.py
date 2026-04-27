@@ -15,6 +15,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
 
 from apps.asset_management.models import AssetRegistration
 from apps.common.api.views import BaseViewSet
@@ -138,6 +139,16 @@ class AssetRegistrationViewSet(BaseViewSet):
     # Custom actions
     # ------------------------------------------------------------------
 
+    @extend_schema(
+        summary="Asset Registry dashboard statistics",
+        description=(
+            "Returns the total count and combined estimated value of all "
+            "assets with an active subscription window (today is between "
+            "subscription_start_date and subscription_end_date)."
+        ),
+        request=None,
+        responses={200: "AssetRegistryDashboardSerializer"},
+    )
     @action(detail=False, methods=["get"], url_path="stats")
     def stats(self, request: Request) -> Response:
         """

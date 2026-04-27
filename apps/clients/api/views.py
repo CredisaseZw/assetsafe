@@ -16,6 +16,8 @@ from apps.users.api.serializers import UserSerializer, MinimalUserSerializer
 from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse, inline_serializer
+from rest_framework import serializers as drf_serializers
 import logging
 logger = logging.getLogger(__name__)
 
@@ -33,6 +35,19 @@ class ClientViewSet(viewsets.ModelViewSet):
             return MinimalClientSerializer
         return FullClientSerializer
 
+    @extend_schema(
+        summary="Create a portal user for a client",
+        description=(
+            "Creates a user account linked to the specified client. "
+            "For individual clients, the user email must match the individual's registered email."
+        ),
+        request="UserCreateSerializer",
+        responses={
+            201: "UserSerializer",
+            400: OpenApiResponse(description="Validation error or client cannot have users"),
+            404: OpenApiResponse(description="Client not found"),
+        },
+    )
     @action(detail=True, methods=['post'], url_path='create-user')
     def create_user(self, request, pk=None):
         """
@@ -109,6 +124,17 @@ class ClientViewSet(viewsets.ModelViewSet):
                 {"detail": "An error occurred while creating user"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+    @extend_schema(
+        summary="List users for a client",
+        description="Returns all user accounts linked to the specified client. Pass the client ID as the `client_id` query parameter.",
+        parameters=[
+            OpenApiParameter(name="client_id", type=int, location=OpenApiParameter.QUERY, required=True, description="Client primary key"),
+        ],
+        responses={
+            200: "UserSerializer(many=True)",
+            400: OpenApiResponse(description="Missing client_id query parameter"),
+        },
+    )
     @action(detail=False, methods=['get'], url_path='users')
     def list_users(self, request):
         """
@@ -123,6 +149,17 @@ class ClientViewSet(viewsets.ModelViewSet):
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
         
+    @extend_schema(
+        summary="Search clients",
+        description="Searches clients by name or external client ID. Requires query parameter `q`.",
+        parameters=[
+            OpenApiParameter(name="q", type=str, location=OpenApiParameter.QUERY, required=True, description="Search term"),
+        ],
+        responses={
+            200: "MinimalClientSerializer(many=True)",
+            400: OpenApiResponse(description="Missing q query parameter"),
+        },
+    )
     @action(detail=False, methods=['get'], url_path='search')
     def search(self, request):
         """
