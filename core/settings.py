@@ -404,7 +404,7 @@ LOGGING = {
             "formatter": "verbose",
         },
         "file_asset_management": {
-            "level": "ERROR",
+            "level": "INFO",
             "class": "logging.handlers.RotatingFileHandler",
             "filename": os.path.join(LOGS_DIR, "asset_management.log"),
             "maxBytes": 1024 * 1024 * 5,
@@ -412,7 +412,7 @@ LOGGING = {
             "formatter": "verbose",
         },
         "file_hire_purchase": {
-            "level": "ERROR",
+            "level": "INFO",
             "class": "logging.handlers.RotatingFileHandler",
             "filename": os.path.join(LOGS_DIR, "hire_purchase.log"),
             "maxBytes": 1024 * 1024 * 5,
@@ -420,7 +420,7 @@ LOGGING = {
             "formatter": "verbose",
         },
         "file_collateral": {
-            "level": "ERROR",
+            "level": "INFO",
             "class": "logging.handlers.RotatingFileHandler",
             "filename": os.path.join(LOGS_DIR, "collateral.log"),
             "maxBytes": 1024 * 1024 * 5,
@@ -464,7 +464,7 @@ LOGGING = {
             "formatter": "verbose",
         },
         "file_clients": {
-            "level": "ERROR",
+            "level": "INFO",
             "class": "logging.handlers.RotatingFileHandler",
             "filename": os.path.join(LOGS_DIR, "clients.log"),
             "maxBytes": 1024 * 1024 * 5,
@@ -510,17 +510,17 @@ LOGGING = {
         },
         "apps.asset_management": {
             "handlers": ["console", "file_asset_management"],
-            "level": "ERROR",
+            "level": "INFO",
             "propagate": False,
         },
         "apps.hire_purchase": {
             "handlers": ["console", "file_hire_purchase"],
-            "level": "ERROR",
+            "level": "INFO",
             "propagate": False,
         },
         "apps.collateral": {
             "handlers": ["console", "file_collateral"],
-            "level": "ERROR",
+            "level": "INFO",
             "propagate": False,
         },
         "apps.companies": {
@@ -535,7 +535,7 @@ LOGGING = {
         },
         "apps.clients": {
             "handlers": ["console", "file_clients"],
-            "level": "ERROR",
+            "level": "INFO",
             "propagate": False,
         },
     },

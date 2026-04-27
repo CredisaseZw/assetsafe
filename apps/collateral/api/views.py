@@ -5,6 +5,8 @@ views.py — Collateral
 
 from __future__ import annotations
 
+import logging
+
 from django.db.models import Count, Q, QuerySet
 from django.utils import timezone
 from rest_framework import filters, status
@@ -18,12 +20,15 @@ from apps.users.utils.permissions import HasRole, roles_allowed
 from apps.asset_management.api.views import StandardResultsSetPagination
 from apps.collateral.models.models import CollateralRegistration
 from apps.common.api.views import BaseViewSet
+from apps.users.services.audit_service import create_audit_log
 from .serializers import (
     CollateralDashboardSerializer,
     CollateralDischargeSerializer,
     CollateralRegistrationListSerializer,
     CollateralRegistrationSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -121,6 +126,47 @@ class CollateralRegistrationViewSet(BaseViewSet):
         ).all()
 
     # ------------------------------------------------------------------
+    # Audit-logged CRUD hooks
+    # ------------------------------------------------------------------
+
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+        instance = serializer.instance
+        create_audit_log(
+            request=self.request,
+            action="collateral_registration.create",
+            resource_type="CollateralRegistration",
+            resource_id=instance.pk,
+            details={"agreement_number": str(instance.agreement_number)},
+            logger=logger,
+        )
+
+    def perform_update(self, serializer):
+        super().perform_update(serializer)
+        instance = serializer.instance
+        create_audit_log(
+            request=self.request,
+            action="collateral_registration.update",
+            resource_type="CollateralRegistration",
+            resource_id=instance.pk,
+            details={"agreement_number": str(instance.agreement_number)},
+            logger=logger,
+        )
+
+    def perform_destroy(self, instance):
+        resource_id = instance.pk
+        agreement_number = str(instance.agreement_number)
+        super().perform_destroy(instance)
+        create_audit_log(
+            request=self.request,
+            action="collateral_registration.delete",
+            resource_type="CollateralRegistration",
+            resource_id=resource_id,
+            details={"agreement_number": agreement_number},
+            logger=logger,
+        )
+
+    # ------------------------------------------------------------------
     # Custom actions
     # ------------------------------------------------------------------
     @roles_allowed(["admin", "client_admin"])
@@ -146,6 +192,14 @@ class CollateralRegistrationViewSet(BaseViewSet):
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        create_audit_log(
+            request=request,
+            action="collateral_registration.discharge",
+            resource_type="CollateralRegistration",
+            resource_id=instance.pk,
+            details={"agreement_number": str(instance.agreement_number)},
+            logger=logger,
+        )
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=["get"], url_path="stats")

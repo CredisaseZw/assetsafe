@@ -20,6 +20,7 @@ admin.site.index_title = "Welcome to Assetsafe Admin Dashboard"
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/auth/", include("apps.users.api.urls")),
+    path("api/audit-log/", include("apps.users.api.audit_urls")),
     path("api/individuals/", include("apps.individuals.api.urls")),
     path("api/companies/", include("apps.companies.api.urls")),
     path("api/clients/", include("apps.clients.api.urls")),
