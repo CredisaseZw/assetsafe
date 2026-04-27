@@ -15,6 +15,54 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
+def _log_user_creation(user, creator, logger_instance=None):
+    """Emit an audit log entry for user creation (DB + file)."""
+    try:
+        from apps.users.services.audit_service import create_audit_log
+
+        create_audit_log(
+            request=None,
+            action="user.create",
+            resource_type="CustomUser",
+            resource_id=user.pk,
+            details={
+                "username": user.username,
+                "email": user.email,
+                "created_by": creator.username if creator else "system",
+                "is_staff": user.is_staff,
+            },
+            logger=logger_instance or logger,
+        )
+    except Exception:
+        # Never let audit logging break the main flow
+        logger.exception("Failed to write audit log for user.create (user_id=%s)", user.pk)
+
+
+def _log_role_assignment(user, role, creator, logger_instance=None):
+    """Emit an audit log entry for role assignment (DB + file)."""
+    try:
+        from apps.users.services.audit_service import create_audit_log
+
+        create_audit_log(
+            request=None,
+            action="user.role_assigned",
+            resource_type="CustomUser",
+            resource_id=user.pk,
+            details={
+                "username": user.username,
+                "role": role.name,
+                "assigned_by": creator.username if creator else "system",
+            },
+            logger=logger_instance or logger,
+        )
+    except Exception:
+        logger.exception(
+            "Failed to write audit log for user.role_assigned (user_id=%s, role=%s)",
+            user.pk,
+            role.name,
+        )
+
+
 class UserCreationService:
     @classmethod
     @transaction.atomic
@@ -53,8 +101,11 @@ class UserCreationService:
             try:
                 role = Role.objects.get(id=user_data["role_id"])
                 user.roles.add(role)
+                _log_role_assignment(user, role, creator)
             except Role.DoesNotExist:
                 raise ValidationError("Specified role does not exist")
+
+        _log_user_creation(user, creator)
 
         # Send welcome notification to client user
         send_notification(
@@ -101,6 +152,9 @@ class UserCreationService:
 
         if role:
             user.roles.add(role)
+            _log_role_assignment(user, role, creator)
+
+        _log_user_creation(user, creator)
 
         # Send welcome notification to system user
         send_notification(

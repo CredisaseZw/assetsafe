@@ -12,6 +12,7 @@ from apps.companies.models import CompanyBranch
 from apps.clients.api.serializers import ClientCreateUpdateSerializer, FullClientSerializer, MinimalClientSerializer
 from apps.common.services.tasks import send_notification
 from apps.users.services.user_service import UserCreationService
+from apps.users.services.audit_service import create_audit_log
 from apps.users.api.serializers import UserSerializer, MinimalUserSerializer
 from django.contrib.auth import get_user_model
 from django.conf import settings
@@ -32,6 +33,42 @@ class ClientViewSet(viewsets.ModelViewSet):
         elif self.action in ['search']:
             return MinimalClientSerializer
         return FullClientSerializer
+
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        create_audit_log(
+            request=self.request,
+            action="client.create",
+            resource_type="Client",
+            resource_id=instance.pk,
+            details={"name": instance.name, "client_type": instance.client_type},
+            logger=logger,
+        )
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        create_audit_log(
+            request=self.request,
+            action="client.update",
+            resource_type="Client",
+            resource_id=instance.pk,
+            details={"name": instance.name, "client_type": instance.client_type},
+            logger=logger,
+        )
+
+    def perform_destroy(self, instance):
+        resource_id = instance.pk
+        name = instance.name
+        client_type = instance.client_type
+        instance.delete()
+        create_audit_log(
+            request=self.request,
+            action="client.delete",
+            resource_type="Client",
+            resource_id=resource_id,
+            details={"name": name, "client_type": client_type},
+            logger=logger,
+        )
 
     @action(detail=True, methods=['post'], url_path='create-user')
     def create_user(self, request, pk=None):

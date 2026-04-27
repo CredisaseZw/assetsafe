@@ -33,6 +33,7 @@ from apps.users.api.serializers import (
 )
 from apps.users.models import Role
 from apps.users.services.user_service import UserCreationService
+from apps.users.services.audit_service import create_audit_log
 from apps.users.utils.cookies import (
     delete_jwt_cookies,
     create_response_with_cookies,
@@ -228,6 +229,15 @@ class UserViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         old_email = serializer.instance.email
         user = serializer.save()
+
+        create_audit_log(
+            request=self.request,
+            action="user.update",
+            resource_type="CustomUser",
+            resource_id=user.pk,
+            details={"username": user.username, "email": user.email},
+            logger=logger,
+        )
 
         # Check if email was changed
         if old_email and user.email and old_email.lower() != user.email.lower():

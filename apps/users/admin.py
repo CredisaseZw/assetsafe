@@ -6,6 +6,7 @@ from django.contrib.contenttypes.models import ContentType
 from django import forms
 from django.db.models import Q
 from apps.users.models.models import CustomUser, Role, UserSetting
+from apps.users.models.audit import AuditLog
 
 
 class CustomUserCreationForm(forms.ModelForm):
@@ -279,3 +280,41 @@ admin.site.unregister(Group)
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Role, RoleAdmin)
 admin.site.register(UserSetting, UserSettingAdmin)
+
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    list_display = (
+        "timestamp",
+        "created_by",
+        "action",
+        "resource_type",
+        "resource_id",
+        "success",
+        "ip_address",
+    )
+    list_filter = ("resource_type", "success", "action")
+    search_fields = ("action", "resource_type", "created_by__username", "ip_address")
+    readonly_fields = (
+        "timestamp",
+        "created_by",
+        "action",
+        "resource_type",
+        "resource_id",
+        "details",
+        "ip_address",
+        "user_agent",
+        "success",
+        "date_created",
+        "date_updated",
+    )
+    ordering = ("-timestamp",)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

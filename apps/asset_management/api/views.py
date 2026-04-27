@@ -5,6 +5,8 @@ views.py — Asset Management
 
 from __future__ import annotations
 
+import logging
+
 from django.db.models import Count, QuerySet, Sum
 from django.utils import timezone
 from rest_framework import filters, status
@@ -18,11 +20,14 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.asset_management.models import AssetRegistration
 from apps.common.api.views import BaseViewSet
+from apps.users.services.audit_service import create_audit_log
 from .serializers import (
     AssetRegistrationSerializer,
     AssetRegistrationListSerializer,
     AssetRegistryDashboardSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -133,6 +138,47 @@ class AssetRegistrationViewSet(BaseViewSet):
             )
 
         return queryset
+
+    # ------------------------------------------------------------------
+    # Audit-logged CRUD hooks
+    # ------------------------------------------------------------------
+
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+        instance = serializer.instance
+        create_audit_log(
+            request=self.request,
+            action="asset_registration.create",
+            resource_type="AssetRegistration",
+            resource_id=instance.pk,
+            details={"registration_number": str(instance.registration_number)},
+            logger=logger,
+        )
+
+    def perform_update(self, serializer):
+        super().perform_update(serializer)
+        instance = serializer.instance
+        create_audit_log(
+            request=self.request,
+            action="asset_registration.update",
+            resource_type="AssetRegistration",
+            resource_id=instance.pk,
+            details={"registration_number": str(instance.registration_number)},
+            logger=logger,
+        )
+
+    def perform_destroy(self, instance):
+        resource_id = instance.pk
+        registration_number = str(instance.registration_number)
+        super().perform_destroy(instance)
+        create_audit_log(
+            request=self.request,
+            action="asset_registration.delete",
+            resource_type="AssetRegistration",
+            resource_id=resource_id,
+            details={"registration_number": registration_number},
+            logger=logger,
+        )
 
     # ------------------------------------------------------------------
     # Custom actions

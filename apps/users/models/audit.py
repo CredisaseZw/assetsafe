@@ -16,6 +16,7 @@ class AuditLog(BaseModelWithUser):
     success = models.BooleanField(default=True, help_text=_("Whether the action was successful."))
     
     class Meta:
+        app_label = "users"
         verbose_name = _("Audit Log")
         verbose_name_plural = _("Audit Logs")
         ordering = ['-timestamp']
