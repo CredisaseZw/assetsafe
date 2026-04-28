@@ -5,6 +5,7 @@ from .models import HirePurchaseRegistration
 @admin.register(HirePurchaseRegistration)
 class HirePurchaseRegistrationAdmin(admin.ModelAdmin):
     list_display = (
+        "id",
         "agreement_number",
         "purchaser",
         "financier",

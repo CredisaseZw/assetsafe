@@ -14,13 +14,16 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 
 from django_filters.rest_framework import DjangoFilterBackend
+from apps.common.utils.helpers import extract_error_message
 from apps.users.utils.permissions import HasRole, roles_allowed
 from apps.asset_management.api.views import StandardResultsSetPagination
 from apps.collateral.models.models import CollateralRegistration
 from apps.common.api.views import BaseViewSet
-from apps.users.services.audit_service import create_audit_log
+
+# from apps.users.services.audit_service import create_audit_log
 from .serializers import (
     CollateralDashboardSerializer,
     CollateralDischargeSerializer,
@@ -128,43 +131,76 @@ class CollateralRegistrationViewSet(BaseViewSet):
     # ------------------------------------------------------------------
     # Audit-logged CRUD hooks
     # ------------------------------------------------------------------
+    def create(self, request, *args, **kwargs):
+        try:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return self._create_rendered_response(
+                serializer.data, status.HTTP_201_CREATED
+            )
 
-    def perform_create(self, serializer):
-        super().perform_create(serializer)
-        instance = serializer.instance
-        create_audit_log(
-            request=self.request,
-            action="collateral_registration.create",
-            resource_type="CollateralRegistration",
-            resource_id=instance.pk,
-            details={"agreement_number": str(instance.agreement_number)},
-            logger=logger,
-        )
+        except ValidationError as e:
+            return self._create_rendered_response(
+                {"error": extract_error_message(e)}, status.HTTP_400_BAD_REQUEST
+            )
 
-    def perform_update(self, serializer):
-        super().perform_update(serializer)
-        instance = serializer.instance
-        create_audit_log(
-            request=self.request,
-            action="collateral_registration.update",
-            resource_type="CollateralRegistration",
-            resource_id=instance.pk,
-            details={"agreement_number": str(instance.agreement_number)},
-            logger=logger,
-        )
+        except Exception as e:
+            logger.error(f"Error creating collateral registration: {e}")
+            return self._create_rendered_response(
+                {"error": f"Something went wrong:"},
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
-    def perform_destroy(self, instance):
-        resource_id = instance.pk
-        agreement_number = str(instance.agreement_number)
-        super().perform_destroy(instance)
-        create_audit_log(
-            request=self.request,
-            action="collateral_registration.delete",
-            resource_type="CollateralRegistration",
-            resource_id=resource_id,
-            details={"agreement_number": agreement_number},
-            logger=logger,
-        )
+    def update(self, request, *args, **kwargs):
+        try:
+            partial = kwargs.pop("partial", False)
+            instance = self.get_object()
+            serializer = self.get_serializer(
+                instance, data=request.data, partial=partial
+            )
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return self._create_rendered_response(serializer.data)
+
+        except ValidationError as e:
+            return self._create_rendered_response(
+                {"error": extract_error_message(e)}, status.HTTP_400_BAD_REQUEST
+            )
+
+        except Exception as e:
+            logger.error(f"Error updating collateral registration: {e}")
+            return self._create_rendered_response(
+                {"error": "Something went wrong"}, status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            self.perform_destroy(instance)
+            logger.info(
+                f"Collateral registration with agreement number {instance.agreement_number} deleted by user {request.user}"
+            )
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        except Exception as e:
+            logger.error(f"Error deleting collateral registration: {e}")
+            return self._create_rendered_response(
+                {"error": "Something went wrong"}, status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    # def perform_destroy(self, instance):
+    #     resource_id = instance.pk
+    #     agreement_number = str(instance.agreement_number)
+    #     super().perform_destroy(instance)
+    #     create_audit_log(
+    #         request=self.request,
+    #         action="collateral_registration.delete",
+    #         resource_type="CollateralRegistration",
+    #         resource_id=resource_id,
+    #         details={"agreement_number": agreement_number},
+    #         logger=logger,
+    #     )
 
     # ------------------------------------------------------------------
     # Custom actions
@@ -184,23 +220,29 @@ class CollateralRegistrationViewSet(BaseViewSet):
         ``discharge_confirmed_at`` to guard against a client supplying a
         fabricated timestamp.
         """
-        instance: CollateralRegistration = self.get_object()
-        serializer = CollateralDischargeSerializer(
-            instance,
-            data=request.data,
-            partial=True,
-        )
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        create_audit_log(
-            request=request,
-            action="collateral_registration.discharge",
-            resource_type="CollateralRegistration",
-            resource_id=instance.pk,
-            details={"agreement_number": str(instance.agreement_number)},
-            logger=logger,
-        )
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        try:
+            instance: CollateralRegistration = self.get_object()
+            serializer = CollateralDischargeSerializer(
+                instance,
+                data=request.data,
+                partial=True,
+            )
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            # create_audit_log.delay(
+            #     request=request,
+            #     action="collateral_registration.discharge",
+            #     resource_type="CollateralRegistration",
+            #     resource_id=instance.pk,
+            #     details={"agreement_number": str(instance.agreement_number)},
+            #     logger=logger,
+            # )
+            return self._create_rendered_response(serializer.data)
+
+        except ValidationError as e:
+            return self._create_rendered_response(
+                {"error": extract_error_message(e)}, status.HTTP_400_BAD_REQUEST
+            )
 
     @action(detail=False, methods=["get"], url_path="stats")
     def stats(self, request: Request) -> Response:
