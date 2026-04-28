@@ -1,6 +1,6 @@
 """Custom throttle classes for user-facing API endpoints."""
 
-from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
+from rest_framework.throttling import AnonRateThrottle
 
 
 class LoginRateThrottle(AnonRateThrottle):
