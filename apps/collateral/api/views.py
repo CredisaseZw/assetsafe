@@ -125,6 +125,20 @@ class CollateralRegistrationViewSet(BaseViewSet):
     # Custom actions
     # ------------------------------------------------------------------
     @roles_allowed(["admin", "client_admin"])
+    @extend_schema(
+        summary="Discharge a collateral record",
+        description=(
+            "Marks the collateral record as officially discharged (`is_discharged=True`) "
+            "and stamps `discharge_confirmed_at` server-side. Only the `is_discharged` "
+            "flag may be set; other fields are ignored."
+        ),
+        request="CollateralDischargeSerializer",
+        responses={
+            200: "CollateralDischargeSerializer",
+            400: OpenApiResponse(description="Validation error"),
+            403: OpenApiResponse(description="Insufficient role permissions"),
+        },
+    )
     @action(detail=True, methods=["patch"], url_path="discharge")
     def discharge(self, request: Request, pk: int | None = None) -> Response:
         """
@@ -149,6 +163,15 @@ class CollateralRegistrationViewSet(BaseViewSet):
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        summary="Collateral Registry dashboard statistics",
+        description=(
+            "Returns two headline counts: active agreements (start ≤ today ≤ end) "
+            "and agreements pending discharge confirmation (ended but not yet discharged)."
+        ),
+        request=None,
+        responses={200: "CollateralDashboardSerializer"},
+    )
     @action(detail=False, methods=["get"], url_path="stats")
     def stats(self, request: Request) -> Response:
         """

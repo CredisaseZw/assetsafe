@@ -27,6 +27,8 @@ from apps.common.api.serializers import (
 )
 from rest_framework.renderers import JSONRenderer
 from apps.common.utils.caching import CacheService
+from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
+from rest_framework import serializers as drf_serializers
 import logging
 
 logger = logging.getLogger("locations")
@@ -369,6 +371,51 @@ class CommonChoicesView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+class CommonChoicesView(APIView):
+    """
+    Returns available lookup choices for enumeration fields like
+    PartyType, BaseAssetType, CollateralAssetType, AssetCondition.
+
+    Query parameters:
+    ?types=PartyTypeis(comma separated list to only return requested types)
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="List enumeration choices",
+        description=(
+            "Returns value/label pairs for all enumeration fields used across the API "
+            "(`PartyType`, `BaseAssetType`, `CollateralAssetType`, `AssetCondition`). "
+            "Pass a comma-separated list of type names in the `types` query parameter "
+            "to filter the response to only the requested enumerations."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="types",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description=(
+                    "Comma-separated list of choice type names to return. "
+                    "Valid values: PartyType, BaseAssetType, CollateralAssetType, AssetCondition. "
+                    "If omitted, all types are returned."
+                ),
+                examples=None,
+            ),
+        ],
+        responses={
+            200: inline_serializer(
+                name="CommonChoicesResponse",
+                fields={
+                    "PartyType": drf_serializers.ListField(child=drf_serializers.DictField(), required=False),
+                    "BaseAssetType": drf_serializers.ListField(child=drf_serializers.DictField(), required=False),
+                    "CollateralAssetType": drf_serializers.ListField(child=drf_serializers.DictField(), required=False),
+                    "AssetCondition": drf_serializers.ListField(child=drf_serializers.DictField(), required=False),
+                },
+            )
+        },
+    )
     def get(self, request, *args, **kwargs):
         all_choices = {
             "PartyType": [

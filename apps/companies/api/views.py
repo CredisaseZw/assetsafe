@@ -499,6 +499,11 @@ class CompanyBranchViewSet(BaseViewSet):
         serializer = self.get_serializer(branches, many=True)
         return self._create_rendered_response(serializer.data)
 
+    @extend_schema(
+        summary="List claims associated with company branches",
+        description="Returns a paginated list of company branches, primarily used for claims-related views.",
+        responses={200: "CompanyBranchSerializer(many=True)"},
+    )
     @action(detail=False, methods=["get"], url_path="claims")
     def claims(self, request, pk=None):
         """Get all claims associated with a company's branches."""
