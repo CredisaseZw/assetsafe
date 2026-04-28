@@ -293,7 +293,18 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
         ``select_for_update`` inside ``AssetRegistration.save()`` can
         safely serialise the registration-number generation step.
         """
+        validated_data["created_by"] = self.context["request"].user
         return super().create(validated_data)
+
+    @transaction.atomic
+    def update(
+        self, instance: AssetRegistration, validated_data: dict
+    ) -> AssetRegistration:
+        """
+        Wraps the default update in a DB transaction to ensure that any updates to unique identifiers are safely checked against concurrent modifications.
+        """
+        validated_data["updated_by"] = self.context["request"].user
+        return super().update(instance, validated_data)
 
 
 class AssetRegistrationListSerializer(AssetRegistrationSerializer):

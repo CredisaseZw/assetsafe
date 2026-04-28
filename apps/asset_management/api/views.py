@@ -15,10 +15,12 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 
 from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.asset_management.models import AssetRegistration
+from apps.common.utils.helpers import extract_error_message
 from apps.common.api.views import BaseViewSet
 from apps.users.services.audit_service import create_audit_log
 from .serializers import (
@@ -142,30 +144,48 @@ class AssetRegistrationViewSet(BaseViewSet):
     # ------------------------------------------------------------------
     # Audit-logged CRUD hooks
     # ------------------------------------------------------------------
+    def create(self, request, *args, **kwargs):
+        try:
 
-    def perform_create(self, serializer):
-        super().perform_create(serializer)
-        instance = serializer.instance
-        create_audit_log(
-            request=self.request,
-            action="asset_registration.create",
-            resource_type="AssetRegistration",
-            resource_id=instance.pk,
-            details={"registration_number": str(instance.registration_number)},
-            logger=logger,
-        )
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return self._create_rendered_response(
+                serializer.data, status.HTTP_201_CREATED
+            )
 
-    def perform_update(self, serializer):
-        super().perform_update(serializer)
-        instance = serializer.instance
-        create_audit_log(
-            request=self.request,
-            action="asset_registration.update",
-            resource_type="AssetRegistration",
-            resource_id=instance.pk,
-            details={"registration_number": str(instance.registration_number)},
-            logger=logger,
-        )
+        except ValidationError as e:
+            return self._create_rendered_response(
+                {"error": extract_error_message(e)}, status.HTTP_400_BAD_REQUEST
+            )
+
+        except Exception as e:
+            logger.error(f"Error creating asset: {e}")
+            return self._create_rendered_response(
+                {"error": "Something went wrong"}, status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def update(self, request, *args, **kwargs):
+        try:
+            partial = kwargs.pop("partial", False)
+            instance = self.get_object()
+            serializer = self.get_serializer(
+                instance, data=request.data, partial=partial
+            )
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return self._create_rendered_response(serializer.data)
+
+        except ValidationError as e:
+            return self._create_rendered_response(
+                {"error": extract_error_message(e)}, status.HTTP_400_BAD_REQUEST
+            )
+
+        except Exception as e:
+            logger.error(f"Error updating asset: {e}")
+            return self._create_rendered_response(
+                {"error": "Something went wrong"}, status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     def perform_destroy(self, instance):
         resource_id = instance.pk
@@ -191,21 +211,29 @@ class AssetRegistrationViewSet(BaseViewSet):
         Registry dashboard: total active asset count and their combined
         estimated value.
         """
-        today = timezone.now().date()
-        active_qs: QuerySet[AssetRegistration] = AssetRegistration.objects.filter(
-            subscription_start_date__lte=today,
-            subscription_end_date__gte=today,
-        )
-        aggregates: dict = active_qs.aggregate(
-            total_assets=Count("id"),
-            total_estimate_value=Sum("estimated_value"),
-        )
+        try:
 
-        serializer = AssetRegistryDashboardSerializer(
-            data={
-                "total_assets": aggregates["total_assets"] or 0,
-                "total_estimate_value": aggregates["total_estimate_value"] or 0,
-            }
-        )
-        serializer.is_valid(raise_exception=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+            today = timezone.now().date()
+            active_qs: QuerySet[AssetRegistration] = AssetRegistration.objects.filter(
+                subscription_start_date__lte=today,
+                subscription_end_date__gte=today,
+            )
+            aggregates: dict = active_qs.aggregate(
+                total_assets=Count("id"),
+                total_estimate_value=Sum("estimated_value"),
+            )
+
+            serializer = AssetRegistryDashboardSerializer(
+                data={
+                    "total_assets": aggregates["total_assets"] or 0,
+                    "total_estimate_value": aggregates["total_estimate_value"] or 0,
+                }
+            )
+            serializer.is_valid(raise_exception=True)
+            return self._create_rendered_response(serializer.data)
+        except Exception as e:
+            logger.error(f"Error fetching asset registry stats: {e}")
+            return self._create_rendered_response(
+                {"error": "Something went wrong"},
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

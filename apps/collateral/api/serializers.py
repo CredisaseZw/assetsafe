@@ -7,6 +7,7 @@ Serializers for CollateralRegistration model.
 from __future__ import annotations
 
 from django.utils import timezone
+from django.db import transaction
 from rest_framework import serializers
 
 from apps.collateral.constants import ASSET_IDENTIFIER_FIELDS, ASSET_IDENTIFIER_LABELS
@@ -34,13 +35,50 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CollateralRegistration
-        fields = "__all__"
+        fields = [
+            "id",
+            "financier",
+            "data_date",
+            "debtor_type",
+            "individual_debtor",
+            "company_debtor",
+            "agreement_number",
+            "asset_type",
+            "make",
+            "model",
+            "year_of_make",
+            "condition",
+            "asset_registration_number",
+            "chassis_number",
+            "engine_number",
+            "serial_number",
+            "currency",
+            "total_debt",
+            "instalment_amount",
+            "instalment_day",
+            "total_paid_to_date",
+            "balance",
+            "agreement_start_date",
+            "agreement_end_date",
+            "lodge_date",
+            "is_discharged",
+            "discharge_confirmed_at",
+            "date_created",
+            "date_updated",
+            "created_by",
+            "updated_by",
+            "is_active",
+            "is_pending_discharge",
+            "financier_display",
+            "debtor_display",
+        ]
         read_only_fields = [
             "id",
             "lodge_date",
             "discharge_confirmed_at",
-            "created_at",
-            "updated_at",
+            "date_created",
+            "date_updated",
+            "is_active",
         ]
         extra_kwargs = {
             "balance": {"required": False},
@@ -319,6 +357,16 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
 
         return attrs
 
+    @transaction.atomic
+    def create(self, validated_data):
+        validated_data["created_by"] = self.context["request"].user
+        return super().create(validated_data)
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        validated_data["updated_by"] = self.context["request"].user
+        return super().update(instance, validated_data)
+
 
 class CollateralDischargeSerializer(serializers.ModelSerializer):
     """
@@ -343,6 +391,7 @@ class CollateralDischargeSerializer(serializers.ModelSerializer):
             )
         return value
 
+    @transaction.atomic
     def update(
         self, instance: CollateralRegistration, validated_data: dict
     ) -> CollateralRegistration:
@@ -360,6 +409,7 @@ class CollateralDischargeSerializer(serializers.ModelSerializer):
         instance.is_discharged = validated_data.get(
             "is_discharged", instance.is_discharged
         )
+        instance.date_updated = timezone.now()
         instance.save(
             update_fields=["is_discharged", "discharge_confirmed_at", "date_updated"]
         )

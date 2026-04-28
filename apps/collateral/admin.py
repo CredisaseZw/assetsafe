@@ -5,6 +5,7 @@ from .models import CollateralRegistration
 @admin.register(CollateralRegistration)
 class CollateralRegistrationAdmin(admin.ModelAdmin):
     list_display = (
+        "id",
         "agreement_number",
         "financier_display",
         "debtor_display",
@@ -67,8 +68,8 @@ class CollateralRegistrationAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "financier",
-                    "data_source_name",
-                    "position",
+                    # "data_source_name",
+                    # "position",
                     "data_date",
                 )
             },

@@ -5,6 +5,7 @@ from .models import AssetRegistration
 @admin.register(AssetRegistration)
 class AssetRegistrationAdmin(admin.ModelAdmin):
     list_display = (
+        "id",
         "registration_number",
         "owner_display",
         "owner_type",

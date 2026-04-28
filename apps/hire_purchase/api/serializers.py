@@ -7,6 +7,7 @@ Serializers for HirePurchaseRegistration model.
 from __future__ import annotations
 
 from django.utils import timezone
+from django.db import transaction
 from rest_framework import serializers
 
 from apps.hire_purchase.models import HirePurchaseRegistration
@@ -236,6 +237,18 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
 
         return attrs
 
+    @transaction.atomic
+    def create(self, validated_data: dict) -> HirePurchaseRegistration:
+        validated_data["created_by"] = self.context["request"].user
+        return super().create(validated_data)
+
+    @transaction.atomic
+    def update(
+        self, instance: HirePurchaseRegistration, validated_data: dict
+    ) -> HirePurchaseRegistration:
+        validated_data["updated_by"] = self.context["request"].user
+        return super().update(instance, validated_data)
+
 
 class HirePurchaseClosureSerializer(serializers.ModelSerializer):
     """
@@ -258,6 +271,7 @@ class HirePurchaseClosureSerializer(serializers.ModelSerializer):
             )
         return value
 
+    @transaction.atomic
     def update(
         self, instance: HirePurchaseRegistration, validated_data: dict
     ) -> HirePurchaseRegistration:
