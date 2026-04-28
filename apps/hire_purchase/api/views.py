@@ -115,9 +115,9 @@ class HirePurchaseRegistrationViewSet(BaseViewSet):
             )
 
         except Exception as e:
-            logger.error(f"Error creating collateral registration: {e}")
+            logger.error(f"Error creating hire purchase registration: {e}")
             return self._create_rendered_response(
-                {"error": f"Something went wrong:"},
+                {"error": "Something went wrong"},
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -138,7 +138,7 @@ class HirePurchaseRegistrationViewSet(BaseViewSet):
             )
 
         except Exception as e:
-            logger.error(f"Error updating collateral registration: {e}")
+            logger.error(f"Error updating hire purchase registration: {e}")
             return self._create_rendered_response(
                 {"error": "Something went wrong"}, status.HTTP_500_INTERNAL_SERVER_ERROR
             )
@@ -148,12 +148,12 @@ class HirePurchaseRegistrationViewSet(BaseViewSet):
             instance = self.get_object()
             self.perform_destroy(instance)
             logger.info(
-                f"Collateral registration with agreement number {instance.agreement_number} deleted by user {request.user}"
+                f"Hire purchase registration with agreement number {instance.agreement_number} deleted by user {request.user}"
             )
             return Response(status=status.HTTP_204_NO_CONTENT)
 
         except Exception as e:
-            logger.error(f"Error deleting collateral registration: {e}")
+            logger.error(f"Error deleting hire purchase registration: {e}")
             return self._create_rendered_response(
                 {"error": "Something went wrong"}, status.HTTP_500_INTERNAL_SERVER_ERROR
             )

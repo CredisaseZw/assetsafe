@@ -148,7 +148,7 @@ class CollateralRegistrationViewSet(BaseViewSet):
         except Exception as e:
             logger.error(f"Error creating collateral registration: {e}")
             return self._create_rendered_response(
-                {"error": f"Something went wrong:"},
+                {"error": "Something went wrong"},
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
