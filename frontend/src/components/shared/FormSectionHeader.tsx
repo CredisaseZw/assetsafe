@@ -9,10 +9,10 @@ export function FormSectionHeader({ title, variant = 'teal' }: FormSectionHeader
   return (
     <div
       className={cn(
-        'px-4 py-2 text-center text-sm font-semibold uppercase tracking-wider text-white',
-        variant === 'teal' && 'bg-[#1a6070]',
-        variant === 'red' && 'bg-red-600',
-        variant === 'dark' && 'bg-[#1a1a2e]',
+        'px-4 py-2 text-center text-sm font-bold uppercase tracking-wider text-white sm:text-[15px]',
+        variant === 'teal' && 'bg-[#7f7a7b]',
+        variant === 'red' && 'bg-[#c81f1f]',
+        variant === 'dark' && 'bg-black',
       )}
     >
       {title}

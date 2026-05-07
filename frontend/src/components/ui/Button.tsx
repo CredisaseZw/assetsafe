@@ -3,18 +3,19 @@ import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'outline'
+  variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'ghost' | 'outline'
   size?: 'sm' | 'md' | 'lg'
   loading?: boolean
   leftIcon?: React.ReactNode
 }
 
 const variantClasses = {
-  primary: 'bg-[#0f7d8e] hover:bg-[#0d6e7e] text-white border-transparent',
-  secondary: 'bg-[#1a3358] hover:bg-[#122247] text-white border-transparent',
+  primary: 'bg-[#1f6f93] hover:bg-[#175873] text-white border-[#1f6f93]',
+  secondary: 'bg-[#0b4f86] hover:bg-[#093c67] text-white border-[#0b4f86]',
+  success: 'bg-[#10b54b] hover:bg-[#0f993f] text-white border-[#10b54b]',
   danger: 'bg-red-600 hover:bg-red-700 text-white border-transparent',
   ghost: 'bg-transparent hover:bg-slate-100 text-slate-700 border-transparent',
-  outline: 'bg-white hover:bg-slate-50 text-[#0f7d8e] border-[#0f7d8e]',
+  outline: 'bg-white hover:bg-slate-50 text-[#1f6f93] border-[#1f6f93]',
 }
 
 const sizeClasses = {
@@ -36,9 +37,9 @@ export function Button({
   return (
     <button
       className={cn(
-        'inline-flex items-center justify-center gap-1.5 rounded font-medium',
-        'border transition-colors duration-150 focus:outline-none focus:ring-2',
-        'focus:ring-[#0f7d8e]/40 disabled:opacity-50 disabled:cursor-not-allowed',
+        'inline-flex items-center justify-center gap-1.5 rounded-sm border font-semibold',
+        'transition-colors duration-150 focus:outline-none focus:ring-2',
+        'focus:ring-[#1f6f93]/35 disabled:cursor-not-allowed disabled:opacity-50',
         variantClasses[variant],
         sizeClasses[size],
         className,

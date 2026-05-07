@@ -14,177 +14,118 @@ import { cn, formatCurrency, formatDate } from '@/lib/utils'
 import type { AssetRecord, AssetType } from '@/types'
 import { ASSET_TYPES } from '@/types'
 
-const DEMO_DATA = {
-  total_assets: 8785,
-  total_estimate_value: 2513458,
-  records: [
-    {
-      id: 1,
-      lodge_date: '2021-01-23',
-      registration_number: 'AR000001',
-      owner_name: 'Fincheck',
-      owner_type: 'company' as const,
-      owner_id: 1,
-      owner_asset_number: '',
-      asset_description: 'Toyota Hilux',
-      asset_type: 'Vehicles' as const,
-      asset_make: 'Toyota',
-      asset_model: 'Hilux',
-      year_of_make: 2020,
-      condition: 'new' as const,
-      mv_registration_no: 'ADE1234',
-      chassis_number: '',
-      engine_number: '',
-      serial_number: 'ADE1234',
-      currency: 'USD' as const,
-      estimated_value: 55000,
-      location_address: '123 Main St, Harare',
-      subscription_start_date: '2021-01-01',
-      subscription_end_date: '2023-12-31',
-      status: 'active' as const,
-    },
-    {
-      id: 2,
-      lodge_date: '2023-07-01',
-      registration_number: 'AR000326',
-      owner_name: 'Joe Maka',
-      owner_type: 'individual' as const,
-      owner_id: 3,
-      owner_asset_number: '',
-      asset_description: 'Petrux Generator',
-      asset_type: 'Machinery' as const,
-      asset_make: 'Petrux',
-      asset_model: 'Generator',
-      year_of_make: 2019,
-      condition: 'second_hand' as const,
-      mv_registration_no: '',
-      chassis_number: '',
-      engine_number: '',
-      serial_number: '155655L',
-      currency: 'ZWL' as const,
-      estimated_value: 2500000,
-      location_address: '45 Industrial Ave, Bulawayo',
-      subscription_start_date: '2022-06-15',
-      subscription_end_date: '2023-06-14',
-      status: 'active' as const,
-    },
-  ],
-}
-
 export default function AssetRegistryPage() {
   const queryClient = useQueryClient()
   const [filterAssetType, setFilterAssetType] = useState<AssetType | ''>('')
   const [addOpen, setAddOpen] = useState(false)
   const [viewRecord, setViewRecord] = useState<AssetRecord | null>(null)
 
-  const { data, isLoading } = useQuery({
+  const { data: statsData } = useQuery({
     queryKey: ['registry-dashboard', filterAssetType],
     queryFn: () =>
       assetRegistryApi.getDashboard(filterAssetType ? { asset_type: filterAssetType } : undefined),
-    placeholderData: DEMO_DATA,
+  })
+
+  const { data: recordsData, isLoading } = useQuery({
+    queryKey: ['registry-records', filterAssetType],
+    queryFn: () =>
+      assetRegistryApi.getRecords(
+        filterAssetType ? { asset_type: filterAssetType } : undefined,
+      ),
   })
 
   return (
-    <div className="space-y-4">
-      {/* Stats */}
-      <div className="flex flex-wrap gap-4">
-        <StatCard
-          label="Total Assets"
-          value={data?.total_assets?.toLocaleString() ?? '0'}
-        />
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-center justify-between gap-6">
+        <StatCard label="Total Assets" value={statsData?.total_assets?.toLocaleString() ?? '0'} />
         <StatCard
           label="Total Estimate Value"
-          value={`US$${data?.total_estimate_value ? formatCurrency(data.total_estimate_value) : '0.00'}`}
+          value={`US$${statsData?.total_estimate_value ? formatCurrency(statsData.total_estimate_value) : '0.00'}`}
         />
       </div>
 
-      {/* Main card */}
-      <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between bg-[#0d1f3c] px-4 py-2.5">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-white">Asset Registry</h2>
+      <div className="space-y-0 border border-[#8f8f8f] bg-white">
+        <div className="bg-[#7f7a7b] px-4 py-2.5 text-center text-[18px] font-bold uppercase tracking-wide text-white">
+          Asset Registry
         </div>
 
-        {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-50 px-4 py-2.5">
-          <div className="flex items-center gap-2 flex-1">
+        <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-6 lg:px-10">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-[18px] font-bold text-black">Search</span>
             <select
               value={filterAssetType}
               onChange={(e) => setFilterAssetType(e.target.value as AssetType | '')}
-              className="h-8 rounded border border-slate-300 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:border-[#0f7d8e]"
+              className="h-10 rounded-sm border border-black bg-white px-3 text-[14px] text-black focus:outline-none"
             >
-              <option value="">Search Criteria — All</option>
+              <option value="">Criteria</option>
               {ASSET_TYPES.map((t) => (
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>
           </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="primary" leftIcon={<Plus className="h-3 w-3" />} onClick={() => setAddOpen(true)}>
-              Add Single
+
+          <div className="flex items-center gap-0 self-end">
+            <Button size="sm" variant="success" leftIcon={<Plus className="h-3.5 w-3.5" />} onClick={() => setAddOpen(true)} className="h-12 rounded-none px-5 text-[15px] font-bold">
+              <span className="leading-tight">+ Add<br />Single</span>
             </Button>
-            <Button size="sm" variant="secondary" leftIcon={<Plus className="h-3 w-3" />}>
-              Add Multiple
+            <Button size="sm" variant="danger" leftIcon={<Plus className="h-3.5 w-3.5" />} className="h-12 rounded-none px-5 text-[15px] font-bold">
+              <span className="leading-tight">+Add<br />Multiple</span>
             </Button>
           </div>
         </div>
 
-        {/* Sub-section label */}
-        <div className="px-4 py-1.5 bg-slate-50 border-b border-slate-200">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Active Agreements</span>
+        <div className="bg-[#7f7a7b] px-4 py-1.5 text-center text-[18px] font-bold uppercase tracking-wide text-white">
+          Active Agreements
         </div>
 
-        {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="w-full border-collapse text-[13px]">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-left">
-                <th className="px-3 py-2.5 font-semibold text-slate-500">Lodge Date</th>
-                <th className="px-3 py-2.5 font-semibold text-slate-500">Regist. No.</th>
-                <th className="px-3 py-2.5 font-semibold text-slate-500">Owner</th>
-                <th className="px-3 py-2.5 font-semibold text-slate-500">Asset Description</th>
-                <th className="px-3 py-2.5 font-semibold text-slate-500">Reg/Serial No.</th>
-                <th className="px-3 py-2.5 font-semibold text-slate-500">Currency</th>
-                <th className="px-3 py-2.5 font-semibold text-slate-500 text-right">Estimate Value</th>
-                <th className="px-3 py-2.5 font-semibold text-slate-500">Sub. Start</th>
-                <th className="px-3 py-2.5 font-semibold text-slate-500">Sub. End</th>
-                <th className="px-3 py-2.5 font-semibold text-slate-500"></th>
+              <tr className="border-b border-[#8f8f8f] bg-white text-left">
+                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">Lodge Date</th>
+                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">Regist. No.</th>
+                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">Owner</th>
+                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">Asset Description</th>
+                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">Reg/Serial No.</th>
+                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">Currency</th>
+                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black text-right">Estimate Value</th>
+                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">Sub. Start</th>
+                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">Sub. End</th>
+                <th className="px-3 py-2.5 font-bold text-black"></th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <TableSkeleton rows={5} cols={10} />
-              ) : !data?.records?.length ? (
+              ) : !recordsData?.length ? (
                 <EmptyState message="No assets found." />
               ) : (
-                data.records.map((rec, idx) => (
+                recordsData.map((rec, idx) => (
                   <tr
                     key={rec.id}
                     className={cn(
-                      'border-b border-slate-100 hover:bg-slate-50 transition-colors',
-                      idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40',
+                      'border-b border-[#8f8f8f] transition-colors hover:bg-[#f5f5f5]',
+                      idx % 2 === 0 ? 'bg-white' : 'bg-[#fafafa]',
                     )}
                   >
-                    <td className="px-3 py-2.5 text-slate-600">{formatDate(rec.lodge_date)}</td>
-                    <td className="px-3 py-2.5 font-medium text-[#0f7d8e]">{rec.registration_number}</td>
-                    <td className="px-3 py-2.5 text-slate-700">{rec.owner_name}</td>
-                    <td className="px-3 py-2.5 text-slate-700">{rec.asset_description}</td>
-                    <td className="px-3 py-2.5 text-slate-600">{rec.serial_number || rec.mv_registration_no}</td>
-                    <td className="px-3 py-2.5">
-                      <span className="inline-flex rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">{formatDate(rec.lodge_date)}</td>
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 font-medium text-[#0f7d8e]">{rec.registration_number}</td>
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">{rec.owner_name}</td>
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">{rec.asset_description}</td>
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">{rec.serial_number || rec.mv_registration_no}</td>
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
+                      <span className="inline-flex rounded-none border border-[#8f8f8f] bg-white px-2 py-0.5 text-[12px] font-medium text-black">
                         {rec.currency}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 text-right font-medium text-slate-800">
-                      {formatCurrency(rec.estimated_value)}
-                    </td>
-                    <td className="px-3 py-2.5 text-slate-600">{formatDate(rec.subscription_start_date)}</td>
-                    <td className="px-3 py-2.5 text-slate-600">{formatDate(rec.subscription_end_date)}</td>
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-right font-medium text-black">{formatCurrency(rec.estimated_value)}</td>
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">{formatDate(rec.subscription_start_date)}</td>
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">{formatDate(rec.subscription_end_date)}</td>
                     <td className="px-3 py-2.5">
                       <button
                         onClick={() => setViewRecord(rec)}
-                        className="flex items-center gap-1 rounded bg-[#0f7d8e] px-2.5 py-1 text-xs font-medium text-white hover:bg-[#0d6e7e] transition-colors"
+                        className="rounded-none bg-[#0f7d8e] px-3 py-1.5 text-[12px] font-bold text-white transition-colors hover:bg-[#0d6e7e]"
                       >
-                        <Eye className="h-3 w-3" />
                         View
                       </button>
                     </td>
@@ -196,19 +137,20 @@ export default function AssetRegistryPage() {
         </div>
       </div>
 
-      {/* Add Modal */}
+      {/* ── Add Asset Modal ── */}
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="New Asset Registration" size="xl">
         <AssetRegistryForm
           onSuccess={() => {
             setAddOpen(false)
-            toast.success('Asset registered successfully')
+            toast.success('Asset record created successfully')
             queryClient.invalidateQueries({ queryKey: ['registry-dashboard'] })
+            queryClient.invalidateQueries({ queryKey: ['registry-records'] })
           }}
           onCancel={() => setAddOpen(false)}
         />
       </Modal>
 
-      {/* View Modal */}
+      {/* ── View / Edit Modal ── */}
       {viewRecord && (
         <AssetViewModal
           record={viewRecord}
@@ -216,6 +158,7 @@ export default function AssetRegistryPage() {
           onSaved={() => {
             setViewRecord(null)
             queryClient.invalidateQueries({ queryKey: ['registry-dashboard'] })
+            queryClient.invalidateQueries({ queryKey: ['registry-records'] })
           }}
         />
       )}

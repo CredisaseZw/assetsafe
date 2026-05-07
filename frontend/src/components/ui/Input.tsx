@@ -13,7 +13,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="flex flex-col gap-1">
         {label && (
-          <label htmlFor={inputId} className="text-xs font-medium text-slate-600">
+          <label htmlFor={inputId} className="text-xs font-medium text-slate-700">
             {label}
             {required && <span className="text-red-500 ml-0.5">*</span>}
           </label>
@@ -22,10 +22,10 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           ref={ref}
           id={inputId}
           className={cn(
-            'h-8 rounded border border-slate-300 bg-white px-2.5 text-sm text-slate-800',
-            'placeholder:text-slate-400 focus:border-[#0f7d8e] focus:outline-none focus:ring-1',
-            'focus:ring-[#0f7d8e]/30 disabled:bg-slate-100 disabled:cursor-not-allowed',
-            error && 'border-red-400 focus:border-red-400 focus:ring-red-400/20',
+            'h-8 rounded-sm border border-slate-500 bg-white px-2.5 text-sm text-slate-900',
+            'placeholder:text-slate-400 focus:border-black focus:outline-none focus:ring-0',
+            'disabled:cursor-not-allowed disabled:bg-slate-100',
+            error && 'border-red-500 focus:border-red-500',
             className,
           )}
           {...props}

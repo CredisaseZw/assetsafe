@@ -2,31 +2,22 @@
 
 @layer base {
   :root {
-    --navy-950: #0a1628;
-    --navy-900: #0d1f3c;
-    --navy-800: #122247;
-    --navy-700: #1a3358;
-    --teal-700: #0e6b7a;
-    --teal-600: #0f7d8e;
-    --teal-500: #1a9aad;
-    --teal-100: #e0f5f8;
-    --red-header: #dc2626;
-    --bg-page: #f0f2f5;
-    --border: #e2e8f0;
-    --text-muted: #64748b;
+    --bg-page: #ffffff;
+    --border: #8f8f8f;
+    --text-muted: #666666;
   }
 }
 
 * { box-sizing: border-box; }
 
 body {
-  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-family: Arial, Helvetica, sans-serif;
   background-color: var(--bg-page);
-  color: #1e293b;
+  color: #111111;
   margin: 0;
 }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #f1f5f9; }
-::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #64748b; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #efefef; }
+::-webkit-scrollbar-thumb { background: #b5b5b5; border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: #8b8b8b; }

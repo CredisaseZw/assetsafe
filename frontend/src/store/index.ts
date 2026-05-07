@@ -1,12 +1,17 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
+import type { AuthUser } from '@/api/authApi'
 
 // ─── Auth Store ───────────────────────────────────────────────────────────────
 interface AuthState {
-  user: { id: number; name: string; email: string } | null
-  token: string | null
+  user: AuthUser | null
   isAuthenticated: boolean
-  setAuth: (user: AuthState['user'], token: string) => void
+  isInitializing: boolean   // true while we check session on app boot
+
+  // actions
+  setUser: (user: AuthUser) => void
+  setInitializing: (v: boolean) => void
+  loginSuccess: (user: AuthUser) => void
   logout: () => void
 }
 
@@ -14,18 +19,24 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
-      token: null,
       isAuthenticated: false,
-      setAuth: (user, token) => {
-        localStorage.setItem('access_token', token)
-        set({ user, token, isAuthenticated: true })
-      },
+      isInitializing: false,
+
+      setUser: (user) => set({ user, isAuthenticated: true }),
+      setInitializing: (v) => set({ isInitializing: v }),
+
+      loginSuccess: (user) =>
+        set({ user, isAuthenticated: true, isInitializing: false }),
+
       logout: () => {
-        localStorage.removeItem('access_token')
-        set({ user: null, token: null, isAuthenticated: false })
+        set({ user: null, isAuthenticated: false, isInitializing: false })
       },
     }),
-    { name: 'auth-store' },
+    {
+      name: 'auth-store',
+      storage: createJSONStorage(() => sessionStorage), // sessionStorage: cleared when tab closes
+      partialize: (s) => ({ user: s.user, isAuthenticated: s.isAuthenticated }),
+    },
   ),
 )
 

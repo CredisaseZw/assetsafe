@@ -15,7 +15,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="flex flex-col gap-1">
         {label && (
-          <label htmlFor={selectId} className="text-xs font-medium text-slate-600">
+          <label htmlFor={selectId} className="text-xs font-medium text-slate-700">
             {label}
             {required && <span className="text-red-500 ml-0.5">*</span>}
           </label>
@@ -24,11 +24,11 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           ref={ref}
           id={selectId}
           className={cn(
-            'h-8 rounded border border-slate-300 bg-white px-2.5 text-sm text-slate-800',
-            'focus:border-[#0f7d8e] focus:outline-none focus:ring-1 focus:ring-[#0f7d8e]/30',
+            'h-8 rounded-sm border border-slate-500 bg-white px-2.5 text-sm text-slate-900',
+            'focus:border-black focus:outline-none focus:ring-0',
             'disabled:bg-slate-100 disabled:cursor-not-allowed appearance-none',
-            'bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2364748b\' stroke-width=\'2\'%3E%3Cpath d=\'M6 9l6 6 6-6\'/%3E%3C/svg%3E")] bg-no-repeat bg-[right_8px_center]',
-            error && 'border-red-400',
+            'bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23555\' stroke-width=\'2\'%3E%3Cpath d=\'M6 9l6 6 6-6\'/%3E%3C/svg%3E")] bg-no-repeat bg-[right_8px_center]',
+            error && 'border-red-500',
             className,
           )}
           {...props}

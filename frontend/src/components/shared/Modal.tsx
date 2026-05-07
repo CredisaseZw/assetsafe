@@ -22,21 +22,21 @@ export function Modal({ open, onClose, title, children, size = 'lg' }: ModalProp
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-16"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/45 p-4 pt-16"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
         className={cn(
-          'relative w-full rounded-lg bg-white shadow-2xl',
+          'relative w-full border border-[#8f8f8f] bg-white shadow-2xl',
           sizeMap[size],
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between bg-[#0d1f3c] px-4 py-3 rounded-t-lg">
-          <h2 className="text-sm font-semibold text-white uppercase tracking-wide">{title}</h2>
+        <div className="flex items-center justify-between bg-black px-4 py-3">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-white">{title}</h2>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white transition-colors"
+            className="text-slate-300 transition-colors hover:text-white"
           >
             <X className="h-4 w-4" />
           </button>

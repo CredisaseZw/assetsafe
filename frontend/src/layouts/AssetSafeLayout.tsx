@@ -1,7 +1,7 @@
-import React from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Shield } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
 
 const SEGMENTS = [
   { label: 'Collateral', path: '/assetsafe/collateral' },
@@ -11,20 +11,26 @@ const SEGMENTS = [
 
 export default function AssetSafeLayout() {
   const location = useLocation()
+  const { logout } = useAuth()
 
   return (
-    <div className="min-h-screen bg-[#f0f2f5]">
-      {/* ── Top brand bar ── */}
-      <header className="bg-[#0d1f3c] px-6 py-0 shadow-md">
-        <div className="flex items-center gap-0">
-          {/* Brand */}
-          <div className="flex items-center gap-2 px-4 py-3 border-r border-white/10 mr-2">
-            <Shield className="h-5 w-5 text-[#1a9aad]" />
-            <span className="text-lg font-bold tracking-widest text-white">ASSETSAFE</span>
-          </div>
+    <div className="min-h-screen bg-white px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
+      <div className="relative mx-auto w-full max-w-[1340px] border border-[#8f8f8f] bg-white shadow-[0_12px_32px_rgba(0,0,0,0.08)]">
+        <button
+          type="button"
+          onClick={logout}
+          className="absolute right-4 top-4 z-10 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#666] transition-colors hover:text-black"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          Sign out
+        </button>
 
-          {/* Segment tabs */}
-          <nav className="flex h-full">
+        <div className="bg-black py-4 text-center text-[40px] font-black tracking-[0.08em] text-white sm:text-[46px]">
+          ASSETSAFE
+        </div>
+
+        <div className="flex justify-center px-6 pt-10">
+          <nav className="grid w-full max-w-[460px] grid-cols-3 text-center text-[16px] font-bold leading-none sm:text-[18px]">
             {SEGMENTS.map(({ label, path }) => {
               const isActive = location.pathname.startsWith(path)
               return (
@@ -32,11 +38,8 @@ export default function AssetSafeLayout() {
                   key={path}
                   to={path}
                   className={cn(
-                    'flex items-center px-6 py-3 text-sm font-medium transition-colors',
-                    'border-b-2 border-transparent hover:text-white',
-                    isActive
-                      ? 'border-b-2 border-[#1a9aad] text-white bg-white/5'
-                      : 'text-slate-400 hover:bg-white/5',
+                    'border border-[#2a2a2a] px-4 py-2.5 text-[#111] transition-colors',
+                    isActive ? 'bg-white' : 'bg-[#dcdcdc]',
                   )}
                 >
                   {label}
@@ -45,12 +48,11 @@ export default function AssetSafeLayout() {
             })}
           </nav>
         </div>
-      </header>
 
-      {/* ── Page content ── */}
-      <main className="p-5">
-        <Outlet />
-      </main>
+        <main className="px-6 pb-10 pt-10 sm:px-8 lg:px-10">
+          <Outlet />
+        </main>
+      </div>
     </div>
   )
 }
