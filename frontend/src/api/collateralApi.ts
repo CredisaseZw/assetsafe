@@ -1,33 +1,33 @@
-import axiosInstance from './axiosInstance'
+import axiosInstance from './axiosInstance';
 import type {
   ApiResponse,
   CollateralDashboard,
   CollateralRecord,
   CollateralFormData,
   User,
-} from '@/types'
+} from '@/types';
 
 export const collateralApi = {
   getDashboard: async (params?: {
-    search_field?: string
-    search_value?: string
+    search_field?: string;
+    search_value?: string;
   }): Promise<CollateralDashboard> => {
     const { data } = await axiosInstance.get<ApiResponse<CollateralDashboard>>(
       '/collateral/stats/',
       { params },
-    )
-    return data.data ?? (data as unknown as CollateralDashboard)
+    );
+    return data.data ?? (data as unknown as CollateralDashboard);
   },
 
   getRecords: async (params?: {
-    search?: string
-    search_field?: string
-    search_value?: string
+    search?: string;
+    search_field?: string;
+    search_value?: string;
   }): Promise<CollateralRecord[]> => {
-    const { data } = await axiosInstance.get<any>('/collateral/', { params })
-    const payload = data?.data ?? data
-    const records = payload?.results ?? payload?.data ?? payload ?? []
-    if (!Array.isArray(records)) return []
+    const { data } = await axiosInstance.get<any>('/collateral/', { params });
+    const payload = data?.data ?? data;
+    const records = payload?.results ?? payload?.data ?? payload ?? [];
+    if (!Array.isArray(records)) return [];
 
     return records.map((record: any) => ({
       id: record.id,
@@ -36,13 +36,16 @@ export const collateralApi = {
       debtor_name: record.debtor_display ?? record.debtor_name ?? '',
       debtor_type: record.debtor_type ?? 'individual',
       debtor_id: record.debtor_id ?? 0,
-      asset_description: record.description ?? `${record.make ?? ''} ${record.model ?? ''}`.trim(),
+      asset_description:
+        record.description ??
+        `${record.make ?? ''} ${record.model ?? ''}`.trim(),
       asset_type: record.asset_type,
       asset_make: record.make ?? '',
       asset_model: record.model ?? '',
       asset_year: record.year_of_make ?? 0,
       asset_condition: record.condition ?? 'new',
-      asset_registration_no: record.asset_registration_number ?? record.primary_identifier ?? '',
+      asset_registration_no:
+        record.asset_registration_number ?? record.primary_identifier ?? '',
       chassis_number: record.chassis_number ?? '',
       engine_number: record.engine_number ?? '',
       serial_number: record.serial_number ?? record.primary_identifier ?? '',
@@ -61,43 +64,54 @@ export const collateralApi = {
       data_source_position: record.data_source_position ?? '',
       data_date: record.data_date ?? record.lodge_date ?? '',
       status: record.is_discharged ? 'discharged' : 'active',
-    }))
+    }));
   },
 
   getRecord: async (id: number): Promise<CollateralRecord> => {
     const { data } = await axiosInstance.get<ApiResponse<CollateralRecord>>(
       `/collateral/${id}/`,
-    )
-    return data.data ?? (data as unknown as CollateralRecord)
+    );
+    return data.data ?? (data as unknown as CollateralRecord);
   },
 
-  createRecord: async (payload: CollateralFormData): Promise<CollateralRecord> => {
+  createRecord: async (
+    payload: CollateralFormData,
+  ): Promise<CollateralRecord> => {
     const { data } = await axiosInstance.post<ApiResponse<CollateralRecord>>(
       '/collateral/',
       payload,
-    )
-    return data.data ?? (data as unknown as CollateralRecord)
+    );
+    return data.data ?? (data as unknown as CollateralRecord);
   },
 
-  updateRecord: async (id: number, payload: Partial<CollateralFormData>): Promise<CollateralRecord> => {
+  updateRecord: async (
+    id: number,
+    payload: Partial<CollateralFormData>,
+  ): Promise<CollateralRecord> => {
     const { data } = await axiosInstance.patch<ApiResponse<CollateralRecord>>(
       `/collateral/${id}/`,
       payload,
-    )
-    return data.data ?? (data as unknown as CollateralRecord)
+    );
+    return data.data ?? (data as unknown as CollateralRecord);
   },
 
   dischargeRecord: async (id: number): Promise<CollateralRecord> => {
     const { data } = await axiosInstance.post<ApiResponse<CollateralRecord>>(
       `/collateral/${id}/discharge/`,
-    )
-    return data.data ?? (data as unknown as CollateralRecord)
+    );
+    return data.data ?? (data as unknown as CollateralRecord);
   },
 
-  searchUsers: async (query: string, type?: 'individual' | 'company'): Promise<User[]> => {
-    const { data } = await axiosInstance.get<ApiResponse<User[]>>('/users/search/', {
-      params: { q: query, type },
-    })
-    return data.data ?? (data as unknown as User[])
+  searchUsers: async (
+    query: string,
+    type?: 'individual' | 'company',
+  ): Promise<User[]> => {
+    const { data } = await axiosInstance.get<ApiResponse<User[]>>(
+      '/users/search/',
+      {
+        params: { q: query, type },
+      },
+    );
+    return data.data ?? (data as unknown as User[]);
   },
-}
+};

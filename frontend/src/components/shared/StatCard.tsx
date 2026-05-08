@@ -1,9 +1,9 @@
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils';
 
 interface StatCardProps {
-  label: string
-  value: string | number
-  className?: string
+  label: string;
+  value: string | number;
+  className?: string;
 }
 
 export function StatCard({ label, value, className }: StatCardProps) {
@@ -21,5 +21,5 @@ export function StatCard({ label, value, className }: StatCardProps) {
         {value}
       </span>
     </div>
-  )
+  );
 }

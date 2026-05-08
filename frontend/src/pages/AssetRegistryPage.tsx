@@ -1,30 +1,32 @@
-import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
-import { Plus, Eye } from 'lucide-react'
-import { assetRegistryApi } from '@/api/assetRegistryApi'
-import { StatCard } from '@/components/shared/StatCard'
-import { TableSkeleton } from '@/components/shared/TableSkeleton'
-import { EmptyState } from '@/components/shared/EmptyState'
-import { Button } from '@/components/ui/Button'
-import { Modal } from '@/components/shared/Modal'
-import { AssetRegistryForm } from '@/components/registry/AssetRegistryForm'
-import { AssetViewModal } from '@/components/registry/AssetViewModal'
-import { cn, formatCurrency, formatDate } from '@/lib/utils'
-import type { AssetRecord, AssetType } from '@/types'
-import { ASSET_TYPES } from '@/types'
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { Plus, Eye } from 'lucide-react';
+import { assetRegistryApi } from '@/api/assetRegistryApi';
+import { StatCard } from '@/components/shared/StatCard';
+import { TableSkeleton } from '@/components/shared/TableSkeleton';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/shared/Modal';
+import { AssetRegistryForm } from '@/components/registry/AssetRegistryForm';
+import { AssetViewModal } from '@/components/registry/AssetViewModal';
+import { cn, formatCurrency, formatDate } from '@/lib/utils';
+import type { AssetRecord, AssetType } from '@/types';
+import { ASSET_TYPES } from '@/types';
 
 export default function AssetRegistryPage() {
-  const queryClient = useQueryClient()
-  const [filterAssetType, setFilterAssetType] = useState<AssetType | ''>('')
-  const [addOpen, setAddOpen] = useState(false)
-  const [viewRecord, setViewRecord] = useState<AssetRecord | null>(null)
+  const queryClient = useQueryClient();
+  const [filterAssetType, setFilterAssetType] = useState<AssetType | ''>('');
+  const [addOpen, setAddOpen] = useState(false);
+  const [viewRecord, setViewRecord] = useState<AssetRecord | null>(null);
 
   const { data: statsData } = useQuery({
     queryKey: ['registry-dashboard', filterAssetType],
     queryFn: () =>
-      assetRegistryApi.getDashboard(filterAssetType ? { asset_type: filterAssetType } : undefined),
-  })
+      assetRegistryApi.getDashboard(
+        filterAssetType ? { asset_type: filterAssetType } : undefined,
+      ),
+  });
 
   const { data: recordsData, isLoading } = useQuery({
     queryKey: ['registry-records', filterAssetType],
@@ -32,12 +34,15 @@ export default function AssetRegistryPage() {
       assetRegistryApi.getRecords(
         filterAssetType ? { asset_type: filterAssetType } : undefined,
       ),
-  })
+  });
 
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-6">
-        <StatCard label="Total Assets" value={statsData?.total_assets?.toLocaleString() ?? '0'} />
+        <StatCard
+          label="Total Assets"
+          value={statsData?.total_assets?.toLocaleString() ?? '0'}
+        />
         <StatCard
           label="Total Estimate Value"
           value={`US$${statsData?.total_estimate_value ? formatCurrency(statsData.total_estimate_value) : '0.00'}`}
@@ -54,22 +59,45 @@ export default function AssetRegistryPage() {
             <span className="text-[18px] font-bold text-black">Search</span>
             <select
               value={filterAssetType}
-              onChange={(e) => setFilterAssetType(e.target.value as AssetType | '')}
+              onChange={(e) =>
+                setFilterAssetType(e.target.value as AssetType | '')
+              }
               className="h-10 rounded-sm border border-black bg-white px-3 text-[14px] text-black focus:outline-none"
             >
               <option value="">Criteria</option>
               {ASSET_TYPES.map((t) => (
-                <option key={t} value={t}>{t}</option>
+                <option key={t} value={t}>
+                  {t}
+                </option>
               ))}
             </select>
           </div>
 
           <div className="flex items-center gap-0 self-end">
-            <Button size="sm" variant="success" leftIcon={<Plus className="h-3.5 w-3.5" />} onClick={() => setAddOpen(true)} className="h-12 rounded-none px-5 text-[15px] font-bold">
-              <span className="leading-tight">+ Add<br />Single</span>
+            <Button
+              size="sm"
+              variant="success"
+              leftIcon={<Plus className="h-3.5 w-3.5" />}
+              onClick={() => setAddOpen(true)}
+              className="h-12 rounded-none px-5 text-[15px] font-bold"
+            >
+              <span className="leading-tight">
+                + Add
+                <br />
+                Single
+              </span>
             </Button>
-            <Button size="sm" variant="danger" leftIcon={<Plus className="h-3.5 w-3.5" />} className="h-12 rounded-none px-5 text-[15px] font-bold">
-              <span className="leading-tight">+Add<br />Multiple</span>
+            <Button
+              size="sm"
+              variant="danger"
+              leftIcon={<Plus className="h-3.5 w-3.5" />}
+              className="h-12 rounded-none px-5 text-[15px] font-bold"
+            >
+              <span className="leading-tight">
+                +Add
+                <br />
+                Multiple
+              </span>
             </Button>
           </div>
         </div>
@@ -82,15 +110,33 @@ export default function AssetRegistryPage() {
           <table className="w-full border-collapse text-[13px]">
             <thead>
               <tr className="border-b border-[#8f8f8f] bg-white text-left">
-                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">Lodge Date</th>
-                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">Regist. No.</th>
-                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">Owner</th>
-                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">Asset Description</th>
-                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">Reg/Serial No.</th>
-                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">Currency</th>
-                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black text-right">Estimate Value</th>
-                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">Sub. Start</th>
-                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">Sub. End</th>
+                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">
+                  Lodge Date
+                </th>
+                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">
+                  Regist. No.
+                </th>
+                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">
+                  Owner
+                </th>
+                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">
+                  Asset Description
+                </th>
+                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">
+                  Reg/Serial No.
+                </th>
+                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">
+                  Currency
+                </th>
+                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black text-right">
+                  Estimate Value
+                </th>
+                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">
+                  Sub. Start
+                </th>
+                <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">
+                  Sub. End
+                </th>
                 <th className="px-3 py-2.5 font-bold text-black"></th>
               </tr>
             </thead>
@@ -108,19 +154,35 @@ export default function AssetRegistryPage() {
                       idx % 2 === 0 ? 'bg-white' : 'bg-[#fafafa]',
                     )}
                   >
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">{formatDate(rec.lodge_date)}</td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 font-medium text-[#0f7d8e]">{rec.registration_number}</td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">{rec.owner_name}</td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">{rec.asset_description}</td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">{rec.serial_number || rec.mv_registration_no}</td>
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
+                      {formatDate(rec.lodge_date)}
+                    </td>
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 font-medium text-[#0f7d8e]">
+                      {rec.registration_number}
+                    </td>
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
+                      {rec.owner_name}
+                    </td>
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
+                      {rec.asset_description}
+                    </td>
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
+                      {rec.serial_number || rec.mv_registration_no}
+                    </td>
                     <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
                       <span className="inline-flex rounded-none border border-[#8f8f8f] bg-white px-2 py-0.5 text-[12px] font-medium text-black">
                         {rec.currency}
                       </span>
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-right font-medium text-black">{formatCurrency(rec.estimated_value)}</td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">{formatDate(rec.subscription_start_date)}</td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">{formatDate(rec.subscription_end_date)}</td>
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-right font-medium text-black">
+                      {formatCurrency(rec.estimated_value)}
+                    </td>
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
+                      {formatDate(rec.subscription_start_date)}
+                    </td>
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
+                      {formatDate(rec.subscription_end_date)}
+                    </td>
                     <td className="px-3 py-2.5">
                       <button
                         onClick={() => setViewRecord(rec)}
@@ -138,13 +200,18 @@ export default function AssetRegistryPage() {
       </div>
 
       {/* ── Add Asset Modal ── */}
-      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="New Asset Registration" size="xl">
+      <Modal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        title="New Asset Registration"
+        size="xl"
+      >
         <AssetRegistryForm
           onSuccess={() => {
-            setAddOpen(false)
-            toast.success('Asset record created successfully')
-            queryClient.invalidateQueries({ queryKey: ['registry-dashboard'] })
-            queryClient.invalidateQueries({ queryKey: ['registry-records'] })
+            setAddOpen(false);
+            toast.success('Asset record created successfully');
+            queryClient.invalidateQueries({ queryKey: ['registry-dashboard'] });
+            queryClient.invalidateQueries({ queryKey: ['registry-records'] });
           }}
           onCancel={() => setAddOpen(false)}
         />
@@ -156,12 +223,12 @@ export default function AssetRegistryPage() {
           record={viewRecord}
           onClose={() => setViewRecord(null)}
           onSaved={() => {
-            setViewRecord(null)
-            queryClient.invalidateQueries({ queryKey: ['registry-dashboard'] })
-            queryClient.invalidateQueries({ queryKey: ['registry-records'] })
+            setViewRecord(null);
+            queryClient.invalidateQueries({ queryKey: ['registry-dashboard'] });
+            queryClient.invalidateQueries({ queryKey: ['registry-records'] });
           }}
         />
       )}
     </div>
-  )
+  );
 }

@@ -1,13 +1,13 @@
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { useMutation } from '@tanstack/react-query'
-import { toast } from 'sonner'
-import { assetRegistryApi } from '@/api/assetRegistryApi'
-import { Input } from '@/components/ui/Input'
-import { Button } from '@/components/ui/Button'
-import { FormSectionHeader } from '@/components/shared/FormSectionHeader'
-import { ASSET_TYPES, ASSET_CONDITIONS, CURRENCIES } from '@/types'
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useMutation } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { assetRegistryApi } from '@/api/assetRegistryApi';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
+import { FormSectionHeader } from '@/components/shared/FormSectionHeader';
+import { ASSET_TYPES, ASSET_CONDITIONS, CURRENCIES } from '@/types';
 
 const schema = z.object({
   owner_type: z.enum(['individual', 'company']),
@@ -27,19 +27,25 @@ const schema = z.object({
   location_address: z.string().min(1, 'Required'),
   subscription_start_date: z.string().min(1, 'Required'),
   subscription_end_date: z.string().min(1, 'Required'),
-})
+});
 
-type FormValues = z.infer<typeof schema>
+type FormValues = z.infer<typeof schema>;
 
 interface AssetRegistryFormProps {
-  initial?: Partial<FormValues>
-  onSuccess: () => void
-  onCancel: () => void
-  isEdit?: boolean
-  recordId?: number
+  initial?: Partial<FormValues>;
+  onSuccess: () => void;
+  onCancel: () => void;
+  isEdit?: boolean;
+  recordId?: number;
 }
 
-export function AssetRegistryForm({ initial, onSuccess, onCancel, isEdit, recordId }: AssetRegistryFormProps) {
+export function AssetRegistryForm({
+  initial,
+  onSuccess,
+  onCancel,
+  isEdit,
+  recordId,
+}: AssetRegistryFormProps) {
   const {
     register,
     handleSubmit,
@@ -54,10 +60,10 @@ export function AssetRegistryForm({ initial, onSuccess, onCancel, isEdit, record
       condition: 'new',
       ...initial,
     },
-  })
+  });
 
-  const watchAssetType = watch('asset_type')
-  const isVehicle = watchAssetType === 'Vehicles'
+  const watchAssetType = watch('asset_type');
+  const isVehicle = watchAssetType === 'Vehicles';
 
   const { mutate: submit, isPending } = useMutation({
     mutationFn: (data: FormValues) =>
@@ -65,8 +71,9 @@ export function AssetRegistryForm({ initial, onSuccess, onCancel, isEdit, record
         ? assetRegistryApi.updateRecord(recordId, data as any)
         : assetRegistryApi.createRecord(data as any),
     onSuccess,
-    onError: (err: any) => toast.error(err?.response?.data?.message ?? 'Failed to save'),
-  })
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.message ?? 'Failed to save'),
+  });
 
   return (
     <form onSubmit={handleSubmit((d) => submit(d))} className="bg-white">
@@ -74,7 +81,9 @@ export function AssetRegistryForm({ initial, onSuccess, onCancel, isEdit, record
       <FormSectionHeader title="Owner Details" variant="teal" />
       <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
         <div>
-          <label className="text-xs font-medium text-slate-600">Owner Type</label>
+          <label className="text-xs font-medium text-slate-600">
+            Owner Type
+          </label>
           <select
             {...register('owner_type')}
             className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
@@ -112,22 +121,44 @@ export function AssetRegistryForm({ initial, onSuccess, onCancel, isEdit, record
           >
             <option value="">Select asset type</option>
             {ASSET_TYPES.map((t) => (
-              <option key={t} value={t}>{t}</option>
+              <option key={t} value={t}>
+                {t}
+              </option>
             ))}
           </select>
-          {errors.asset_type && <p className="text-xs text-red-500">{errors.asset_type.message}</p>}
+          {errors.asset_type && (
+            <p className="text-xs text-red-500">{errors.asset_type.message}</p>
+          )}
         </div>
-        <Input label="Make" {...register('asset_make')} error={errors.asset_make?.message} required />
-        <Input label="Model" {...register('asset_model')} error={errors.asset_model?.message} required />
-        <Input label="Year of Make" type="number" {...register('year_of_make')} />
+        <Input
+          label="Make"
+          {...register('asset_make')}
+          error={errors.asset_make?.message}
+          required
+        />
+        <Input
+          label="Model"
+          {...register('asset_model')}
+          error={errors.asset_model?.message}
+          required
+        />
+        <Input
+          label="Year of Make"
+          type="number"
+          {...register('year_of_make')}
+        />
         <div>
-          <label className="text-xs font-medium text-slate-600">Condition</label>
+          <label className="text-xs font-medium text-slate-600">
+            Condition
+          </label>
           <select
             {...register('condition')}
             className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
           >
             {ASSET_CONDITIONS.map((c) => (
-              <option key={c.value} value={c.value}>{c.label}</option>
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
             ))}
           </select>
         </div>
@@ -164,7 +195,9 @@ export function AssetRegistryForm({ initial, onSuccess, onCancel, isEdit, record
             className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
           >
             {CURRENCIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
+              <option key={c} value={c}>
+                {c}
+              </option>
             ))}
           </select>
         </div>
@@ -203,11 +236,13 @@ export function AssetRegistryForm({ initial, onSuccess, onCancel, isEdit, record
 
       {/* Footer */}
       <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-3">
-        <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
+        <Button type="button" variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
         <Button type="submit" loading={isPending}>
           {isEdit ? 'Edit' : 'Upload'}
         </Button>
       </div>
     </form>
-  )
+  );
 }

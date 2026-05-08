@@ -1,14 +1,14 @@
-import { Navigate, useLocation } from 'react-router-dom'
-import { useAuthStore } from '@/store'
-import { Loader2 } from 'lucide-react'
+import { Navigate, useLocation } from 'react-router-dom';
+import { useAuthStore } from '@/store';
+import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
-  children: React.ReactNode
+  children: React.ReactNode;
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const location     = useLocation()
-  const { isAuthenticated, isInitializing } = useAuthStore()
+  const location = useLocation();
+  const { isAuthenticated, isInitializing } = useAuthStore();
 
   // While checking session on first load, show a centered spinner
   if (isInitializing) {
@@ -19,13 +19,13 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
           <p className="text-sm text-slate-400">Loading session…</p>
         </div>
       </div>
-    )
+    );
   }
 
   // Not authenticated → send to /login, preserve intended destination
   if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  return <>{children}</>
+  return <>{children}</>;
 }

@@ -1,10 +1,10 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom'
-import AssetSafeLayout from '@/layouts/AssetSafeLayout'
-import { ProtectedRoute } from '@/components/shared/ProtectedRoute'
-import LoginPage from '@/pages/LoginPage'
-import CollateralPage from '@/pages/CollateralPage'
-import HirePurchasePage from '@/pages/HirePurchasePage'
-import AssetRegistryPage from '@/pages/AssetRegistryPage'
+import { createBrowserRouter, Navigate } from 'react-router-dom';
+import AssetSafeLayout from '@/layouts/AssetSafeLayout';
+import { ProtectedRoute } from '@/components/shared/ProtectedRoute';
+import LoginPage from '@/pages/LoginPage';
+import CollateralPage from '@/pages/CollateralPage';
+import HirePurchasePage from '@/pages/HirePurchasePage';
+import AssetRegistryPage from '@/pages/AssetRegistryPage';
 
 export const router = createBrowserRouter([
   // ── Public ──────────────────────────────────────────────────────────────────
@@ -29,9 +29,9 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <Navigate to="collateral" replace /> },
-      { path: 'collateral',     element: <CollateralPage /> },
-      { path: 'hire-purchase',  element: <HirePurchasePage /> },
-      { path: 'registry',       element: <AssetRegistryPage /> },
+      { path: 'collateral', element: <CollateralPage /> },
+      { path: 'hire-purchase', element: <HirePurchasePage /> },
+      { path: 'registry', element: <AssetRegistryPage /> },
     ],
   },
 
@@ -40,4 +40,4 @@ export const router = createBrowserRouter([
     path: '*',
     element: <Navigate to="/login" replace />,
   },
-])
+]);

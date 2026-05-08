@@ -1,11 +1,14 @@
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils';
 
 interface FormSectionHeaderProps {
-  title: string
-  variant?: 'teal' | 'red' | 'dark'
+  title: string;
+  variant?: 'teal' | 'red' | 'dark';
 }
 
-export function FormSectionHeader({ title, variant = 'teal' }: FormSectionHeaderProps) {
+export function FormSectionHeader({
+  title,
+  variant = 'teal',
+}: FormSectionHeaderProps) {
   return (
     <div
       className={cn(
@@ -17,5 +20,5 @@ export function FormSectionHeader({ title, variant = 'teal' }: FormSectionHeader
     >
       {title}
     </div>
-  )
+  );
 }

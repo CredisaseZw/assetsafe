@@ -1,22 +1,31 @@
-import { useState } from 'react'
-import { Modal } from '@/components/shared/Modal'
-import { CollateralForm } from './CollateralForm'
-import type { CollateralRecord } from '@/types'
-import { formatCurrency, formatDate } from '@/lib/utils'
-import { Button } from '@/components/ui/Button'
-import { Edit } from 'lucide-react'
+import { useState } from 'react';
+import { Modal } from '@/components/shared/Modal';
+import { CollateralForm } from './CollateralForm';
+import type { CollateralRecord } from '@/types';
+import { formatCurrency, formatDate } from '@/lib/utils';
+import { Button } from '@/components/ui/Button';
+import { Edit } from 'lucide-react';
 
 interface CollateralViewModalProps {
-  record: CollateralRecord
-  onClose: () => void
-  onSaved: () => void
+  record: CollateralRecord;
+  onClose: () => void;
+  onSaved: () => void;
 }
 
-export function CollateralViewModal({ record, onClose, onSaved }: CollateralViewModalProps) {
-  const [editMode, setEditMode] = useState(false)
+export function CollateralViewModal({
+  record,
+  onClose,
+  onSaved,
+}: CollateralViewModalProps) {
+  const [editMode, setEditMode] = useState(false);
 
   return (
-    <Modal open onClose={onClose} title={`Collateral — ${record.agreement_number}`} size="xl">
+    <Modal
+      open
+      onClose={onClose}
+      title={`Collateral — ${record.agreement_number}`}
+      size="xl"
+    >
       {editMode ? (
         <CollateralForm
           isEdit
@@ -63,7 +72,10 @@ export function CollateralViewModal({ record, onClose, onSaved }: CollateralView
               ['Asset Type', record.asset_type],
               ['Year', record.asset_year],
               ['Condition', record.asset_condition],
-              ['Reg/Serial', record.serial_number || record.asset_registration_no],
+              [
+                'Reg/Serial',
+                record.serial_number || record.asset_registration_no,
+              ],
               ['Currency', record.currency],
               ['Loan Amount', formatCurrency(record.loan_amount)],
               ['Instalment', formatCurrency(record.instalment_amount)],
@@ -73,19 +85,28 @@ export function CollateralViewModal({ record, onClose, onSaved }: CollateralView
               ['Status', record.status],
             ].map(([k, v]) => (
               <div key={String(k)}>
-                <dt className="text-xs font-medium uppercase text-slate-400">{k}</dt>
-                <dd className="mt-0.5 font-medium text-slate-800">{String(v)}</dd>
+                <dt className="text-xs font-medium uppercase text-slate-400">
+                  {k}
+                </dt>
+                <dd className="mt-0.5 font-medium text-slate-800">
+                  {String(v)}
+                </dd>
               </div>
             ))}
           </div>
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-            <Button variant="ghost" onClick={onClose}>Close</Button>
-            <Button leftIcon={<Edit className="h-3.5 w-3.5" />} onClick={() => setEditMode(true)}>
+            <Button variant="ghost" onClick={onClose}>
+              Close
+            </Button>
+            <Button
+              leftIcon={<Edit className="h-3.5 w-3.5" />}
+              onClick={() => setEditMode(true)}
+            >
               Edit
             </Button>
           </div>
         </div>
       )}
     </Modal>
-  )
+  );
 }

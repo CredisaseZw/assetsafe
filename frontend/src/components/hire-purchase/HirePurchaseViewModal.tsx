@@ -1,22 +1,31 @@
-import { useState } from 'react'
-import { Modal } from '@/components/shared/Modal'
-import { HirePurchaseForm } from './HirePurchaseForm'
-import type { HirePurchaseRecord } from '@/types'
-import { formatCurrency, formatDate } from '@/lib/utils'
-import { Button } from '@/components/ui/Button'
-import { Edit } from 'lucide-react'
+import { useState } from 'react';
+import { Modal } from '@/components/shared/Modal';
+import { HirePurchaseForm } from './HirePurchaseForm';
+import type { HirePurchaseRecord } from '@/types';
+import { formatCurrency, formatDate } from '@/lib/utils';
+import { Button } from '@/components/ui/Button';
+import { Edit } from 'lucide-react';
 
 interface HirePurchaseViewModalProps {
-  record: HirePurchaseRecord
-  onClose: () => void
-  onSaved: () => void
+  record: HirePurchaseRecord;
+  onClose: () => void;
+  onSaved: () => void;
 }
 
-export function HirePurchaseViewModal({ record, onClose, onSaved }: HirePurchaseViewModalProps) {
-  const [editMode, setEditMode] = useState(false)
+export function HirePurchaseViewModal({
+  record,
+  onClose,
+  onSaved,
+}: HirePurchaseViewModalProps) {
+  const [editMode, setEditMode] = useState(false);
 
   return (
-    <Modal open onClose={onClose} title={`Hire Purchase — ${record.agreement_number}`} size="xl">
+    <Modal
+      open
+      onClose={onClose}
+      title={`Hire Purchase — ${record.agreement_number}`}
+      size="xl"
+    >
       {editMode ? (
         <HirePurchaseForm
           isEdit
@@ -63,17 +72,28 @@ export function HirePurchaseViewModal({ record, onClose, onSaved }: HirePurchase
               ['End Date', formatDate(record.end_date)],
             ].map(([k, v]) => (
               <div key={String(k)}>
-                <dt className="text-xs font-medium uppercase text-slate-400">{k}</dt>
-                <dd className="mt-0.5 font-medium text-slate-800">{String(v)}</dd>
+                <dt className="text-xs font-medium uppercase text-slate-400">
+                  {k}
+                </dt>
+                <dd className="mt-0.5 font-medium text-slate-800">
+                  {String(v)}
+                </dd>
               </div>
             ))}
           </div>
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-            <Button variant="ghost" onClick={onClose}>Close</Button>
-            <Button leftIcon={<Edit className="h-3.5 w-3.5" />} onClick={() => setEditMode(true)}>Edit</Button>
+            <Button variant="ghost" onClick={onClose}>
+              Close
+            </Button>
+            <Button
+              leftIcon={<Edit className="h-3.5 w-3.5" />}
+              onClick={() => setEditMode(true)}
+            >
+              Edit
+            </Button>
           </div>
         </div>
       )}
     </Modal>
-  )
+  );
 }

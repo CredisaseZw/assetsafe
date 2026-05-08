@@ -1,12 +1,18 @@
-import React from 'react'
-import { cn } from '@/lib/utils'
-import { Loader2 } from 'lucide-react'
+import React from 'react';
+import { cn } from '@/lib/utils';
+import { Loader2 } from 'lucide-react';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'ghost' | 'outline'
-  size?: 'sm' | 'md' | 'lg'
-  loading?: boolean
-  leftIcon?: React.ReactNode
+  variant?:
+    | 'primary'
+    | 'secondary'
+    | 'success'
+    | 'danger'
+    | 'ghost'
+    | 'outline';
+  size?: 'sm' | 'md' | 'lg';
+  loading?: boolean;
+  leftIcon?: React.ReactNode;
 }
 
 const variantClasses = {
@@ -16,13 +22,13 @@ const variantClasses = {
   danger: 'bg-red-600 hover:bg-red-700 text-white border-transparent',
   ghost: 'bg-transparent hover:bg-slate-100 text-slate-700 border-transparent',
   outline: 'bg-white hover:bg-slate-50 text-[#1f6f93] border-[#1f6f93]',
-}
+};
 
 const sizeClasses = {
   sm: 'text-xs px-2.5 py-1.5 h-7',
   md: 'text-sm px-4 py-2 h-9',
   lg: 'text-sm px-5 py-2.5 h-10',
-}
+};
 
 export function Button({
   variant = 'primary',
@@ -50,5 +56,5 @@ export function Button({
       {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : leftIcon}
       {children}
     </button>
-  )
+  );
 }

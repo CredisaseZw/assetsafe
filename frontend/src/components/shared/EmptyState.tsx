@@ -1,7 +1,7 @@
-import { FileSearch } from 'lucide-react'
+import { FileSearch } from 'lucide-react';
 
 interface EmptyStateProps {
-  message?: string
+  message?: string;
 }
 
 export function EmptyState({ message = 'No records found.' }: EmptyStateProps) {
@@ -14,5 +14,5 @@ export function EmptyState({ message = 'No records found.' }: EmptyStateProps) {
         </div>
       </td>
     </tr>
-  )
+  );
 }

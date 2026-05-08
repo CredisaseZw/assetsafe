@@ -1,13 +1,13 @@
-import React from 'react'
-import { X } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import React from 'react';
+import { X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ModalProps {
-  open: boolean
-  onClose: () => void
-  title: string
-  children: React.ReactNode
-  size?: 'sm' | 'md' | 'lg' | 'xl'
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
 const sizeMap = {
@@ -15,10 +15,16 @@ const sizeMap = {
   md: 'max-w-2xl',
   lg: 'max-w-4xl',
   xl: 'max-w-6xl',
-}
+};
 
-export function Modal({ open, onClose, title, children, size = 'lg' }: ModalProps) {
-  if (!open) return null
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  size = 'lg',
+}: ModalProps) {
+  if (!open) return null;
 
   return (
     <div
@@ -33,7 +39,9 @@ export function Modal({ open, onClose, title, children, size = 'lg' }: ModalProp
       >
         {/* Header */}
         <div className="flex items-center justify-between bg-black px-4 py-3">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-white">{title}</h2>
+          <h2 className="text-sm font-bold uppercase tracking-wide text-white">
+            {title}
+          </h2>
           <button
             onClick={onClose}
             className="text-slate-300 transition-colors hover:text-white"
@@ -45,5 +53,5 @@ export function Modal({ open, onClose, title, children, size = 'lg' }: ModalProp
         <div className="p-0">{children}</div>
       </div>
     </div>
-  )
+  );
 }

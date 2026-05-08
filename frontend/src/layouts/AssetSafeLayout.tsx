@@ -1,17 +1,17 @@
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { LogOut } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { useAuth } from '@/hooks/useAuth'
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { LogOut } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
 
 const SEGMENTS = [
   { label: 'Collateral', path: '/assetsafe/collateral' },
   { label: 'HP', path: '/assetsafe/hire-purchase' },
   { label: 'Registry', path: '/assetsafe/registry' },
-] as const
+] as const;
 
 export default function AssetSafeLayout() {
-  const location = useLocation()
-  const { logout } = useAuth()
+  const location = useLocation();
+  const { logout } = useAuth();
 
   return (
     <div className="min-h-screen bg-white px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
@@ -32,7 +32,7 @@ export default function AssetSafeLayout() {
         <div className="flex justify-center px-6 pt-10">
           <nav className="grid w-full max-w-[460px] grid-cols-3 text-center text-[16px] font-bold leading-none sm:text-[18px]">
             {SEGMENTS.map(({ label, path }) => {
-              const isActive = location.pathname.startsWith(path)
+              const isActive = location.pathname.startsWith(path);
               return (
                 <NavLink
                   key={path}
@@ -44,7 +44,7 @@ export default function AssetSafeLayout() {
                 >
                   {label}
                 </NavLink>
-              )
+              );
             })}
           </nav>
         </div>
@@ -54,5 +54,5 @@ export default function AssetSafeLayout() {
         </main>
       </div>
     </div>
-  )
+  );
 }

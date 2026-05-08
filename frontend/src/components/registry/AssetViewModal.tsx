@@ -1,22 +1,31 @@
-import { useState } from 'react'
-import { Modal } from '@/components/shared/Modal'
-import { AssetRegistryForm } from './AssetRegistryForm'
-import type { AssetRecord } from '@/types'
-import { formatCurrency, formatDate } from '@/lib/utils'
-import { Button } from '@/components/ui/Button'
-import { Edit } from 'lucide-react'
+import { useState } from 'react';
+import { Modal } from '@/components/shared/Modal';
+import { AssetRegistryForm } from './AssetRegistryForm';
+import type { AssetRecord } from '@/types';
+import { formatCurrency, formatDate } from '@/lib/utils';
+import { Button } from '@/components/ui/Button';
+import { Edit } from 'lucide-react';
 
 interface AssetViewModalProps {
-  record: AssetRecord
-  onClose: () => void
-  onSaved: () => void
+  record: AssetRecord;
+  onClose: () => void;
+  onSaved: () => void;
 }
 
-export function AssetViewModal({ record, onClose, onSaved }: AssetViewModalProps) {
-  const [editMode, setEditMode] = useState(false)
+export function AssetViewModal({
+  record,
+  onClose,
+  onSaved,
+}: AssetViewModalProps) {
+  const [editMode, setEditMode] = useState(false);
 
   return (
-    <Modal open onClose={onClose} title={`Asset — ${record.registration_number}`} size="xl">
+    <Modal
+      open
+      onClose={onClose}
+      title={`Asset — ${record.registration_number}`}
+      size="xl"
+    >
       {editMode ? (
         <AssetRegistryForm
           isEdit
@@ -61,17 +70,28 @@ export function AssetViewModal({ record, onClose, onSaved }: AssetViewModalProps
               ['Sub. End', formatDate(record.subscription_end_date)],
             ].map(([k, v]) => (
               <div key={String(k)}>
-                <dt className="text-xs font-medium uppercase text-slate-400">{k}</dt>
-                <dd className="mt-0.5 font-medium text-slate-800">{String(v)}</dd>
+                <dt className="text-xs font-medium uppercase text-slate-400">
+                  {k}
+                </dt>
+                <dd className="mt-0.5 font-medium text-slate-800">
+                  {String(v)}
+                </dd>
               </div>
             ))}
           </div>
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-            <Button variant="ghost" onClick={onClose}>Close</Button>
-            <Button leftIcon={<Edit className="h-3.5 w-3.5" />} onClick={() => setEditMode(true)}>Edit</Button>
+            <Button variant="ghost" onClick={onClose}>
+              Close
+            </Button>
+            <Button
+              leftIcon={<Edit className="h-3.5 w-3.5" />}
+              onClick={() => setEditMode(true)}
+            >
+              Edit
+            </Button>
           </div>
         </div>
       )}
     </Modal>
-  )
+  );
 }
