@@ -13,7 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from datetime import timedelta
 from pathlib import Path
 import os
-from urllib.parse import urlparse,parse_qsl
+from urllib.parse import urlparse, parse_qsl
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -44,6 +44,7 @@ SMS_API_KEY = os.environ["SMS_API_KEY"]
 
 FRONTEND_LOGIN_URL = os.getenv("FRONTEND_URL")
 PLATFORM_NAME = os.getenv("PLATFORM_NAME")
+
 
 def getenv_required(key: str) -> str:
     """Get a required environment variable."""
@@ -183,7 +184,7 @@ else:
                 "USER": parsed.username,
                 "PASSWORD": parsed.password,
                 "HOST": parsed.hostname,
-                "PORT": parsed.port ,
+                "PORT": parsed.port,
                 "OPTIONS": dict(parse_qsl(parsed.query)),
             },
             "pooler": {
@@ -274,6 +275,7 @@ SIMPLE_JWT = {
 # https://github.com/adamchainz/django-cors-headers
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  # Vite dev server
+    "http://localhost:5174",
     "http://localhost:3000",  # Alternative dev port
     "http://127.0.0.1:5173",
     "http://127.0.0.1:3000",
@@ -484,7 +486,7 @@ LOGGING = {
             "class": "logging.handlers.RotatingFileHandler",
             "filename": os.path.join(LOGS_DIR, "clients.log"),
             "maxBytes": 1024 * 1024 * 5,
-            "backupCount": 5, 
+            "backupCount": 5,
             "formatter": "verbose",
         },
         "db_audit": {

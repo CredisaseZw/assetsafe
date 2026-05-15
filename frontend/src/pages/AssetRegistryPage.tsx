@@ -38,7 +38,7 @@ export default function AssetRegistryPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-6">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <StatCard
           label="Total Assets"
           value={statsData?.total_assets?.toLocaleString() ?? '0'}
@@ -54,7 +54,7 @@ export default function AssetRegistryPage() {
           Asset Registry
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-6 lg:px-10">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#8f8f8f] px-4 py-6 lg:px-10">
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-[18px] font-bold text-black">Search</span>
             <select
@@ -79,7 +79,7 @@ export default function AssetRegistryPage() {
               variant="success"
               leftIcon={<Plus className="h-3.5 w-3.5" />}
               onClick={() => setAddOpen(true)}
-              className="h-12 rounded-none px-5 text-[15px] font-bold"
+              className="h-12 rounded-none px-5 text-[15px] font-bold text-white"
             >
               <span className="leading-tight">
                 + Add
@@ -91,7 +91,7 @@ export default function AssetRegistryPage() {
               size="sm"
               variant="danger"
               leftIcon={<Plus className="h-3.5 w-3.5" />}
-              className="h-12 rounded-none px-5 text-[15px] font-bold"
+              className="h-12 rounded-none px-5 text-[15px] font-bold text-white"
             >
               <span className="leading-tight">
                 +Add
@@ -107,7 +107,7 @@ export default function AssetRegistryPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-[13px]">
+          <table className="w-full border-collapse text-[14px]">
             <thead>
               <tr className="border-b border-[#8f8f8f] bg-white text-left">
                 <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">
@@ -154,39 +154,39 @@ export default function AssetRegistryPage() {
                       idx % 2 === 0 ? 'bg-white' : 'bg-[#fafafa]',
                     )}
                   >
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-black">
                       {formatDate(rec.lodge_date)}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 font-medium text-[#0f7d8e]">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle font-medium text-[#196A86]">
                       {rec.registration_number}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-black">
                       {rec.owner_name}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-black">
                       {rec.asset_description}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-black">
                       {rec.serial_number || rec.mv_registration_no}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
-                      <span className="inline-flex rounded-none border border-[#8f8f8f] bg-white px-2 py-0.5 text-[12px] font-medium text-black">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-black">
+                      <span className="inline-flex rounded-sm bg-[#ededeb] px-2 py-0.5 text-[12px] font-semibold text-slate-800">
                         {rec.currency}
                       </span>
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-right font-medium text-black">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-right font-medium text-black">
                       {formatCurrency(rec.estimated_value)}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-black">
                       {formatDate(rec.subscription_start_date)}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-black">
                       {formatDate(rec.subscription_end_date)}
                     </td>
-                    <td className="px-3 py-2.5">
+                    <td className="px-3 py-2.5 align-middle">
                       <button
                         onClick={() => setViewRecord(rec)}
-                        className="rounded-none bg-[#0f7d8e] px-3 py-1.5 text-[12px] font-bold text-white transition-colors hover:bg-[#0d6e7e]"
+                        className="rounded-none bg-[#196A86] px-3 py-1.5 text-[12px] font-bold text-white transition-colors hover:bg-[#15586f]"
                       >
                         View
                       </button>

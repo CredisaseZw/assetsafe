@@ -41,7 +41,7 @@ export default function HirePurchasePage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-6">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <StatCard
           label="Number of Financiers"
           value={statsData?.number_of_financiers ?? 0}
@@ -61,7 +61,7 @@ export default function HirePurchasePage() {
           Hire Purchase Registry
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-6 lg:px-10">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#8f8f8f] px-4 py-6 lg:px-10">
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-[18px] font-bold text-black">Search</span>
             <Building2 className="h-4 w-4 text-black" />
@@ -90,7 +90,7 @@ export default function HirePurchasePage() {
               variant="success"
               leftIcon={<Plus className="h-3.5 w-3.5" />}
               onClick={() => setAddOpen(true)}
-              className="h-12 rounded-none px-5 text-[15px] font-bold"
+              className="h-12 rounded-none px-5 text-[15px] font-bold text-white"
             >
               <span className="leading-tight">
                 + Add
@@ -102,7 +102,7 @@ export default function HirePurchasePage() {
               size="sm"
               variant="danger"
               leftIcon={<Plus className="h-3.5 w-3.5" />}
-              className="h-12 rounded-none px-5 text-[15px] font-bold"
+              className="h-12 rounded-none px-5 text-[15px] font-bold text-white"
             >
               <span className="leading-tight">
                 +Add
@@ -118,7 +118,7 @@ export default function HirePurchasePage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-[13px]">
+          <table className="w-full border-collapse text-[14px]">
             <thead>
               <tr className="border-b border-[#8f8f8f] bg-white text-left">
                 <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black w-8">
@@ -168,42 +168,42 @@ export default function HirePurchasePage() {
                       idx % 2 === 0 ? 'bg-white' : 'bg-[#fafafa]',
                     )}
                   >
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-black">
                       {idx + 1}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-black">
                       {formatDate(rec.lodge_date)}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 font-medium text-[#0f7d8e]">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle font-medium text-[#196A86]">
                       {rec.agreement_number}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-black">
                       {rec.purchaser_name}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-black">
                       {rec.asset_make} {rec.asset_model}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-black">
                       {rec.reg_serial_number}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
-                      <span className="inline-flex rounded-none border border-[#8f8f8f] bg-white px-2 py-0.5 text-[12px] font-medium text-black">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-black">
+                      <span className="inline-flex rounded-sm bg-[#ededeb] px-2 py-0.5 text-[12px] font-semibold text-slate-800">
                         {rec.currency}
                       </span>
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-right font-medium text-black">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-right font-medium text-black">
                       {formatCurrency(rec.purchase_amount)}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-black">
                       {formatDate(rec.start_date)}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-black">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-black">
                       {formatDate(rec.end_date)}
                     </td>
-                    <td className="px-3 py-2.5">
+                    <td className="px-3 py-2.5 align-middle">
                       <button
                         onClick={() => setViewRecord(rec)}
-                        className="flex items-center gap-1 rounded-none bg-[#0f7d8e] px-3 py-1.5 text-[12px] font-bold text-white transition-colors hover:bg-[#0d6e7e]"
+                        className="flex items-center gap-1 rounded-none bg-[#196A86] px-3 py-1.5 text-[12px] font-bold text-white transition-colors hover:bg-[#15586f]"
                       >
                         <Eye className="h-3 w-3" />
                         View

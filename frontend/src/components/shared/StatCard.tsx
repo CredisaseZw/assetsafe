@@ -10,14 +10,14 @@ export function StatCard({ label, value, className }: StatCardProps) {
   return (
     <div
       className={cn(
-        'flex items-center gap-3 bg-transparent px-0 py-0',
+        'flex min-h-[92px] flex-col justify-between border border-[#8f8f8f] bg-white px-4 py-3',
         className,
       )}
     >
-      <span className="text-[16px] font-normal text-black underline decoration-1 underline-offset-4 sm:text-[18px]">
+      <span className="text-[15px] font-semibold uppercase tracking-wide text-slate-800 sm:text-[16px]">
         {label}
       </span>
-      <span className="min-w-[120px] border border-[#8c8c8c] bg-white px-4 py-1.5 text-center text-[18px] font-bold text-[#d31616] sm:min-w-[135px] sm:text-[20px]">
+      <span className="text-left text-[28px] font-black leading-none text-[#c62828] sm:text-[32px]">
         {value}
       </span>
     </div>

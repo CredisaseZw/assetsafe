@@ -63,7 +63,7 @@ export default function CollateralPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-center gap-x-16 gap-y-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <StatCard
           label="Active Agreements"
           value={statsData?.active_agreements ?? 0}
@@ -79,7 +79,7 @@ export default function CollateralPage() {
           Collateral Registry
         </div>
 
-        <div className="flex flex-wrap items-end justify-between gap-6 px-4 py-8">
+        <div className="flex flex-wrap items-end justify-between gap-6 border-b border-[#8f8f8f] px-4 py-8">
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex items-center gap-3">
               <span className="text-[18px] font-bold text-black">Search</span>
@@ -120,7 +120,7 @@ export default function CollateralPage() {
               variant="success"
               leftIcon={<Plus className="h-3.5 w-3.5" />}
               onClick={() => setAddOpen(true)}
-              className="min-w-[110px] rounded-none border-r-0 text-[15px] font-bold"
+              className="min-w-[110px] rounded-none border-r-0 text-[15px] font-bold text-white"
             >
               + Add Single
             </Button>
@@ -128,7 +128,7 @@ export default function CollateralPage() {
               size="sm"
               variant="danger"
               leftIcon={<Plus className="h-3.5 w-3.5" />}
-              className="min-w-[120px] rounded-none text-[15px] font-bold"
+              className="min-w-[120px] rounded-none text-[15px] font-bold text-white"
             >
               + Add Multiple
             </Button>
@@ -140,7 +140,7 @@ export default function CollateralPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-xs">
+          <table className="w-full border-collapse text-[14px]">
             <thead>
               <tr className="border-b border-[#8f8f8f] bg-white text-left">
                 <th className="w-8 border-r border-[#8f8f8f] px-3 py-3 font-bold text-black">
@@ -199,40 +199,40 @@ export default function CollateralPage() {
                       idx % 2 === 0 ? 'bg-white' : 'bg-[#f7f7f7]',
                     )}
                   >
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-center text-slate-700">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-center text-slate-700">
                       {idx + 1}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-slate-700">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-slate-700">
                       {formatDate(rec.lodge_date)}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-[#0f7d8e]">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle font-bold text-[#196A86]">
                       {rec.agreement_number}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-slate-800">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-slate-800">
                       {rec.debtor_name}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-slate-800">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-slate-800">
                       {rec.asset_description}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-slate-700">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-slate-700">
                       {rec.serial_number || rec.asset_registration_no}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-center text-slate-700">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-center text-slate-700">
                       {rec.currency}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-right text-slate-800">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-right text-slate-800">
                       {formatCurrency(rec.loan_amount)}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-slate-700">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-slate-700">
                       {formatDate(rec.start_date)}
                     </td>
-                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 text-slate-700">
+                    <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-slate-700">
                       {formatDate(rec.end_date)}
                     </td>
-                    <td className="px-3 py-2.5">
+                    <td className="px-3 py-2.5 align-middle">
                       <button
                         onClick={() => setViewRecord(rec)}
-                        className="min-w-[72px] rounded-none bg-[#1278bf] px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-[#0f639d]"
+                        className="min-w-[72px] rounded-none bg-[#196A86] px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-[#15586f]"
                       >
                         View
                       </button>

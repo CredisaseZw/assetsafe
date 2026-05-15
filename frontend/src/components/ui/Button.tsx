@@ -16,12 +16,12 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses = {
-  primary: 'bg-[#1f6f93] hover:bg-[#175873] text-white border-[#1f6f93]',
-  secondary: 'bg-[#0b4f86] hover:bg-[#093c67] text-white border-[#0b4f86]',
-  success: 'bg-[#10b54b] hover:bg-[#0f993f] text-white border-[#10b54b]',
-  danger: 'bg-red-600 hover:bg-red-700 text-white border-transparent',
+  primary: 'bg-[#196A86] hover:bg-[#15586f] text-white border-[#196A86]',
+  secondary: 'bg-[#0f4f7a] hover:bg-[#0b3f61] text-white border-[#0f4f7a]',
+  success: 'bg-[#137a46] hover:bg-[#0f6038] text-white border-[#137a46]',
+  danger: 'bg-[#c62828] hover:bg-[#a61f1f] text-white border-[#c62828]',
   ghost: 'bg-transparent hover:bg-slate-100 text-slate-700 border-transparent',
-  outline: 'bg-white hover:bg-slate-50 text-[#1f6f93] border-[#1f6f93]',
+  outline: 'bg-white hover:bg-slate-50 text-[#196A86] border-[#196A86]',
 };
 
 const sizeClasses = {
@@ -45,7 +45,7 @@ export function Button({
       className={cn(
         'inline-flex items-center justify-center gap-1.5 rounded-sm border font-semibold',
         'transition-colors duration-150 focus:outline-none focus:ring-2',
-        'focus:ring-[#1f6f93]/35 disabled:cursor-not-allowed disabled:opacity-50',
+        'focus:ring-[#196A86]/35 disabled:cursor-not-allowed disabled:opacity-50',
         variantClasses[variant],
         sizeClasses[size],
         className,

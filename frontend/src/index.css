@@ -20,7 +20,7 @@
     --border: #8f8f8f;
     --text: #111111;
     --text-muted: #666666;
-    --accent: #0f7d8e;
+    --accent: #196A86;
     --danger: #d9534f;
   }
 }
@@ -51,3 +51,25 @@ body {
 
 /* Accessibility helpers */
 .focus-ring:focus { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
+
+/* Left navigation layout */
+.app-layout { display: flex; min-height: 100vh; }
+.left-nav {
+  width: 240px;
+  background: var(--accent);
+  color: #ffffff;
+  min-height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+  padding: 1.25rem 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.06);
+}
+.left-nav .nav-brand { font-weight: 700; font-size: 1.125rem; padding: 0 0.5rem; }
+.left-nav nav { display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.75rem; }
+.left-nav a { color: rgba(255,255,255,0.95); text-decoration: none; padding: 0.5rem 0.5rem; border-radius: 0.375rem; display: block; font-weight: 600; }
+.left-nav a:hover { background: rgba(255,255,255,0.06); }
+.main-content { margin-left: 240px; padding: 1.25rem; flex: 1 1 auto; }
