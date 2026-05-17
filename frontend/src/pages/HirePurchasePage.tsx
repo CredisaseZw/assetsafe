@@ -6,7 +6,7 @@ import { hirePurchaseApi } from '@/api/hirePurchaseApi';
 import { StatCard } from '@/components/shared/StatCard';
 import { TableSkeleton } from '@/components/shared/TableSkeleton';
 import { EmptyState } from '@/components/shared/EmptyState';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/shared/Modal';
 import { HirePurchaseForm } from '@/components/hire-purchase/HirePurchaseForm';
 import { HirePurchaseViewModal } from '@/components/hire-purchase/HirePurchaseViewModal';

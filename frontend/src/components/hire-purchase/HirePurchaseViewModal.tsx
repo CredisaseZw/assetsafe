@@ -3,7 +3,7 @@ import { Modal } from '@/components/shared/Modal';
 import { HirePurchaseForm } from './HirePurchaseForm';
 import type { HirePurchaseRecord } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { Edit } from 'lucide-react';
 
 interface HirePurchaseViewModalProps {

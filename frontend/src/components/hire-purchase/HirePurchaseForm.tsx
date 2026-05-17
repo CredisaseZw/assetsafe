@@ -1,12 +1,15 @@
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { UserPlus, Building } from 'lucide-react';
 import { hirePurchaseApi } from '@/api/hirePurchaseApi';
-import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/input';
+import AutocompleteInput from '@/components/shared/AutocompleteInput';
+import { individualsApi } from '@/api/individualsApi';
+import { companiesApi } from '@/api/companiesApi';
+import { Button } from '@/components/ui/button';
 import { FormSectionHeader } from '@/components/shared/FormSectionHeader';
 import { ASSET_TYPES, ASSET_CONDITIONS, CURRENCIES } from '@/types';
 
@@ -61,6 +64,7 @@ export function HirePurchaseForm({
 }: HirePurchaseFormProps) {
   const {
     register,
+    control,
     handleSubmit,
     watch,
     reset,
@@ -180,14 +184,25 @@ export function HirePurchaseForm({
               : 'Company'}
           </p>
           <div className="flex gap-2">
-            <Input
-              {...register('purchaser_search')}
-              placeholder={
-                watch('purchaser_type') === 'individual'
-                  ? 'Search by Name / National ID'
-                  : 'Search by Name / Reg Number'
-              }
-              className="flex-1"
+            <Controller
+              name="purchaser_id"
+              control={control}
+              render={({ field }) => (
+                <AutocompleteInput
+                  placeholder={
+                    watch('purchaser_type') === 'individual'
+                      ? 'Search by Name / National ID'
+                      : 'Search by Name / Reg Number'
+                  }
+                  fetchFn={(q) =>
+                    watch('purchaser_type') === 'company'
+                      ? companiesApi.searchBranches(q)
+                      : individualsApi.searchIndividuals(q)
+                  }
+                  ownerType={watch('purchaser_type')}
+                  onChange={(v) => field.onChange(Number(v))}
+                />
+              )}
             />
             <Button type="button" size="sm" variant="primary">
               Search

@@ -1,11 +1,14 @@
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { assetRegistryApi } from '@/api/assetRegistryApi';
-import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/input';
+import AutocompleteInput from '@/components/shared/AutocompleteInput';
+import { individualsApi } from '@/api/individualsApi';
+import { companiesApi } from '@/api/companiesApi';
+import { Button } from '@/components/ui/button';
 import { FormSectionHeader } from '@/components/shared/FormSectionHeader';
 import { ASSET_TYPES, ASSET_CONDITIONS, CURRENCIES } from '@/types';
 
@@ -48,6 +51,7 @@ export function AssetRegistryForm({
 }: AssetRegistryFormProps) {
   const {
     register,
+    control,
     handleSubmit,
     watch,
     formState: { errors },
@@ -93,12 +97,23 @@ export function AssetRegistryForm({
           </select>
         </div>
         <div className="col-span-2">
-          <Input
-            label="Name / ID / Co. Reg #"
-            {...register('owner_id', { valueAsNumber: true })}
-            error={errors.owner_id?.message}
-            placeholder="Search owner..."
-            required
+          <Controller
+            name="owner_id"
+            control={control}
+            render={({ field }) => (
+              <AutocompleteInput
+                label="Name / ID / Co. Reg #"
+                placeholder="Search owner..."
+                fetchFn={(q) =>
+                  watch('owner_type') === 'company'
+                    ? companiesApi.searchBranches(q)
+                    : individualsApi.searchIndividuals(q)
+                }
+                ownerType={watch('owner_type')}
+                error={errors.owner_id?.message}
+                onChange={(v) => field.onChange(Number(v))}
+              />
+            )}
           />
         </div>
         <Input

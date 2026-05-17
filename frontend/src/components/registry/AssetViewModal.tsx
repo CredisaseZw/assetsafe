@@ -3,7 +3,7 @@ import { Modal } from '@/components/shared/Modal';
 import { AssetRegistryForm } from './AssetRegistryForm';
 import type { AssetRecord } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { Edit } from 'lucide-react';
 
 interface AssetViewModalProps {

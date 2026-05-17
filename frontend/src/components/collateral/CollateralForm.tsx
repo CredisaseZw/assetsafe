@@ -5,9 +5,13 @@ import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { collateralApi } from '@/api/collateralApi';
-import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
-import { Button } from '@/components/ui/Button';
+import { individualsApi } from '@/api/individualsApi';
+import { companiesApi } from '@/api/companiesApi';
+import { clientsApi } from '@/api/clientsApi';
+import { Input } from '@/components/ui/input';
+import AutocompleteInput from '@/components/shared/AutocompleteInput';
+import { Select } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { FormSectionHeader } from '@/components/shared/FormSectionHeader';
 import { ASSET_TYPES, ASSET_CONDITIONS, CURRENCIES } from '@/types';
 
@@ -116,12 +120,18 @@ export function CollateralForm({
           </select>
         </div>
         <div className="col-span-2">
-          <Input
-            label="Name / ID / Reg. No."
-            {...register('financier_id', { valueAsNumber: true })}
-            error={errors.financier_id?.message}
-            placeholder="Search financier..."
-            required
+          <Controller
+            name="financier_id"
+            control={control}
+            render={({ field }) => (
+              <AutocompleteInput
+                label="Name / ID / Reg. No."
+                placeholder="Search financier..."
+                fetchFn={clientsApi.searchClients}
+                error={errors.financier_id?.message}
+                onChange={(v) => field.onChange(Number(v))}
+              />
+            )}
           />
         </div>
         <Input
@@ -156,12 +166,23 @@ export function CollateralForm({
           </select>
         </div>
         <div className="col-span-3">
-          <Input
-            label="Name / ID / Reg. No."
-            {...register('debtor_id', { valueAsNumber: true })}
-            error={errors.debtor_id?.message}
-            placeholder="Search debtor..."
-            required
+          <Controller
+            name="debtor_id"
+            control={control}
+            render={({ field }) => (
+              <AutocompleteInput
+                label="Name / ID / Reg. No."
+                placeholder="Search debtor..."
+                fetchFn={(q) =>
+                  watch('debtor_type') === 'company'
+                    ? companiesApi.searchBranches(q)
+                    : individualsApi.searchIndividuals(q)
+                }
+                ownerType={watch('debtor_type')}
+                error={errors.debtor_id?.message}
+                onChange={(v) => field.onChange(Number(v))}
+              />
+            )}
           />
         </div>
       </div>

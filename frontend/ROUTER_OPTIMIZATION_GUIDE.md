@@ -52,13 +52,13 @@ import { PrefetchLink } from '@/components/shared/PrefetchLink';
 export function Navigation() {
   return (
     <nav>
-      <PrefetchLink to="collateral" href="/assetsafe/collateral">
+      <PrefetchLink to="collateral" href="/collateral">
         Collateral
       </PrefetchLink>
-      <PrefetchLink to="hirePurchase" href="/assetsafe/hire-purchase">
+      <PrefetchLink to="hirePurchase" href="/hire-purchase">
         Hire Purchase
       </PrefetchLink>
-      <PrefetchLink to="registry" href="/assetsafe/registry">
+      <PrefetchLink to="registry" href="/registry">
         Asset Registry
       </PrefetchLink>
     </nav>

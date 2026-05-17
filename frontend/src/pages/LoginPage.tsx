@@ -20,8 +20,7 @@ export default function LoginPage() {
   const { login, isAuthenticated, isInitializing } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const from =
-    (location.state as any)?.from?.pathname ?? '/assetsafe/collateral';
+  const from = (location.state as any)?.from?.pathname ?? '/collateral';
 
   const {
     register,

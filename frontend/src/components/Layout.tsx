@@ -1,28 +1,42 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+// import { Link } from 'react-router-dom';
+import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { AppSidebar } from '@/components/app-sidebar';
 
-export const LeftNav: React.FC = () => {
+// export const LeftNav: React.FC = () => {
+//   return (
+//     <aside className="left-nav" aria-label="Primary navigation">
+//       <div className="nav-brand">AssetSafe</div>
+//       <nav>
+//         <Link to="/">Dashboard</Link>
+//         <Link to="/assets">Assets</Link>
+//         <Link to="/collateral">Collateral</Link>
+//         <Link to="/companies">Companies</Link>
+//         <Link to="/users">Users</Link>
+//       </nav>
+//     </aside>
+//   );
+// };
+
+// const Layout: React.FC<React.PropsWithChildren<{}>> = ({ children }) => {
+//   return (
+//     <div className="app-layout">
+//       <LeftNav />
+//       <main className="main-content">{children}</main>
+//     </div>
+//   );
+// };
+
+// export default Layout;
+
+export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <aside className="left-nav" aria-label="Primary navigation">
-      <div className="nav-brand">AssetSafe</div>
-      <nav>
-        <Link to="/">Dashboard</Link>
-        <Link to="/assets">Assets</Link>
-        <Link to="/collateral">Collateral</Link>
-        <Link to="/companies">Companies</Link>
-        <Link to="/users">Users</Link>
-      </nav>
-    </aside>
+    <SidebarProvider>
+      <AppSidebar />
+      <main>
+        <SidebarTrigger />
+        {children}
+      </main>
+    </SidebarProvider>
   );
-};
-
-const Layout: React.FC<React.PropsWithChildren<{}>> = ({ children }) => {
-  return (
-    <div className="app-layout">
-      <LeftNav />
-      <main className="main-content">{children}</main>
-    </div>
-  );
-};
-
-export default Layout;
+}

@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-import AssetSafeLayout from '@/layouts/AssetSafeLayout';
+import AssetSafeLayout from '@/layouts/Dashboard';
+import RouteError from '@/components/shared/RouteError';
 import { ProtectedRoute } from '@/components/shared/ProtectedRoute';
 import LoginPage from '@/pages/LoginPage';
 import CollateralPage from '@/pages/CollateralPage';
@@ -16,17 +17,18 @@ export const router = createBrowserRouter([
   // ── Root redirect ────────────────────────────────────────────────────────────
   {
     path: '/',
-    element: <Navigate to="/assetsafe/collateral" replace />,
+    element: <Navigate to="/collateral" replace />,
   },
 
   // ── Protected ────────────────────────────────────────────────────────────────
   {
-    path: '/assetsafe',
+    path: '/',
     element: (
       <ProtectedRoute>
         <AssetSafeLayout />
       </ProtectedRoute>
     ),
+    errorElement: <RouteError />,
     children: [
       { index: true, element: <Navigate to="collateral" replace /> },
       { path: 'collateral', element: <CollateralPage /> },

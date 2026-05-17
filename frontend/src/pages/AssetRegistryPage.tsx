@@ -6,7 +6,7 @@ import { assetRegistryApi } from '@/api/assetRegistryApi';
 import { StatCard } from '@/components/shared/StatCard';
 import { TableSkeleton } from '@/components/shared/TableSkeleton';
 import { EmptyState } from '@/components/shared/EmptyState';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/shared/Modal';
 import { AssetRegistryForm } from '@/components/registry/AssetRegistryForm';
 import { AssetViewModal } from '@/components/registry/AssetViewModal';

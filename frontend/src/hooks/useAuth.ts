@@ -27,7 +27,7 @@ export function useAuth() {
     async (credentials: LoginCredentials) => {
       const user = await authApi.login(credentials);
       loginSuccess(user);
-      navigate('/assetsafe/collateral', { replace: true });
+      navigate('/collateral', { replace: true });
       return user;
     },
     [loginSuccess, navigate],

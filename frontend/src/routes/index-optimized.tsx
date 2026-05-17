@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-import AssetSafeLayout from '@/layouts/AssetSafeLayout';
+import AssetSafeLayout from '@/layouts/Dashboard';
 import { ProtectedRoute } from '@/components/shared/ProtectedRoute';
 import LoginPage from '@/pages/LoginPage';
 
@@ -42,12 +42,12 @@ export const router = createBrowserRouter([
   // ── Root redirect ────────────────────────────────────────────────────────────
   {
     path: '/',
-    element: <Navigate to="/assetsafe/collateral" replace />,
+    element: <Navigate to="/collateral" replace />,
   },
 
   // ── Protected ────────────────────────────────────────────────────────────────
   {
-    path: '/assetsafe',
+    path: '/',
     element: (
       <ProtectedRoute>
         <AssetSafeLayout />

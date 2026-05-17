@@ -12,7 +12,7 @@ export interface PrefetchLinkProps extends React.AnchorHTMLAttributes<HTMLAnchor
  * Reduces perceived loading time when navigating
  *
  * Usage:
- * <PrefetchLink to="collateral" href="/assetsafe/collateral">
+ * <PrefetchLink to="collateral" href="/collateral">
  *   Collateral
  * </PrefetchLink>
  */

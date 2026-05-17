@@ -3,7 +3,7 @@ import { Modal } from '@/components/shared/Modal';
 import { CollateralForm } from './CollateralForm';
 import type { CollateralRecord } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { Edit } from 'lucide-react';
 
 interface CollateralViewModalProps {
