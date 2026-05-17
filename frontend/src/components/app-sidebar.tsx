@@ -14,7 +14,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
-import DarkModeToggle from '@/components/ui/DarkModeToggle';
+// Dark mode removed — no toggle component
 
 export function AppSidebar() {
   const location = useLocation();
@@ -83,9 +83,6 @@ export function AppSidebar() {
       <SidebarFooter>
         <div className="flex items-center justify-between gap-2 px-2 py-2">
           <div className="text-sm text-sidebar-foreground/80">v1.0</div>
-          <div>
-            <DarkModeToggle />
-          </div>
         </div>
       </SidebarFooter>
     </Sidebar>

@@ -3,7 +3,7 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
-@custom-variant dark (&:is(.dark *));
+/* Dark mode support removed — light mode only */
 
 @layer base {
   :root {
@@ -25,9 +25,21 @@
     --border: #8f8f8f;
     --text: #111111;
     --text-muted: #666666;
-    --accent: #094077;
+    /* Navbar / sidebar color palette (light-only) */
+    --accent: #0B1D4D; /* Navbar background */
+    --accent-light: #003B73; /* Menu background */
+    --accent-hover: #004E94; /* Menu hover / active */
+    --accent-text: #FFFFFF; /* Primary text on navbar */
+    --accent-text-hover: #E6F1FF; /* Hover text */
+    --sidebar-divider: #00508F; /* Optional divider / border */
     --danger: #d9534f;
-    --accent-light: #e9f6fb;
+    /* Sidebar-specific tokens (map to Tailwind `sidebar-*` tokens) */
+    --sidebar: var(--accent);
+    --sidebar-foreground: var(--accent-text);
+    --sidebar-accent: var(--accent-hover);
+    --sidebar-accent-foreground: var(--accent-text);
+    --sidebar-border: var(--sidebar-divider);
+    --sidebar-ring: color-mix(in srgb, var(--accent) 20%, transparent);
   }
   * {
     @apply border-border outline-ring/50;
@@ -41,29 +53,7 @@
 }
 
 * { box-sizing: border-box; }
-
-body {
-  font-family: Arial, Helvetica, sans-serif;
-  background-color: var(--bg-page);
-  color: var(--text);
-  margin: 0;
-}
-
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: #efefef; }
-::-webkit-scrollbar-thumb { background: #b5b5b5; border-radius: 999px; }
-::-webkit-scrollbar-thumb:hover { background: #8b8b8b; }
-
-/* Reusable utility classes (prefer using these in components for consistency) */
-.bg-page { background-color: var(--bg-page) !important; }
-.card { background: var(--card-bg); border: 1px solid var(--border); }
-.border-default { border-color: var(--border); }
-.text-muted { color: var(--text-muted); }
-.btn-primary { background-color: var(--accent); color: #fff; padding: 0.5rem 1rem; border-radius: 0.375rem; font-weight: 600; }
-.input-field { background: var(--card-bg); border: 1px solid var(--border); padding: 0.5rem 0.75rem; color: var(--text); border-radius: 0.375rem; }
-.form-label { color: var(--text); font-weight: 600; font-size: 0.875rem; }
-.card-shadow { box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
-
+/* Removed dark/eye-friendly variable overrides (light mode only) */
 /* Accessibility helpers */
 .focus-ring:focus { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
 
@@ -115,117 +105,82 @@ body {
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --background: #ffffff;
+  --foreground: #111111;
+  --card: var(--card-bg);
+  --card-foreground: #111111;
+  --popover: #ffffff;
+  --popover-foreground: #111111;
+  --primary: #0B1D4D;
+  --primary-foreground: #ffffff;
+  --secondary: #003B73;
+  --secondary-foreground: #ffffff;
+  --muted: #f2f2f2;
+  --muted-foreground: #666666;
+  --accent: #0B1D4D; /* navbar background */
+  --accent-foreground: #ffffff;
+  --destructive: #d9534f;
+  --border: #8f8f8f;
+  --input: #ffffff;
+  --ring: color-mix(in srgb, var(--accent) 20%, transparent);
+  --chart-1: #0B1D4D;
+  --chart-2: #003B73;
+  --chart-3: #004E94;
+  --chart-4: #00508F;
+  --chart-5: #0070b8;
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: var(--accent);
+  --sidebar-foreground: var(--accent-text);
+  --sidebar-primary: var(--accent);
+  --sidebar-primary-foreground: var(--accent-text);
+  --sidebar-accent: var(--accent-hover);
+  --sidebar-accent-foreground: var(--accent-text);
+  --sidebar-border: var(--sidebar-divider);
+  --sidebar-ring: var(--ring);
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
+/* Removed dark-mode variable overrides (light-only) */
 
-/* Eye-friendly low-contrast mode: warmer, softer surfaces for prolonged reading */
-.eye-friendly {
-  --bg-page: #efe9df;
-  --card-bg: #f7f3ee;
-  --text: #111827;
-  --text-muted: #6b7280;
-  --accent: #094077;
-  --border: #d6cfc6;
-  --input: #efe9df;
-}
-
-/* Dark + eye-friendly adjustments */
-.dark.eye-friendly {
-  --background: #07121a;
-  --foreground: #e6eef2;
-  --bg-page: #07121a;
-  --card-bg: #0f242b;
-  --text: #e6eef2;
-  --text-muted: #9fb0ba;
-  --accent: #0b5a80;
-  --border: rgba(255,255,255,0.06);
-}
-
-/* Light accent surface for sidebar body / navbar content */
-:not(.dark) [data-slot="sidebar-content"],
-:not(.dark) [data-sidebar="content"] {
+/* Light-mode: header uses the primary accent; body/footer use a lighter surface */
+[data-slot="sidebar-content"],
+[data-sidebar="content"] {
   background: var(--accent-light);
-}
-
-/* Slightly tinted border for contrast */
-:not(.dark) [data-slot="sidebar-content"] {
-  border-right: 1px solid color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent-text);
+  border-right: 1px solid var(--sidebar-border);
 }
 
 /* Light-mode sidebar/header uses the brand accent color */
-:not(.dark) [data-sidebar="header"],
-:not(.dark) [data-slot="sidebar-header"] {
-  background: var(--accent);
-  color: #ffffff;
+[data-sidebar="header"],
+[data-slot="sidebar-header"] {
+  background: var(--accent) !important;
+  color: var(--accent-text) !important;
 }
 
 /* Ensure menu buttons in the sidebar header area use readable foreground */
-:not(.dark) [data-sidebar="header"] [data-sidebar="menu-button"],
-:not(.dark) [data-sidebar="header"] a {
-  color: #ffffff;
+[data-sidebar="header"] [data-sidebar="menu-button"],
+[data-sidebar="header"] a {
+  color: var(--accent-text) !important;
+}
+
+/* Make the sidebar inner container match the light accent surface to avoid mixed backgrounds */
+[data-slot="sidebar-inner"],
+[data-sidebar="sidebar"] {
+  background: var(--accent-light);
+  color: var(--accent-text);
+}
+
+/* Footer matches inner surface and uses muted foreground for contrast */
+[data-slot="sidebar-footer"],
+[data-sidebar="footer"] {
+  background: var(--accent-light);
+  color: var(--accent-text);
+}
+
+/* Add separators so the header doesn't visually blend into the content */
+[data-slot="sidebar-header"] {
+  border-bottom: 1px solid var(--sidebar-border);
+}
+
+[data-slot="sidebar-footer"] {
+  border-top: 1px solid var(--sidebar-border);
 }
