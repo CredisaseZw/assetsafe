@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AssetSafe Dashboard Mockup</title>
+  <style>
+    :root{
+      --bg:#f4f1eb;
+      --panel:#ffffff;
+      --border:#8f8f8f;
+      --nav:#0b1d4d;
+      --menu:#003b73;
+      --hover:#004e94;
+      --divider:#00508f;
+      --text:#111;
+      --muted:#6a6a6a;
+      --accent:#196A86;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: Arial, Helvetica, sans-serif;
+      background:var(--bg);
+      color:var(--text);
+    }
+    .frame{
+      height:100vh;
+      display:flex;
+      overflow:hidden;
+    }
+    .sidebar{
+      width:270px;
+      background:linear-gradient(180deg,var(--nav),#07163a);
+      color:#fff;
+      display:flex;
+      flex-direction:column;
+      border-right:1px solid rgba(255,255,255,.08);
+    }
+    .brand{
+      padding:16px 18px;
+      font-size:30px;
+      font-weight:700;
+      text-align:center;
+      background:rgba(255,255,255,.04);
+      border-bottom:1px solid rgba(255,255,255,.08);
+    }
+    .navItem{
+      padding:16px 18px;
+      font-size:22px;
+      background:var(--menu);
+      border-bottom:1px solid rgba(255,255,255,.10);
+    }
+    .navItem.active{background:var(--hover)}
+    .main{
+      flex:1;
+      overflow:hidden;
+      padding:22px;
+    }
+    .shell{
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+      background:var(--panel);
+      border:1px solid var(--border);
+      box-shadow:0 12px 32px rgba(0,0,0,.08);
+    }
+    .tabs{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      max-width:540px;
+      border-bottom:1px solid var(--border);
+      background:#e3e0da;
+    }
+    .tab{
+      padding:13px 12px;
+      text-align:center;
+      border-right:1px solid var(--border);
+      font-size:15px;
+      font-weight:700;
+      background:#d1cec8;
+    }
+    .topbar{
+        background: linear-gradient(180deg, #0b1d4d 0%, #0a2f70 100%);
+        color: #fff;
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .topbar .title{
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: .22em;
+        text-transform: uppercase;
+        opacity: .95;
+    }
+
+    .topbarIcon{
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border-radius: 10px;
+        background: rgba(255,255,255,.12);
+        border: 1px solid rgba(255,255,255,.18);
+    }
+    .tab.active{background:#fff}
+    .content{
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+      padding:18px;
+      gap:16px;
+    }
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+    .card{
+      background:#fff;
+      border:1px solid #d7d7d7;
+      border-radius:12px;
+      padding:16px;
+      min-height:88px;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+    }
+    .card .label{font-size:13px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+    .card .value{font-size:28px;font-weight:800;color:#0b1d4d}
+    .panel{
+      flex:1;
+      min-height:0;
+      display:flex;
+      flex-direction:column;
+      border:1px solid var(--border);
+      background:#fff;
+      overflow:hidden;
+    }
+    .panelHead{
+      background:#0b1d4d;
+      color:#fff;
+      padding:14px 18px;
+      font-weight:800;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+      border-bottom:1px solid var(--border);
+    }
+    .controls{
+      padding:16px 18px;
+      border-bottom:1px solid var(--border);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      background:#fafafa;
+    }
+    .search{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .pill{
+      height:40px;
+      border:1px solid #222;
+      background:#fff;
+      padding:0 12px;
+      min-width:180px;
+    }
+    .btn{
+      height:40px;
+      border:none;
+      background:#196A86;
+      color:#fff;
+      font-weight:700;
+      padding:0 16px;
+    }
+    .btn.alt{background:#00703a}
+    .btn.warn{background:#a51d2d}
+    .tableWrap{
+      flex:1;
+      min-height:0;
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+    }
+    .tableScroll{
+      flex:1;
+      min-height:0;
+      overflow:auto;
+    }
+    table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:1100px;
+      font-size:13px;
+    }
+    thead th{
+      position:sticky;
+      top:0;
+      background:#fff;
+      z-index:1;
+      border-bottom:1px solid var(--border);
+      border-right:1px solid var(--border);
+      padding:11px 10px;
+      text-align:left;
+      font-size:12px;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+    }
+    tbody td{
+      border-bottom:1px solid var(--border);
+      border-right:1px solid var(--border);
+      padding:10px;
+      white-space:nowrap;
+    }
+    tbody tr:nth-child(even){background:#fafafa}
+    tbody tr:hover{background:#f2f7fb}
+    .num{text-align:right}
+    .footer{
+      padding:14px 18px;
+      border-top:1px solid var(--border);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      background:#fff;
+      font-size:14px;
+      color:#333;
+    }
+    .footer .muted{color:var(--muted)}
+    .pagination{
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .page{
+      width:34px;
+      height:34px;
+      display:grid;
+      place-items:center;
+      border:1px solid #cfcfcf;
+      background:#fff;
+      border-radius:8px;
+      font-weight:700;
+    }
+    .page.active{
+      background:#196A86;
+      color:#fff;
+      border-color:#196A86;
+    }
+  </style>
+</head>
+<header class="topbar">
+  <div class="title">AssetSafe v1.0</div>
+  <div class="topbarIcon" aria-label="Dashboard icon" title="Dashboard icon">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 9.5L12 4l8 5.5V20a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1V9.5Z" stroke="white" stroke-width="1.8" stroke-linejoin="round"/>
+    </svg>
+  </div>
+</header>
+<body>
+  <div class="frame">
+    <aside class="sidebar">
+      <div class="brand">AssetSafe</div>
+      <div class="navItem active">Dashboard</div>
+      <div class="navItem">Reports</div>
+    </aside>
+
+    <main class="main">
+      <section class="shell">
+        <header class="topbar">
+          <div class="title">AssetSafe v1.0</div>
+          <div></div>
+        </header>
+
+        <div class="tabs">
+          <div class="tab active">Asset Registry</div>
+          <div class="tab">Collateral</div>
+          <div class="tab">Hire Purchase</div>
+        </div>
+
+        <div class="content">
+          <div class="stats">
+            <div class="card">
+              <div class="label">Total Assets</div>
+              <div class="value">1,248</div>
+            </div>
+            <div class="card">
+              <div class="label">Active Agreements</div>
+              <div class="value">392</div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panelHead">Asset Registry</div>
+
+            <div class="controls">
+              <div class="search">
+                <strong>Search</strong>
+                <select class="pill">
+                  <option>Criteria</option>
+                  <option>Owner</option>
+                  <option>Registration No.</option>
+                </select>
+                <input class="pill" placeholder="Type to search..." />
+                <button class="btn">Search</button>
+              </div>
+              <div class="search">
+                <button class="btn alt">+ Add Single</button>
+                <button class="btn warn">+ Add Multiple</button>
+              </div>
+            </div>
+
+            <div class="tableWrap">
+              <div class="tableScroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Lodge Date</th>
+                      <th>Registration No.</th>
+                      <th>Owner</th>
+                      <th>Asset Description</th>
+                      <th>Reg/Serial No.</th>
+                      <th>Currency</th>
+                      <th class="num">Estimate Value</th>
+                      <th>Sub. Start</th>
+                      <th>Sub. End</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>1</td><td>2026-05-01</td><td style="color:#196A86;font-weight:700">AR-001</td><td>Acme Ltd</td><td>Tractor</td><td>SN-2210</td><td>USD</td><td class="num">12,500.00</td><td>2026-05-01</td><td>2027-05-01</td><td><button class="btn">View</button></td>
+                    </tr>
+                    <tr>
+                      <td>2</td><td>2026-05-02</td><td style="color:#196A86;font-weight:700">AR-002</td><td>Blue Farm</td><td>Pickup</td><td>SN-4451</td><td>USD</td><td class="num">18,900.00</td><td>2026-05-02</td><td>2027-05-02</td><td><button class="btn">View</button></td>
+                    </tr>
+                    <tr>
+                      <td>3</td><td>2026-05-03</td><td style="color:#196A86;font-weight:700">AR-003</td><td>Green Co</td><td>Generator</td><td>SN-7792</td><td>ZWL</td><td class="num">4,100.00</td><td>2026-05-03</td><td>2027-05-03</td><td><button class="btn">View</button></td>
+                    </tr>
+                    <tr>
+                      <td>4</td><td>2026-05-04</td><td style="color:#196A86;font-weight:700">AR-004</td><td>Delta Holdings</td><td>Excavator</td><td>SN-1021</td><td>USD</td><td class="num">45,000.00</td><td>2026-05-04</td><td>2027-05-04</td><td><button class="btn">View</button></td>
+                    </tr>
+                    <tr>
+                      <td>5</td><td>2026-05-05</td><td style="color:#196A86;font-weight:700">AR-005</td><td>Orbit Ltd</td><td>Warehouse Racking</td><td>SN-9912</td><td>USD</td><td class="num">8,300.00</td><td>2026-05-05</td><td>2027-05-05</td><td><button class="btn">View</button></td>
+                    </tr>
+                    <tr>
+                      <td>6</td><td>2026-05-06</td><td style="color:#196A86;font-weight:700">AR-006</td><td>Prime Farms</td><td>Harvester</td><td>SN-7781</td><td>USD</td><td class="num">55,400.00</td><td>2026-05-06</td><td>2027-05-06</td><td><button class="btn">View</button></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="footer">
+                <div><strong>Showing 1 to 6 of 248 results</strong></div>
+                <div class="pagination">
+                  <div class="page">1</div>
+                  <div class="page active">2</div>
+                  <div class="page">3</div>
+                  <div class="page">4</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
