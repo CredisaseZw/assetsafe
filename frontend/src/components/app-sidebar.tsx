@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, LogOut } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   Sidebar,
@@ -23,6 +24,7 @@ export function AppSidebar() {
 
     return dashboardPaths.some((path) => location.pathname.startsWith(path));
   });
+  const { logout } = useAuth();
 
   return (
     <Sidebar>
@@ -81,8 +83,21 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter>
-        <div className="flex items-center justify-between gap-2 px-2 py-2">
-          <div className="text-sm text-sidebar-foreground/80">v1.0</div>
+        <div className="w-full px-2 py-2">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                type="button"
+                onClick={async () => {
+                  await logout();
+                }}
+                className="flex w-full items-center gap-2 rounded px-3 py-2 text-sm font-semibold text-sidebar-foreground transition-colors hover:bg-[#f3f0ea]"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Logout</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
         </div>
       </SidebarFooter>
     </Sidebar>

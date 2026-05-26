@@ -1,7 +1,15 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Plus, Search, Eye, Building2 } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Plus,
+  Search,
+  Eye,
+  Building2,
+} from 'lucide-react';
 import { hirePurchaseApi } from '@/api/hirePurchaseApi';
 import { StatCard } from '@/components/shared/StatCard';
 import { TableSkeleton } from '@/components/shared/TableSkeleton';
@@ -13,9 +21,20 @@ import { HirePurchaseViewModal } from '@/components/hire-purchase/HirePurchaseVi
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import type { HirePurchaseRecord } from '@/types';
 
+const PAGE_SIZE = 8;
+
+type HirePurchaseSortOption =
+  | 'date-desc'
+  | 'date-asc'
+  | 'name-asc'
+  | 'name-desc';
+
 export default function HirePurchasePage() {
   const queryClient = useQueryClient();
   const [selectedFinancier, setSelectedFinancier] = useState('');
+  const [sortOption, setSortOption] =
+    useState<HirePurchaseSortOption>('date-desc');
+  const [currentPage, setCurrentPage] = useState(1);
   const [addOpen, setAddOpen] = useState(false);
   const [viewRecord, setViewRecord] = useState<HirePurchaseRecord | null>(null);
 
@@ -39,8 +58,84 @@ export default function HirePurchasePage() {
       ),
   });
 
+  const totalRecords = recordsData?.length ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / PAGE_SIZE));
+  const activePage = Math.min(currentPage, totalPages);
+  const activeSortField = sortOption.startsWith('date') ? 'date' : 'name';
+  const activeSortDirection = sortOption.endsWith('asc') ? 'asc' : 'desc';
+
+  const toggleSort = (field: 'date' | 'name') => {
+    setSortOption((current) => {
+      const currentField = current.startsWith('date') ? 'date' : 'name';
+      const currentDirection = current.endsWith('asc') ? 'asc' : 'desc';
+
+      if (currentField === field) {
+        return `${field}-${currentDirection === 'asc' ? 'desc' : 'asc'}` as HirePurchaseSortOption;
+      }
+
+      return field === 'date' ? 'date-desc' : 'name-asc';
+    });
+    setCurrentPage(1);
+  };
+
+  const sortedRecords = useMemo(() => {
+    if (!recordsData) {
+      return [] as HirePurchaseRecord[];
+    }
+
+    const compareDate = (
+      left: HirePurchaseRecord,
+      right: HirePurchaseRecord,
+    ) => {
+      const leftTime = new Date(left.lodge_date ?? '').getTime();
+      const rightTime = new Date(right.lodge_date ?? '').getTime();
+      return leftTime - rightTime;
+    };
+
+    const compareName = (
+      left: HirePurchaseRecord,
+      right: HirePurchaseRecord,
+    ) => {
+      return (left.purchaser_name ?? '').localeCompare(
+        right.purchaser_name ?? '',
+        undefined,
+        {
+          sensitivity: 'base',
+        },
+      );
+    };
+
+    const sorted = [...recordsData];
+
+    sorted.sort((left, right) => {
+      switch (sortOption) {
+        case 'date-asc':
+          return compareDate(left, right);
+        case 'date-desc':
+          return compareDate(right, left);
+        case 'name-asc':
+          return compareName(left, right);
+        case 'name-desc':
+          return compareName(right, left);
+        default:
+          return 0;
+      }
+    });
+
+    return sorted;
+  }, [recordsData, sortOption]);
+
+  const pagedRecords = useMemo(() => {
+    if (!sortedRecords) {
+      return [] as HirePurchaseRecord[];
+    }
+
+    const start = (activePage - 1) * PAGE_SIZE;
+    return sortedRecords.slice(start, start + PAGE_SIZE);
+  }, [sortedRecords, activePage]);
+
   return (
-    <div className="space-y-8">
+    <div className="flex h-full min-h-0 flex-col gap-8 overflow-hidden">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <StatCard
           label="Number of Financiers"
@@ -55,7 +150,6 @@ export default function HirePurchasePage() {
           value={statsData?.pending_closure_confirmation ?? 0}
         />
       </div>
-
       <div className="space-y-0 border border-[#8f8f8f] bg-white">
         <div className="bg-[#7f7a7b] px-4 py-2.5 text-center text-[18px] font-bold uppercase tracking-wide text-white">
           Hire Purchase Registry
@@ -67,7 +161,10 @@ export default function HirePurchasePage() {
             <Building2 className="h-4 w-4 text-black" />
             <select
               value={selectedFinancier}
-              onChange={(e) => setSelectedFinancier(e.target.value)}
+              onChange={(e) => {
+                setSelectedFinancier(e.target.value);
+                setCurrentPage(1);
+              }}
               className="h-10 w-64 rounded-sm border border-black bg-white px-3 text-[14px] text-black focus:outline-none"
             >
               <option value="">Financier</option>
@@ -120,18 +217,50 @@ export default function HirePurchasePage() {
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-[14px]">
             <thead>
-              <tr className="border-b border-[#8f8f8f] bg-white text-left">
+              <tr className="border-b border-[#8f8f8f] bg-white text-left divide-x divide-[#8f8f8f]">
                 <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black w-8">
                   #
                 </th>
                 <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">
-                  Lodge Date
+                  <button
+                    type="button"
+                    onClick={() => toggleSort('date')}
+                    className="flex items-center gap-1"
+                    title="Sort by lodge date"
+                  >
+                    <span>Lodge Date</span>
+                    {activeSortField === 'date' ? (
+                      activeSortDirection === 'asc' ? (
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      ) : (
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      )
+                    ) : (
+                      <ArrowUpDown className="h-3.5 w-3.5" />
+                    )}
+                  </button>
                 </th>
                 <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">
                   Agreement No.
                 </th>
                 <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">
-                  Purchaser
+                  <button
+                    type="button"
+                    onClick={() => toggleSort('name')}
+                    className="flex items-center gap-1"
+                    title="Sort by purchaser name"
+                  >
+                    <span>Purchaser</span>
+                    {activeSortField === 'name' ? (
+                      activeSortDirection === 'asc' ? (
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      ) : (
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      )
+                    ) : (
+                      <ArrowUpDown className="h-3.5 w-3.5" />
+                    )}
+                  </button>
                 </th>
                 <th className="border-r border-[#8f8f8f] px-3 py-2.5 font-bold text-black">
                   Asset Make
@@ -157,15 +286,17 @@ export default function HirePurchasePage() {
             <tbody>
               {isLoading ? (
                 <TableSkeleton rows={5} cols={11} />
-              ) : !recordsData?.length ? (
+              ) : !pagedRecords.length ? (
                 <EmptyState message="No hire purchase agreements found." />
               ) : (
-                recordsData.map((rec, idx) => (
+                pagedRecords.map((rec, idx) => (
                   <tr
                     key={rec.id}
                     className={cn(
                       'border-b border-[#8f8f8f] transition-colors hover:bg-[#f5f5f5]',
-                      idx % 2 === 0 ? 'bg-white' : 'bg-[#fafafa]',
+                      ((currentPage - 1) * PAGE_SIZE + idx) % 2 === 0
+                        ? 'bg-white'
+                        : 'bg-[#fafafa]',
                     )}
                   >
                     <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-black">
