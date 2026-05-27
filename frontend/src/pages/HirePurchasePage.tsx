@@ -189,11 +189,7 @@ export default function HirePurchasePage() {
               onClick={() => setAddOpen(true)}
               className="h-12 rounded-none px-5 text-[15px] font-bold text-white"
             >
-              <span className="leading-tight">
-                + Add
-                <br />
-                Single
-              </span>
+              Add Single
             </Button>
             <Button
               size="sm"
@@ -201,11 +197,7 @@ export default function HirePurchasePage() {
               leftIcon={<Plus className="h-3.5 w-3.5" />}
               className="h-12 rounded-none px-5 text-[15px] font-bold text-white"
             >
-              <span className="leading-tight">
-                +Add
-                <br />
-                Multiple
-              </span>
+              Add Multiple
             </Button>
           </div>
         </div>

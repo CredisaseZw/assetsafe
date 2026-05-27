@@ -13,7 +13,7 @@ import { CollateralViewModal } from '@/components/collateral/CollateralViewModal
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import type { CollateralRecord, CollateralSearchField } from '@/types';
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 16;
 
 type CollateralSortOption = 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc';
 
@@ -186,7 +186,7 @@ export default function CollateralPage() {
               onClick={() => setAddOpen(true)}
               className="min-w-[110px] rounded-none border-r-0 text-[15px] font-bold text-white"
             >
-              + Add Single
+              Add Single
             </Button>
             <Button
               size="sm"
@@ -194,7 +194,7 @@ export default function CollateralPage() {
               leftIcon={<Plus className="h-3.5 w-3.5" />}
               className="min-w-[120px] rounded-none text-[15px] font-bold text-white"
             >
-              + Add Multiple
+              Add Multiple
             </Button>
           </div>
         </div>
