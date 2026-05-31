@@ -7,12 +7,11 @@ from rest_framework.response import Response
 from rest_framework import status, permissions, viewsets
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.decorators import action
+from django.conf import settings
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.contrib.auth import get_user_model
 from django.http import HttpResponse
 from django.db import transaction
-from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_page
 from django.core.exceptions import ValidationError
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -30,8 +29,11 @@ from apps.users.api.serializers import (
     PasswordChangeSerializer,
     PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer,
+    PasswordResetValidateSerializer,
+    ProfileUpdateSerializer,
 )
 from apps.users.models import Role
+from apps.users.utils.permissions import IsSuperuser
 from apps.users.services.user_service import UserCreationService
 from apps.users.services.audit_service import create_audit_log
 from apps.users.utils.cookies import (
@@ -160,13 +162,39 @@ class RefreshTokenView(APIView):
             )
 
 
+def _user_from_uid_token(uidb64: str, token: str):
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        return None
+    if user is None or not password_reset_token_generator.check_token(user, token):
+        return None
+    return user
+
+
 class CurrentUserView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    @method_decorator(cache_page(60 * 2))
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
+
+    def patch(self, request):
+        serializer = ProfileUpdateSerializer(
+            request.user, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        create_audit_log(
+            request=request,
+            action="user.profile_update",
+            resource_type="CustomUser",
+            resource_id=user.pk,
+            details={"email": user.email},
+            logger=logger,
+        )
+        return Response(UserSerializer(user).data)
 
 
 class CheckCSRFView(APIView):
@@ -177,18 +205,13 @@ class CheckCSRFView(APIView):
 
 
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
-    permission_classes = [IsAuthenticated]
+    queryset = User.objects.all().order_by("-date_joined")
+    permission_classes = [IsAuthenticated, IsSuperuser]
 
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
             return UserCreateSerializer
         return UserSerializer
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAdminUser()]
-        return super().get_permissions()
 
     def create(self, request):
         """
@@ -299,63 +322,95 @@ class PasswordChangeView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+PASSWORD_RESET_GENERIC_MESSAGE = (
+    "If an account with that email exists, we sent a password reset link. "
+    "Check your inbox and spam folder."
+)
+
+
 class PasswordResetRequestView(APIView):
     permission_classes = []
 
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data)
-        if serializer.is_valid():
-            email = serializer.validated_data["email"]
-            try:
-                user = User.objects.get(email=email)
-                token = password_reset_token_generator.make_token(user)
-                uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
-                current_site = get_current_site(request)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-                send_notification(
-                    recipient_type="user",
-                    recipient_id=user.id,
-                    notification_type="PASSWORD_RESET",
-                    context={
-                        "token": token,
-                        "uidb64": uidb64,
-                        "user": user,
-                        "protocol": "https" if request.is_secure() else "http",
-                        "domain": current_site.domain,
-                    },
-                    template_name="password_reset",
-                    subject="Password Reset Request",
-                )
+        email = serializer.validated_data["email"].strip().lower()
+        try:
+            user = User.objects.get(email__iexact=email)
+            token = password_reset_token_generator.make_token(user)
+            uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+            frontend_base = (
+                getattr(settings, "FRONTEND_LOGIN_URL", None)
+                or getattr(settings, "FRONTEND_URL", None)
+                or ""
+            ).rstrip("/")
+            reset_path = f"/reset-password?uid={uidb64}&token={token}"
+            reset_url = f"{frontend_base}{reset_path}" if frontend_base else reset_path
 
-                return Response(
-                    {"message": "Password reset link sent to your email"},
-                    status=status.HTTP_200_OK,
-                )
-            except User.DoesNotExist:
-                return Response(
-                    {
-                        "message": "If an account with that email exists, a password reset link has been sent."
-                    },
-                    status=status.HTTP_200_OK,
-                )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            send_notification(
+                recipient_type="user",
+                recipient_id=user.id,
+                notification_type="PASSWORD_RESET",
+                context={
+                    "token": token,
+                    "uidb64": uidb64,
+                    "user": user,
+                    "reset_url": reset_url,
+                    "protocol": "https" if request.is_secure() else "http",
+                    "domain": get_current_site(request).domain,
+                },
+                template_name="password_reset",
+                subject="Password Reset Request",
+            )
+        except User.DoesNotExist:
+            pass
+
+        return Response(
+            {"message": PASSWORD_RESET_GENERIC_MESSAGE},
+            status=status.HTTP_200_OK,
+        )
+
+
+class PasswordResetValidateView(APIView):
+    """Verify reset link before showing the new-password form."""
+
+    permission_classes = []
+
+    def post(self, request):
+        serializer = PasswordResetValidateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        uid = serializer.validated_data["uid"]
+        token = serializer.validated_data["token"]
+        user = _user_from_uid_token(uid, token)
+        if user is None:
+            return Response(
+                {"valid": False, "detail": "Invalid or expired reset link."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(
+            {
+                "valid": True,
+                "message": "Reset link verified. You may set a new password.",
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class PasswordResetConfirmView(APIView):
     permission_classes = []
 
     def post(self, request, uidb64, token):
-        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer = PasswordResetConfirmSerializer(
+            data=request.data,
+            context={"user": _user_from_uid_token(uidb64, token)},
+        )
         if serializer.is_valid():
-            try:
-                uid = force_str(urlsafe_base64_decode(uidb64))
-                user = User.objects.get(pk=uid)
-            except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-                user = None
-
-            if user is not None and password_reset_token_generator.check_token(
-                user, token
-            ):
+            user = serializer.context.get("user")
+            if user is not None:
                 user.set_password(serializer.validated_data["new_password"])
                 user.last_password_change = timezone.now()
                 user.save()

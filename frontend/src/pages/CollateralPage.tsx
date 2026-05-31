@@ -13,6 +13,8 @@ import { CollateralViewModal } from '@/components/collateral/CollateralViewModal
 import { NumberedPaginationFooter } from '@/components/shared/NumberedPaginationFooter';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import { invalidateRegistryQueries } from '@/lib/registryCache';
+import { registryQueryOptions } from '@/lib/registryQueryOptions';
+import { useAuthStore } from '@/store';
 import type { CollateralRecord } from '@/types';
 
 const PAGE_SIZE = 16;
@@ -21,6 +23,7 @@ type CollateralSortOption = 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc';
 
 export default function CollateralPage() {
   const queryClient = useQueryClient();
+  const authReady = useAuthStore((s) => s.authReady);
   const [searchValue, setSearchValue] = useState('');
   const [sortOption, setSortOption] =
     useState<CollateralSortOption>('date-desc');
@@ -32,12 +35,15 @@ export default function CollateralPage() {
   const { data: statsData } = useQuery({
     queryKey: ['collateral-dashboard'],
     queryFn: () => collateralApi.getDashboard(),
+    enabled: authReady,
+    ...registryQueryOptions,
   });
 
   const {
     data: recordsData,
     isLoading,
     isError,
+    isFetching,
   } = useQuery({
     queryKey: ['collateral-records', appliedSearch, currentPage],
     queryFn: () =>
@@ -46,7 +52,11 @@ export default function CollateralPage() {
         page: currentPage,
         page_size: PAGE_SIZE,
       }),
+    enabled: authReady,
+    ...registryQueryOptions,
   });
+
+  const loadingRecords = !authReady || isLoading || isFetching;
 
   const handleSearch = () => {
     setAppliedSearch(searchValue.trim());
@@ -221,7 +231,7 @@ export default function CollateralPage() {
                 </tr>
               </thead>
               <tbody>
-                {isLoading ? (
+                {loadingRecords ? (
                   <TableSkeleton rows={8} cols={11} />
                 ) : isError ? (
                   <tr>

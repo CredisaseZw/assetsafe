@@ -1,12 +1,18 @@
 import { useState } from 'react';
-import { useLocation, Navigate } from 'react-router-dom';
+import { useLocation, Navigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@/lib/zodResolver';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Shield, Loader2, Lock, User } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useAuthBootstrap } from '@/hooks/useAuthBootstrap';
+import { useAuthStore } from '@/store';
 import { cn } from '@/lib/utils';
+import {
+  canAccessAssetRegistry,
+  resolveSafeRedirect,
+} from '@/lib/registryNav';
 
 const schema = z.object({
   username: z.string().min(1, 'Username is required'),
@@ -18,9 +24,18 @@ type FormValues = z.infer<typeof schema>;
 export default function LoginPage() {
   const location = useLocation();
   const { login, isAuthenticated, isInitializing } = useAuth();
+  useAuthBootstrap();
+  const user = useAuthStore((s) => s.user);
+  const authReady = useAuthStore((s) => s.authReady);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const from = (location.state as any)?.from?.pathname ?? '/collateral';
+  const fromPath =
+    (location.state as { from?: { pathname?: string } } | null)?.from
+      ?.pathname ?? '/collateral';
+  const redirectTo = resolveSafeRedirect(
+    fromPath,
+    canAccessAssetRegistry(user, authReady),
+  );
 
   const {
     register,
@@ -33,13 +48,16 @@ export default function LoginPage() {
 
   // Already authenticated → skip login screen
   if (!isInitializing && isAuthenticated) {
-    return <Navigate to={from} replace />;
+    return <Navigate to={redirectTo} replace />;
   }
 
   const onSubmit = async (values: FormValues) => {
     setIsLoading(true);
     try {
-      await login({ username: values.username, password: values.password });
+      await login(
+        { username: values.username, password: values.password },
+        fromPath,
+      );
       toast.success(`Welcome back! ${values.username}`);
     } catch (err: any) {
       const msg =
@@ -108,17 +126,7 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-semibold text-black">
-                Password
-              </label>
-              <a
-                href="/forgot-password"
-                className="text-xs font-semibold text-[#0f7d8e] hover:text-[#0d6e7e] transition-colors"
-              >
-                Forgot Password?
-              </a>
-            </div>
+            <label className="text-sm font-semibold text-black">Password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input
@@ -149,6 +157,14 @@ export default function LoginPage() {
             {errors.password && (
               <p className="text-xs text-red-600">{errors.password.message}</p>
             )}
+            <p className="pt-1 text-center">
+              <Link
+                to="/forgot-password"
+                className="text-xs font-semibold text-[#0f7d8e] hover:text-[#0d6e7e] transition-colors"
+              >
+                Forgot password?
+              </Link>
+            </p>
           </div>
 
           <button

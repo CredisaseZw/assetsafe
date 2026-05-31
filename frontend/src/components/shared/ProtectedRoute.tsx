@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store';
+import { useAuthBootstrap } from '@/hooks/useAuthBootstrap';
 import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
@@ -9,6 +10,8 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const location = useLocation();
   const { isAuthenticated, isInitializing } = useAuthStore();
+
+  useAuthBootstrap();
 
   // While checking session on first load, show a centered spinner
   if (isInitializing) {
