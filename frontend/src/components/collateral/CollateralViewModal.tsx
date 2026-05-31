@@ -3,19 +3,24 @@ import { Modal } from '@/components/shared/Modal';
 import { CollateralForm } from './CollateralForm';
 import type { CollateralRecord } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { assetTypeLabel } from '@/lib/assetTypes';
 import { Button } from '@/components/ui/button';
 import { Edit } from 'lucide-react';
+import { DeleteRecordButton } from '@/components/shared/DeleteRecordButton';
+import { collateralApi } from '@/api/collateralApi';
 
 interface CollateralViewModalProps {
   record: CollateralRecord;
   onClose: () => void;
   onSaved: () => void;
+  onDeleted: () => void;
 }
 
 export function CollateralViewModal({
   record,
   onClose,
   onSaved,
+  onDeleted,
 }: CollateralViewModalProps) {
   const [editMode, setEditMode] = useState(false);
 
@@ -30,6 +35,8 @@ export function CollateralViewModal({
         <CollateralForm
           isEdit
           recordId={record.id}
+          financierDisplayLabel={record.financier_name}
+          debtorDisplayLabel={record.debtor_name}
           initial={{
             financier_type: record.financier_type,
             financier_id: record.financier_id,
@@ -69,7 +76,7 @@ export function CollateralViewModal({
               ['Debtor', record.debtor_name],
               ['Agreement No.', record.agreement_number],
               ['Asset', `${record.asset_make} ${record.asset_model}`],
-              ['Asset Type', record.asset_type],
+              ['Asset Type', assetTypeLabel(record.asset_type)],
               ['Year', record.asset_year],
               ['Condition', record.asset_condition],
               [
@@ -94,16 +101,22 @@ export function CollateralViewModal({
               </div>
             ))}
           </div>
-          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-            <Button variant="ghost" onClick={onClose}>
-              Close
-            </Button>
-            <Button
-              leftIcon={<Edit className="h-3.5 w-3.5" />}
-              onClick={() => setEditMode(true)}
-            >
-              Edit
-            </Button>
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+            <DeleteRecordButton
+              onDelete={() => collateralApi.deleteRecord(record.id)}
+              onDeleted={onDeleted}
+            />
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={onClose}>
+                Close
+              </Button>
+              <Button
+                leftIcon={<Edit className="h-3.5 w-3.5" />}
+                onClick={() => setEditMode(true)}
+              >
+                Edit
+              </Button>
+            </div>
           </div>
         </div>
       )}

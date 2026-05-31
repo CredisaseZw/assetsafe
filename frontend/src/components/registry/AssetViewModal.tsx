@@ -3,19 +3,24 @@ import { Modal } from '@/components/shared/Modal';
 import { AssetRegistryForm } from './AssetRegistryForm';
 import type { AssetRecord } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { assetTypeLabel } from '@/lib/assetTypes';
 import { Button } from '@/components/ui/button';
 import { Edit } from 'lucide-react';
+import { DeleteRecordButton } from '@/components/shared/DeleteRecordButton';
+import { assetRegistryApi } from '@/api/assetRegistryApi';
 
 interface AssetViewModalProps {
   record: AssetRecord;
   onClose: () => void;
   onSaved: () => void;
+  onDeleted: () => void;
 }
 
 export function AssetViewModal({
   record,
   onClose,
   onSaved,
+  onDeleted,
 }: AssetViewModalProps) {
   const [editMode, setEditMode] = useState(false);
 
@@ -30,6 +35,7 @@ export function AssetViewModal({
         <AssetRegistryForm
           isEdit
           recordId={record.id}
+          ownerDisplayLabel={record.owner_name}
           initial={{
             owner_type: record.owner_type,
             owner_id: record.owner_id,
@@ -59,7 +65,7 @@ export function AssetViewModal({
               ['Registry No.', record.registration_number],
               ['Owner', record.owner_name],
               ['Asset', `${record.asset_make} ${record.asset_model}`],
-              ['Asset Type', record.asset_type],
+              ['Asset Type', assetTypeLabel(record.asset_type)],
               ['Year', record.year_of_make],
               ['Condition', record.condition],
               ['Reg/Serial', record.serial_number || record.mv_registration_no],
@@ -79,16 +85,22 @@ export function AssetViewModal({
               </div>
             ))}
           </div>
-          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-            <Button variant="ghost" onClick={onClose}>
-              Close
-            </Button>
-            <Button
-              leftIcon={<Edit className="h-3.5 w-3.5" />}
-              onClick={() => setEditMode(true)}
-            >
-              Edit
-            </Button>
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+            <DeleteRecordButton
+              onDelete={() => assetRegistryApi.deleteRecord(record.id)}
+              onDeleted={onDeleted}
+            />
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={onClose}>
+                Close
+              </Button>
+              <Button
+                leftIcon={<Edit className="h-3.5 w-3.5" />}
+                onClick={() => setEditMode(true)}
+              >
+                Edit
+              </Button>
+            </div>
           </div>
         </div>
       )}

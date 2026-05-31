@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm, useFormState, Controller } from 'react-hook-form';
+import { zodResolver } from '@/lib/zodResolver';
+import { applyApiValidationErrors } from '@/lib/formErrors';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -13,18 +14,34 @@ import AutocompleteInput from '@/components/shared/AutocompleteInput';
 import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { FormSectionHeader } from '@/components/shared/FormSectionHeader';
-import { ASSET_TYPES, ASSET_CONDITIONS, CURRENCIES } from '@/types';
+import { FieldError } from '@/components/shared/FieldError';
+import {
+  COLLATERAL_ASSET_TYPE_OPTIONS,
+  COLLATERAL_ASSET_TYPE_VALUES,
+  ASSET_CONDITIONS,
+  CURRENCIES,
+} from '@/types';
 
 const schema = z.object({
   financier_type: z.enum(['individual', 'company']),
-  financier_id: z.number().min(1, 'Financier is required'),
+  financier_id: z
+    .number({ error: 'Financier is required' })
+    .min(1, 'Financier is required'),
   data_source_name: z.string().min(1, 'Required'),
   data_source_position: z.string().optional(),
   data_date: z.string().min(1, 'Required'),
   debtor_type: z.enum(['individual', 'company']),
-  debtor_id: z.number().min(1, 'Debtor is required'),
+  debtor_id: z
+    .number({ error: 'Debtor is required' })
+    .min(1, 'Debtor is required'),
   agreement_number: z.string().min(1, 'Required'),
-  asset_type: z.enum(ASSET_TYPES as unknown as [string, ...string[]]),
+  asset_type: z
+    .string()
+    .min(1, 'Select asset type')
+    .refine(
+      (v) => (COLLATERAL_ASSET_TYPE_VALUES as readonly string[]).includes(v),
+      'Select asset type',
+    ),
   asset_make: z.string().min(1, 'Required'),
   asset_model: z.string().min(1, 'Required'),
   asset_year: z.coerce.number().min(1900).max(2100),
@@ -52,6 +69,8 @@ type FormValues = z.infer<typeof schema>;
 
 interface CollateralFormProps {
   initial?: Partial<FormValues>;
+  financierDisplayLabel?: string;
+  debtorDisplayLabel?: string;
   onSuccess: () => void;
   onCancel: () => void;
   isEdit?: boolean;
@@ -60,6 +79,8 @@ interface CollateralFormProps {
 
 export function CollateralForm({
   initial,
+  financierDisplayLabel,
+  debtorDisplayLabel,
   onSuccess,
   onCancel,
   isEdit,
@@ -72,9 +93,12 @@ export function CollateralForm({
     handleSubmit,
     control,
     watch,
-    formState: { errors },
+    setError,
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
+    mode: 'onSubmit',
+    reValidateMode: 'onChange',
+    shouldFocusError: true,
     defaultValues: {
       financier_type: 'company',
       debtor_type: 'individual',
@@ -88,8 +112,10 @@ export function CollateralForm({
     },
   });
 
+  const { errors } = useFormState({ control });
+
   const watchedAssetType = watch('asset_type');
-  const isVehicle = watchedAssetType === 'Vehicles';
+  const isVehicle = watchedAssetType === 'vehicles';
 
   const { mutate: submit, isPending } = useMutation({
     mutationFn: (data: FormValues) =>
@@ -97,13 +123,29 @@ export function CollateralForm({
         ? collateralApi.updateRecord(recordId, data as any)
         : collateralApi.createRecord(data as any),
     onSuccess,
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message ?? 'Failed to save record');
+    onError: (err: unknown) => {
+      if (!applyApiValidationErrors(setError, err)) {
+        const data = (err as { response?: { data?: { message?: string; error?: string } } })
+          ?.response?.data;
+        toast.error(
+          data?.message ?? data?.error ?? 'Failed to save record',
+        );
+      } else {
+        toast.error('Please fix the highlighted fields');
+      }
     },
   });
 
+  const onInvalid = () => {
+    toast.error('Please fix the highlighted fields');
+  };
+
   return (
-    <form onSubmit={handleSubmit((d) => submit(d))} className="bg-white">
+    <form
+      onSubmit={handleSubmit((d) => submit(d), onInvalid)}
+      className="bg-white"
+      noValidate
+    >
       {/* ── Financier Section ── */}
       <FormSectionHeader title="Financier" variant="teal" />
       <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
@@ -127,8 +169,12 @@ export function CollateralForm({
               <AutocompleteInput
                 label="Name / ID / Reg. No."
                 placeholder="Search financier..."
+                queryKey="collateral-financier"
+                displayLabel={financierDisplayLabel}
                 fetchFn={clientsApi.searchClients}
                 error={errors.financier_id?.message}
+                value={field.value}
+                onBlur={field.onBlur}
                 onChange={(v) => field.onChange(Number(v))}
               />
             )}
@@ -173,13 +219,16 @@ export function CollateralForm({
               <AutocompleteInput
                 label="Name / ID / Reg. No."
                 placeholder="Search debtor..."
+                queryKey={`collateral-debtor-${watch('debtor_type')}`}
+                displayLabel={debtorDisplayLabel}
                 fetchFn={(q) =>
                   watch('debtor_type') === 'company'
                     ? companiesApi.searchBranches(q)
                     : individualsApi.searchIndividuals(q)
                 }
-                ownerType={watch('debtor_type')}
                 error={errors.debtor_id?.message}
+                value={field.value}
+                onBlur={field.onBlur}
                 onChange={(v) => field.onChange(Number(v))}
               />
             )}
@@ -205,15 +254,13 @@ export function CollateralForm({
             className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
           >
             <option value="">Click to select an option</option>
-            {ASSET_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
+            {COLLATERAL_ASSET_TYPE_OPTIONS.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
               </option>
             ))}
           </select>
-          {errors.asset_type && (
-            <p className="text-xs text-red-500">{errors.asset_type.message}</p>
-          )}
+          <FieldError message={errors.asset_type?.message} />
         </div>
         <Input
           label="Make"

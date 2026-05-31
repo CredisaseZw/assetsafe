@@ -41,7 +41,10 @@ class IndividualViewSet(BaseViewSet):
     queryset = Individual.objects.filter(is_active=True, is_deleted=False)
 
     def get_queryset(self):
-        search_key = self.request.query_params.get("search", "").strip()
+        search_key = (
+            self.request.query_params.get("q", "").strip()
+            or self.request.query_params.get("search", "").strip()
+        )
         if search_key:
             first_name, *last_name_parts = search_key.split()
             last_name = " ".join(last_name_parts) if last_name_parts else first_name
@@ -80,7 +83,7 @@ class IndividualViewSet(BaseViewSet):
         elif self.action == "retrieve_full_individual_details":
             return IndividualSerializer
         elif self.action == "search":
-            return IndividualAddressSerializer
+            return IndividualSearchSerializer
         elif self.action == "claims":
             return IndividualClaimSerializer
         return IndividualMinimalSerializer
@@ -180,9 +183,16 @@ class IndividualViewSet(BaseViewSet):
                 {"error": "Something went wrong"}, status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @action(detail=False, methods=["get"])
+    @action(detail=False, methods=["get"], url_path="search")
     def search(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())
+        search_key = (
+            request.query_params.get("q", "").strip()
+            or request.query_params.get("search", "").strip()
+        )
+        if not search_key:
+            return self._create_rendered_response([], status.HTTP_200_OK)
+
+        queryset = self.filter_queryset(self.get_queryset())[:25]
         serializer = self.get_serializer(queryset, many=True)
         return self._create_rendered_response(serializer.data, status.HTTP_200_OK)
 

@@ -1,26 +1,48 @@
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { useState } from 'react';
+import { useForm, useFormState, Controller } from 'react-hook-form';
+import { zodResolver } from '@/lib/zodResolver';
+import { applyApiValidationErrors } from '@/lib/formErrors';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { UserPlus, Building } from 'lucide-react';
 import { hirePurchaseApi } from '@/api/hirePurchaseApi';
+import { clientsApi } from '@/api/clientsApi';
+import { Modal } from '@/components/shared/Modal';
+import { IndividualCreateForm } from '@/components/individuals/IndividualCreateForm';
+import { CompanyCreateForm } from '@/components/companies/CompanyCreateForm';
 import { Input } from '@/components/ui/input';
 import AutocompleteInput from '@/components/shared/AutocompleteInput';
 import { individualsApi } from '@/api/individualsApi';
 import { companiesApi } from '@/api/companiesApi';
 import { Button } from '@/components/ui/button';
 import { FormSectionHeader } from '@/components/shared/FormSectionHeader';
-import { ASSET_TYPES, ASSET_CONDITIONS, CURRENCIES } from '@/types';
+import { FieldError } from '@/components/shared/FieldError';
+import {
+  ASSET_TYPE_OPTIONS,
+  ASSET_TYPE_VALUES,
+  ASSET_CONDITIONS,
+  CURRENCIES,
+} from '@/types';
 
 const schema = z.object({
-  financier_id: z.coerce.number().min(1, 'Financier is required'),
+  financier_id: z
+    .number({ error: 'Financier is required' })
+    .min(1, 'Financier is required'),
   data_date: z.string().min(1, 'Required'),
   purchaser_type: z.enum(['individual', 'company']),
-  purchaser_id: z.coerce.number().min(1, 'Purchaser is required'),
+  purchaser_id: z
+    .number({ error: 'Purchaser is required' })
+    .min(1, 'Purchaser is required'),
   purchaser_search: z.string().optional(),
   agreement_number: z.string().min(1, 'Required'),
-  asset_type: z.enum(ASSET_TYPES as unknown as [string, ...string[]]),
+  asset_type: z
+    .string()
+    .min(1, 'Select asset type')
+    .refine(
+      (v) => (ASSET_TYPE_VALUES as readonly string[]).includes(v),
+      'Select asset type',
+    ),
   asset_make: z.string().min(1, 'Required'),
   asset_model: z.string().optional(),
   asset_year: z.coerce.number().min(1900).max(2100),
@@ -47,6 +69,8 @@ type FormValues = z.infer<typeof schema>;
 
 interface HirePurchaseFormProps {
   initial?: Partial<FormValues>;
+  financierDisplayLabel?: string;
+  purchaserDisplayLabel?: string;
   onSuccess: () => void;
   onSaveAndAdd?: () => void;
   onCancel: () => void;
@@ -56,21 +80,29 @@ interface HirePurchaseFormProps {
 
 export function HirePurchaseForm({
   initial,
+  financierDisplayLabel,
+  purchaserDisplayLabel,
   onSuccess,
   onSaveAndAdd,
   onCancel,
   isEdit,
   recordId,
 }: HirePurchaseFormProps) {
+  const [addIndividualOpen, setAddIndividualOpen] = useState(false);
+  const [addCompanyOpen, setAddCompanyOpen] = useState(false);
   const {
     register,
     control,
     handleSubmit,
     watch,
     reset,
-    formState: { errors },
+    setValue,
+    setError,
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
+    mode: 'onSubmit',
+    reValidateMode: 'onChange',
+    shouldFocusError: true,
     defaultValues: {
       purchaser_type: 'individual',
       data_date: new Date().toISOString().split('T')[0],
@@ -83,8 +115,10 @@ export function HirePurchaseForm({
     },
   });
 
+  const { errors } = useFormState({ control });
+
   const watchAssetType = watch('asset_type');
-  const isVehicle = watchAssetType === 'Vehicles';
+  const isVehicle = watchAssetType === 'vehicles';
 
   const { mutate: submit, isPending } = useMutation({
     mutationFn: (data: FormValues) =>
@@ -92,9 +126,20 @@ export function HirePurchaseForm({
         ? hirePurchaseApi.updateRecord(recordId, data as any)
         : hirePurchaseApi.createRecord(data as any),
     onSuccess,
-    onError: (err: any) =>
-      toast.error(err?.response?.data?.message ?? 'Failed to save'),
+    onError: (err: unknown) => {
+      if (!applyApiValidationErrors(setError, err)) {
+        const data = (err as { response?: { data?: { message?: string; error?: string } } })
+          ?.response?.data;
+        toast.error(data?.message ?? data?.error ?? 'Failed to save');
+      } else {
+        toast.error('Please fix the highlighted fields');
+      }
+    },
   });
+
+  const onInvalid = () => {
+    toast.error('Please fix the highlighted fields');
+  };
 
   const handleSaveAndAdd = handleSubmit((data) => {
     submit(data, {
@@ -106,14 +151,19 @@ export function HirePurchaseForm({
   });
 
   return (
-    <form onSubmit={handleSubmit((d) => submit(d))} className="bg-white">
-      {/* Add Individual / Company quick-add buttons */}
+    <>
+    <form
+      onSubmit={handleSubmit((d) => submit(d), onInvalid)}
+      className="bg-white"
+      noValidate
+    >
       <div className="flex gap-2 px-4 pt-4 pb-1">
         <Button
           type="button"
           size="sm"
           variant="primary"
           leftIcon={<UserPlus className="h-3 w-3" />}
+          onClick={() => setAddIndividualOpen(true)}
         >
           + Add Individual
         </Button>
@@ -122,6 +172,7 @@ export function HirePurchaseForm({
           size="sm"
           variant="secondary"
           leftIcon={<Building className="h-3 w-3" />}
+          onClick={() => setAddCompanyOpen(true)}
         >
           + Add Company
         </Button>
@@ -130,23 +181,24 @@ export function HirePurchaseForm({
       {/* ── Financier Section ── */}
       <FormSectionHeader title="Financier" variant="red" />
       <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3">
-        <div>
-          <label className="text-xs font-medium text-slate-600">
-            Financier Name<span className="text-red-500 ml-0.5">*</span>
-          </label>
-          <select
-            {...register('financier_id', { valueAsNumber: true })}
-            className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
-          >
-            <option value="">Select...</option>
-            <option value="2">ABC Money Lenders (PVT) Ltd</option>
-            <option value="4">CBZ Bank</option>
-          </select>
-          {errors.financier_id && (
-            <p className="text-xs text-red-500">
-              {errors.financier_id.message}
-            </p>
-          )}
+        <div className="col-span-2">
+          <Controller
+            name="financier_id"
+            control={control}
+            render={({ field }) => (
+              <AutocompleteInput
+                label="Financier Name"
+                placeholder="Search financier..."
+                queryKey="hp-financier"
+                displayLabel={financierDisplayLabel}
+                fetchFn={clientsApi.searchClients}
+                error={errors.financier_id?.message}
+                value={field.value}
+                onBlur={field.onBlur}
+                onChange={(v) => field.onChange(Number(v))}
+              />
+            )}
+          />
         </div>
         <Input
           label="Data Date"
@@ -194,23 +246,21 @@ export function HirePurchaseForm({
                       ? 'Search by Name / National ID'
                       : 'Search by Name / Reg Number'
                   }
+                  queryKey={`hp-purchaser-${watch('purchaser_type')}`}
+                  displayLabel={purchaserDisplayLabel}
                   fetchFn={(q) =>
                     watch('purchaser_type') === 'company'
                       ? companiesApi.searchBranches(q)
                       : individualsApi.searchIndividuals(q)
                   }
-                  ownerType={watch('purchaser_type')}
+                  value={field.value}
+                  onBlur={field.onBlur}
+                  error={errors.purchaser_id?.message}
                   onChange={(v) => field.onChange(Number(v))}
                 />
               )}
             />
-            <Button type="button" size="sm" variant="primary">
-              Search
-            </Button>
           </div>
-          <p className="mt-2 text-xs text-slate-400 italic">
-            No data available
-          </p>
         </div>
       </div>
 
@@ -232,15 +282,13 @@ export function HirePurchaseForm({
             className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
           >
             <option value="">Click to select an option</option>
-            {ASSET_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
+            {ASSET_TYPE_OPTIONS.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
               </option>
             ))}
           </select>
-          {errors.asset_type && (
-            <p className="text-xs text-red-500">{errors.asset_type.message}</p>
-          )}
+          <FieldError message={errors.asset_type?.message} />
         </div>
         <Input
           label="Make"
@@ -353,5 +401,40 @@ export function HirePurchaseForm({
         </div>
       </div>
     </form>
+
+    <Modal
+      open={addIndividualOpen}
+      onClose={() => setAddIndividualOpen(false)}
+      title="Add Individual"
+      size="lg"
+    >
+      <IndividualCreateForm
+        onCancel={() => setAddIndividualOpen(false)}
+        onSuccess={({ id, name }) => {
+          setValue('purchaser_type', 'individual');
+          setValue('purchaser_id', id, { shouldValidate: true });
+          setAddIndividualOpen(false);
+          toast.success(`${name} added — select from search if needed`);
+        }}
+      />
+    </Modal>
+
+    <Modal
+      open={addCompanyOpen}
+      onClose={() => setAddCompanyOpen(false)}
+      title="Add Company"
+      size="lg"
+    >
+      <CompanyCreateForm
+        onCancel={() => setAddCompanyOpen(false)}
+        onSuccess={({ id, name }) => {
+          setValue('purchaser_type', 'company');
+          setValue('purchaser_id', id, { shouldValidate: true });
+          setAddCompanyOpen(false);
+          toast.success(`${name} added — search branch to link purchaser`);
+        }}
+      />
+    </Modal>
+    </>
   );
 }

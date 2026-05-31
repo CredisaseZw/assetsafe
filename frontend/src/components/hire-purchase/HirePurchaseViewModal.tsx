@@ -5,17 +5,21 @@ import type { HirePurchaseRecord } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Edit } from 'lucide-react';
+import { DeleteRecordButton } from '@/components/shared/DeleteRecordButton';
+import { hirePurchaseApi } from '@/api/hirePurchaseApi';
 
 interface HirePurchaseViewModalProps {
   record: HirePurchaseRecord;
   onClose: () => void;
   onSaved: () => void;
+  onDeleted: () => void;
 }
 
 export function HirePurchaseViewModal({
   record,
   onClose,
   onSaved,
+  onDeleted,
 }: HirePurchaseViewModalProps) {
   const [editMode, setEditMode] = useState(false);
 
@@ -30,6 +34,8 @@ export function HirePurchaseViewModal({
         <HirePurchaseForm
           isEdit
           recordId={record.id}
+          financierDisplayLabel={record.financier_name}
+          purchaserDisplayLabel={record.purchaser_name}
           initial={{
             financier_id: record.financier_id,
             data_date: record.data_date,
@@ -81,16 +87,22 @@ export function HirePurchaseViewModal({
               </div>
             ))}
           </div>
-          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-            <Button variant="ghost" onClick={onClose}>
-              Close
-            </Button>
-            <Button
-              leftIcon={<Edit className="h-3.5 w-3.5" />}
-              onClick={() => setEditMode(true)}
-            >
-              Edit
-            </Button>
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+            <DeleteRecordButton
+              onDelete={() => hirePurchaseApi.deleteRecord(record.id)}
+              onDeleted={onDeleted}
+            />
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={onClose}>
+                Close
+              </Button>
+              <Button
+                leftIcon={<Edit className="h-3.5 w-3.5" />}
+                onClick={() => setEditMode(true)}
+              >
+                Edit
+              </Button>
+            </div>
           </div>
         </div>
       )}

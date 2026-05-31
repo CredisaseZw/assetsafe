@@ -8,20 +8,28 @@ export type AssetCondition =
   | 'non_functioning';
 export type Currency = 'USD' | 'ZWL' | 'ZAR' | 'GBP' | 'EUR';
 
-export const ASSET_TYPES = [
-  'Computers',
-  'Machinery',
-  'Equipment',
-  'Vehicles',
-  'Land',
-  'Building',
-  'Furniture',
-  'Shares',
-  'Inventory',
-  'Accounts Receivable',
-] as const;
+import {
+  ASSET_TYPE_OPTIONS,
+  COLLATERAL_ASSET_TYPE_OPTIONS,
+  ASSET_TYPE_VALUES,
+  COLLATERAL_ASSET_TYPE_VALUES,
+  toBackendAssetType,
+  assetTypeLabel,
+} from '@/lib/assetTypes';
 
-export type AssetType = (typeof ASSET_TYPES)[number];
+export {
+  ASSET_TYPE_OPTIONS,
+  COLLATERAL_ASSET_TYPE_OPTIONS,
+  ASSET_TYPE_VALUES,
+  COLLATERAL_ASSET_TYPE_VALUES,
+  toBackendAssetType,
+  assetTypeLabel,
+};
+
+export type AssetType = (typeof ASSET_TYPE_OPTIONS)[number]['value'];
+
+/** @deprecated Use ASSET_TYPE_OPTIONS */
+export const ASSET_TYPES = ASSET_TYPE_OPTIONS.map((o) => o.label);
 
 export const ASSET_CONDITIONS: { value: AssetCondition; label: string }[] = [
   { value: 'new', label: 'New' },
