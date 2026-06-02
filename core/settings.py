@@ -31,12 +31,24 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND")
 EMAIL_HOST = os.environ["EMAIL_HOST"]
 EMAIL_PORT = os.environ["EMAIL_PORT"]
-EMAIL_USE_SSL = os.environ["EMAIL_USE_SSL"]
 EMAIL_HOST_USER = os.environ["EMAIL_HOST_USER"]
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-DEFAULT_REPLY_TO_EMAIL = EMAIL_HOST_USER
+DEFAULT_FROM_EMAIL = (
+    os.getenv("DEFAULT_FROM_EMAIL") or EMAIL_HOST_USER or "noreply@localhost"
+)
+DEFAULT_REPLY_TO_EMAIL = DEFAULT_FROM_EMAIL
 EMAIL_HOST_PASSWORD = os.environ["EMAIL_HOST_PASSWORD"]
-EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "False")
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False").strip().lower() in (
+    "true",
+    "1",
+    "yes",
+    "on",
+)
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "False").strip().lower() in (
+    "true",
+    "1",
+    "yes",
+    "on",
+)
 # SMS SETTINGS
 SMS_USERNAME = os.environ["SMS_USERNAME"]
 SMS_PASSWORD = os.environ["SMS_PASSWORD"]
