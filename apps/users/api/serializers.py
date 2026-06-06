@@ -187,7 +187,6 @@ class UserSerializer(serializers.ModelSerializer):
         ]
 
     def get_profile_object(self, obj):
-        print("all the user details....", obj.roles)
         if not obj.profile_object:
             return None
 

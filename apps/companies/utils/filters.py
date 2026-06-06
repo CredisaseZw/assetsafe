@@ -20,7 +20,6 @@ class CompanyBranchFilter(django_filters.FilterSet):
         fields = ["company", "is_headquarters"]
 
     def filter_by_city(self, queryset, name, value):
-        print(f"Filtering city: {value}")
         branch_content_type = ContentType.objects.get_for_model(CompanyBranch)
         return queryset.filter(
             addresses__content_type=branch_content_type,

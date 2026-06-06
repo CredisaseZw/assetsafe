@@ -16,6 +16,7 @@ from apps.collateral.models.models import (
     DEBTOR_TYPE_COMPANY,
     DEBTOR_TYPE_INDIVIDUAL,
 )
+from apps.common.models import Currency
 
 
 # ---------------------------------------------------------------------------
@@ -32,6 +33,12 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
     is_pending_discharge = serializers.SerializerMethodField(read_only=True)
     financier_display = serializers.SerializerMethodField(read_only=True)
     debtor_display = serializers.SerializerMethodField(read_only=True)
+    currency = serializers.SlugRelatedField(
+        slug_field="code",
+        queryset=Currency.objects.all(),
+        allow_null=True,
+        required=False,
+    )
 
     class Meta:
         model = CollateralRegistration

@@ -17,6 +17,7 @@ from apps.common.models import (
     CollateralAssetType,
     AssetCondition,
 )
+from apps.individuals.models import Individual
 from apps.common.api.serializers import (
     CountrySerializer,
     CurrencySerializer,
@@ -219,7 +220,7 @@ class LocationViewSet(BaseViewSet):
 
     @CacheService.cached(tag_prefix="locations:provinces")
     def provinces(self, request):
-        queryset = Province.objects.filter(is_active=True)
+        queryset = Province.objects.select_related('country').filter(is_active=True)
         if country_id := request.query_params.get("country_id"):
             queryset = queryset.filter(country_id=country_id)
 
@@ -253,7 +254,7 @@ class LocationViewSet(BaseViewSet):
         tag_prefix="locations:cities", timeout=CacheService.LONG_CACHE_TIMEOUT
     )
     def cities(self, request):
-        queryset = City.objects.filter(is_active=True)
+        queryset = City.objects.select_related('province').filter(is_active=True)
         province_id = request.query_params.get("province_id")
         country_id = request.query_params.get("country_id")
 
@@ -289,7 +290,7 @@ class LocationViewSet(BaseViewSet):
         tag_prefix="locations:suburbs", timeout=CacheService.LONG_CACHE_TIMEOUT
     )
     def suburbs(self, request):
-        queryset = Suburb.objects.filter(is_active=True)
+        queryset = Suburb.objects.select_related('city').filter(is_active=True)
         city_id = request.query_params.get("city_id")
         province_id = request.query_params.get("province_id")
         country_id = request.query_params.get("country_id")
@@ -385,6 +386,10 @@ class CommonChoicesView(APIView):
             "AssetCondition": [
                 {"value": choice.value, "label": choice.label}
                 for choice in AssetCondition
+            ],
+            "IdentificationType": [
+                {"value": value, "label": label}
+                for value, label in Individual.IDENTIFICATION_TYPES
             ],
         }
 

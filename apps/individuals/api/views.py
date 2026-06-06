@@ -69,16 +69,10 @@ class IndividualViewSet(BaseViewSet):
             "contact_details",
         ).order_by("-date_created")
 
-    def get_context(self):
-        context = super().get_context()
-        context["request"] = self.request
-        return context
-
     def get_serializer_class(self):
         if self.action in ["update", "partial_update", "create"]:
             return IndividualCreateSerializer
         elif self.action in ["search_individuals", "details", "list"]:
-            print("returning search serializer")
             return IndividualSearchSerializer
         elif self.action == "retrieve_full_individual_details":
             return IndividualSerializer

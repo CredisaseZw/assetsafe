@@ -78,7 +78,6 @@ class LoginView(APIView):
             return response
 
         except Exception as e:
-            print(f"Login error: {e}")
             logger.error(f"Login error: {str(e)}")
 
             # Handle specific error cases
