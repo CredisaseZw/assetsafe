@@ -1,20 +1,3 @@
-export const ASSET_TYPE_OPTIONS = [
-  { value: 'computers', label: 'Computers' },
-  { value: 'machinery', label: 'Machinery' },
-  { value: 'equipment', label: 'Equipment' },
-  { value: 'vehicles', label: 'Vehicles' },
-  { value: 'land', label: 'Land' },
-  { value: 'building', label: 'Building' },
-  { value: 'furniture', label: 'Furniture' },
-  { value: 'shares', label: 'Shares' },
-] as const;
-
-export const COLLATERAL_ASSET_TYPE_OPTIONS = [
-  ...ASSET_TYPE_OPTIONS,
-  { value: 'inventory', label: 'Inventory' },
-  { value: 'accounts_receivable', label: 'Accounts Receivable' },
-] as const;
-
 const LEGACY_LABEL_TO_VALUE: Record<string, string> = {
   Computers: 'computers',
   Machinery: 'machinery',
@@ -28,12 +11,18 @@ const LEGACY_LABEL_TO_VALUE: Record<string, string> = {
   'Accounts Receivable': 'accounts_receivable',
 };
 
-const VALUE_TO_LABEL = Object.fromEntries(
-  [...ASSET_TYPE_OPTIONS, ...COLLATERAL_ASSET_TYPE_OPTIONS].map((o) => [
-    o.value,
-    o.label,
-  ]),
-) as Record<string, string>;
+const VALUE_TO_LABEL: Record<string, string> = {
+  computers: 'Computers',
+  machinery: 'Machinery',
+  equipment: 'Equipment',
+  vehicles: 'Vehicles',
+  land: 'Land',
+  building: 'Building',
+  furniture: 'Furniture',
+  shares: 'Shares',
+  inventory: 'Inventory',
+  accounts_receivable: 'Accounts Receivable',
+};
 
 export function toBackendAssetType(value: string): string {
   if (!value) return value;
@@ -47,8 +36,3 @@ export function toBackendAssetType(value: string): string {
 export function assetTypeLabel(value: string): string {
   return VALUE_TO_LABEL[toBackendAssetType(value)] ?? value;
 }
-
-export const ASSET_TYPE_VALUES = ASSET_TYPE_OPTIONS.map((o) => o.value);
-export const COLLATERAL_ASSET_TYPE_VALUES = COLLATERAL_ASSET_TYPE_OPTIONS.map(
-  (o) => o.value,
-);

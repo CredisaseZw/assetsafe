@@ -6,13 +6,11 @@ import type {
   AssetRegistryDashboard,
   AssetRecord,
   AssetFormData,
-  AssetType,
-  User,
 } from '@/types';
 
 export const assetRegistryApi = {
   getDashboard: async (params?: {
-    asset_type?: AssetType;
+    asset_type?: string;
   }): Promise<AssetRegistryDashboard> => {
     const { data } = await axiosInstance.get<
       ApiResponse<AssetRegistryDashboard>
@@ -21,7 +19,7 @@ export const assetRegistryApi = {
   },
 
   getRecords: async (params?: {
-    asset_type?: AssetType;
+    asset_type?: string;
     search?: string;
     page?: number;
     page_size?: number;
@@ -71,7 +69,7 @@ export const assetRegistryApi = {
           location_address: record.location_address ?? '',
           subscription_start_date: record.subscription_start_date ?? '',
           subscription_end_date: record.subscription_end_date ?? '',
-          status: record.is_active === false ? 'expired' : 'active',
+          status: (record.is_active === false ? 'expired' : 'active') as AssetRecord['status'],
         }))
       : [];
 
@@ -79,10 +77,35 @@ export const assetRegistryApi = {
   },
 
   getRecord: async (id: number): Promise<AssetRecord> => {
-    const { data } = await axiosInstance.get<ApiResponse<AssetRecord>>(
+    const { data } = await axiosInstance.get<ApiResponse<any>>(
       `/asset-management/${id}/`,
     );
-    return data.data ?? (data as unknown as AssetRecord);
+    const r = data.data ?? data;
+    return {
+      id: r.id,
+      lodge_date: r.lodge_date ?? '',
+      registration_number: r.registration_number ?? '',
+      owner_name: r.owner_display ?? '',
+      owner_type: r.owner_type ?? 'individual',
+      owner_id: r.individual_owner ?? r.company_owner ?? 0,
+      owner_asset_number: r.owner_asset_number ?? '',
+      asset_description: `${r.make ?? ''} ${r.model ?? ''}`.trim(),
+      asset_type: r.asset_type ?? '',
+      asset_make: r.make ?? '',
+      asset_model: r.model ?? '',
+      year_of_make: r.year_of_make ?? 0,
+      condition: r.condition ?? 'new',
+      mv_registration_no: r.mv_registration_number ?? '',
+      chassis_number: r.chassis_number ?? '',
+      engine_number: r.engine_number ?? '',
+      serial_number: r.serial_number ?? '',
+      currency: r.currency ?? '',
+      estimated_value: r.estimated_value ?? 0,
+      location_address: r.location_address ?? '',
+      subscription_start_date: r.subscription_start_date ?? '',
+      subscription_end_date: r.subscription_end_date ?? '',
+      status: (r.is_active === false ? 'expired' : 'active') as AssetRecord['status'],
+    };
   },
 
   createRecord: async (payload: AssetFormData): Promise<AssetRecord> => {
@@ -108,16 +131,4 @@ export const assetRegistryApi = {
     await axiosInstance.delete(`/asset-management/${id}/`);
   },
 
-  searchUsers: async (
-    query: string,
-    type?: 'individual' | 'company',
-  ): Promise<User[]> => {
-    const { data } = await axiosInstance.get<ApiResponse<User[]>>(
-      '/users/search/',
-      {
-        params: { q: query, type },
-      },
-    );
-    return data.data ?? (data as unknown as User[]);
-  },
 };

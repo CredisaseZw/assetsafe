@@ -73,10 +73,14 @@ export function applyApiValidationErrors<T extends FieldValues>(
   if (!data || typeof data !== 'object') return false;
 
   const body = data as Record<string, unknown>;
+
+  // A plain string in `error` is a global message, not a field-level error.
+  // Return false so the caller can show it as a toast.
+  if (typeof body.error === 'string' && !body.errors) return false;
+
   const errorPayload =
     body.errors ??
     (typeof body.error === 'object' ? body.error : null) ??
-    (typeof body.error === 'string' ? { non_field_errors: body.error } : null) ??
     body;
 
   const flattened = flattenApiErrors(errorPayload);

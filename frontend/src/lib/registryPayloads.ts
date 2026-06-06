@@ -68,7 +68,6 @@ export function mapCollateralFormToApi(data: Record<string, unknown>) {
     instalment_amount: data.instalment_amount,
     instalment_day: data.instalment_date,
     total_paid_to_date: data.total_paid_to_date,
-    balance: data.balance,
     agreement_start_date: data.start_date,
     agreement_end_date: data.end_date,
   };
@@ -77,6 +76,7 @@ export function mapCollateralFormToApi(data: Record<string, unknown>) {
 export function mapHirePurchaseFormToApi(data: Record<string, unknown>) {
   const asset_type = toBackendAssetType(String(data.asset_type ?? ''));
   const purchaser_type = data.purchaser_type as 'individual' | 'company';
+  const isVehicle = asset_type === 'vehicles';
 
   return {
     financier: data.financier_id,
@@ -92,9 +92,9 @@ export function mapHirePurchaseFormToApi(data: Record<string, unknown>) {
     year_of_make: data.asset_year,
     condition: data.asset_condition,
     serial_number: data.reg_serial_number ?? '',
-    mv_registration_number: '',
-    chassis_number: '',
-    engine_number: '',
+    mv_registration_number: isVehicle ? (data.reg_serial_number ?? '') : '',
+    chassis_number: isVehicle ? (data.chassis_number ?? '') : '',
+    engine_number: isVehicle ? (data.engine_number ?? '') : '',
     currency: data.currency,
     purchase_amount: data.purchase_amount,
     instalment_amount: data.instalment_amount,

@@ -12,6 +12,12 @@ export interface CompanyCreatePayload {
   legal_status?: string;
   date_of_incorporation?: string | null;
   industry?: string;
+  addresses?: {
+    address_type?: string;
+    is_primary?: boolean;
+    street_address: string;
+    suburb_id: number;
+  }[];
 }
 
 export const companiesApi = {
@@ -33,7 +39,10 @@ export const companiesApi = {
   createCompany: async (
     payload: CompanyCreatePayload,
   ): Promise<{ id: number; name: string }> => {
-    const { data } = await axiosInstance.post<unknown>('/companies/', payload);
+    const { data } = await axiosInstance.post<unknown>(
+      '/companies/companies/',
+      payload,
+    );
     const body = (data as { data?: Record<string, unknown> })?.data ?? data;
     const record = body as Record<string, unknown>;
     return {

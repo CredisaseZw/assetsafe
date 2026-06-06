@@ -48,6 +48,8 @@ export function HirePurchaseViewModal({
             asset_year: record.asset_year,
             asset_condition: record.asset_condition,
             reg_serial_number: record.reg_serial_number,
+            chassis_number: record.chassis_number,
+            engine_number: record.engine_number,
             currency: record.currency,
             purchase_amount: record.purchase_amount,
             instalment_amount: record.instalment_amount,

@@ -5,7 +5,6 @@ import type {
   CollateralDashboard,
   CollateralRecord,
   CollateralFormData,
-  User,
 } from '@/types';
 
 function mapCollateralRecord(
@@ -53,9 +52,7 @@ function mapCollateralRecord(
     ),
     financier_type:
       (record.financier_type as CollateralRecord['financier_type']) ?? 'company',
-    financier_id: Number(record.financier_id ?? 0),
-    data_source_name: String(record.data_source_name ?? ''),
-    data_source_position: String(record.data_source_position ?? ''),
+    financier_id: Number(record.financier ?? record.financier_id ?? 0),
     data_date: String(record.data_date ?? record.lodge_date ?? ''),
     status: record.is_discharged ? 'discharged' : 'active',
   };
@@ -115,16 +112,5 @@ export const collateralApi = {
   dischargeRecord: async (id: number): Promise<CollateralRecord> => {
     const { data } = await axiosInstance.post(`/collateral/${id}/discharge/`);
     return mapCollateralRecord(unwrapApiData<Record<string, unknown>>(data));
-  },
-
-  searchUsers: async (
-    query: string,
-    type?: 'individual' | 'company',
-  ): Promise<User[]> => {
-    const { data } = await axiosInstance.get('/users/search/', {
-      params: { q: query, type },
-    });
-    const list = unwrapApiData<User[]>(data);
-    return Array.isArray(list) ? list : [];
   },
 };

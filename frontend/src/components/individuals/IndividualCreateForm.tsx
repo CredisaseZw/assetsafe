@@ -1,19 +1,21 @@
-import { useForm, useFormState } from 'react-hook-form';
+import { useEffect } from 'react';
+import { useForm, useFormState, Controller } from 'react-hook-form';
 import { zodResolver } from '@/lib/zodResolver';
 import { applyApiValidationErrors } from '@/lib/formErrors';
 import { z } from 'zod';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { individualsApi } from '@/api/individualsApi';
-import { locationsApi } from '@/api/locationsApi';
+import { commonApi } from '@/api/commonApi';
+import { queryOptions } from '@/api/queryOptions';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { FieldError } from '@/components/shared/FieldError';
+import { LocationCascadeSelects } from '@/components/shared/LocationCascadeSelects';
 
 const schema = z.object({
   first_name: z.string().min(1, 'Required'),
   last_name: z.string().min(1, 'Required'),
-  identification_type: z.enum(['national_id', 'passport']),
+  identification_type: z.string().min(1, 'ID Type is required'),
   identification_number: z.string().min(1, 'Required'),
   email: z.string().email().optional().or(z.literal('')),
   phone: z.string().min(1, 'Phone is required'),
@@ -32,23 +34,34 @@ export function IndividualCreateForm({
   onSuccess,
   onCancel,
 }: IndividualCreateFormProps) {
-  const { register, handleSubmit, setError, control } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    mode: 'onSubmit',
-    reValidateMode: 'onChange',
-    shouldFocusError: true,
-    defaultValues: {
-      identification_type: 'national_id',
-    },
-  });
+  const { register, handleSubmit, setError, control, setValue, watch } =
+    useForm<FormValues>({
+      resolver: zodResolver(schema),
+      mode: 'onSubmit',
+      reValidateMode: 'onChange',
+      shouldFocusError: true,
+      defaultValues: {
+        identification_type: '',
+      },
+    });
 
   const { errors } = useFormState({ control });
 
-  const { data: suburbs = [] } = useQuery({
-    queryKey: ['suburbs'],
-    queryFn: () => locationsApi.searchSuburbs(),
-    staleTime: 1000 * 60 * 10,
+  const { data: choices = {} } = useQuery({
+    queryKey: ['common-choices'],
+    queryFn: commonApi.getChoices,
+    ...queryOptions.static,
   });
+
+  const identificationTypeOptions = choices.IdentificationType ?? [];
+
+  useEffect(() => {
+    if (!watch('identification_type') && identificationTypeOptions.length > 0) {
+      setValue('identification_type', identificationTypeOptions[0].value, {
+        shouldValidate: true,
+      });
+    }
+  }, [identificationTypeOptions, setValue, watch]);
 
   const { mutate: submit, isPending } = useMutation({
     mutationFn: (values: FormValues) =>
@@ -61,7 +74,7 @@ export function IndividualCreateForm({
         contact_details: [{ type: 'mobile', phone_number: values.phone }],
         addresses: [
           {
-            address_type: 'residential',
+            address_type: 'physical',
             is_primary: true,
             street_address: values.street_address,
             suburb_id: values.suburb_id,
@@ -74,8 +87,9 @@ export function IndividualCreateForm({
     },
     onError: (err: unknown) => {
       if (!applyApiValidationErrors(setError, err)) {
-        const data = (err as { response?: { data?: { message?: string; error?: string } } })
-          ?.response?.data;
+        const data = (
+          err as { response?: { data?: { message?: string; error?: string } } }
+        )?.response?.data;
         toast.error(
           data?.message ?? data?.error ?? 'Failed to create individual',
         );
@@ -112,9 +126,18 @@ export function IndividualCreateForm({
           <select
             {...register('identification_type')}
             className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm"
+            disabled={!identificationTypeOptions.length}
           >
-            <option value="national_id">National ID</option>
-            <option value="passport">Passport</option>
+            <option value="">
+              {identificationTypeOptions.length
+                ? 'Select ID type...'
+                : 'Loading ID types...'}
+            </option>
+            {identificationTypeOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </div>
         <Input
@@ -137,21 +160,17 @@ export function IndividualCreateForm({
           required
           className="col-span-2"
         />
-        <div className="col-span-2">
-          <label className="text-xs font-medium text-slate-600">Suburb</label>
-          <select
-            {...register('suburb_id')}
-            className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm"
-          >
-            <option value="">Select suburb...</option>
-            {suburbs.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-          <FieldError message={errors.suburb_id?.message} />
-        </div>
+        <Controller
+          name="suburb_id"
+          control={control}
+          render={({ field }) => (
+            <LocationCascadeSelects
+              value={field.value}
+              onChange={(id) => field.onChange(id)}
+              error={errors.suburb_id?.message}
+            />
+          )}
+        />
       </div>
       <div className="flex justify-end gap-2 border-t border-slate-200 pt-3">
         <Button type="button" variant="ghost" onClick={onCancel}>

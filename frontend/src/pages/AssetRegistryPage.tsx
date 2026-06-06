@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ArrowDown, ArrowUp, ArrowUpDown, Plus, Search } from 'lucide-react';
 import { assetRegistryApi } from '@/api/assetRegistryApi';
+import { commonApi } from '@/api/commonApi';
+import { queryOptions } from '@/api/queryOptions';
 import { InlineStat } from '@/components/shared/InlineStat';
 import { TableSkeleton } from '@/components/shared/TableSkeleton';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -13,8 +15,7 @@ import { AssetViewModal } from '@/components/registry/AssetViewModal';
 import { NumberedPaginationFooter } from '@/components/shared/NumberedPaginationFooter';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import { invalidateRegistryQueries } from '@/lib/registryCache';
-import { ASSET_TYPE_OPTIONS } from '@/types';
-import type { AssetRecord, AssetType } from '@/types';
+import type { AssetRecord } from '@/types';
 
 const PAGE_SIZE = 16;
 
@@ -22,13 +23,20 @@ type AssetSortOption = 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc';
 
 export default function AssetRegistryPage() {
   const queryClient = useQueryClient();
-  const [filterAssetType, setFilterAssetType] = useState<AssetType | ''>('');
+  const [filterAssetType, setFilterAssetType] = useState('');
   const [searchText, setSearchText] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [sortOption, setSortOption] = useState<AssetSortOption>('date-desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [addOpen, setAddOpen] = useState(false);
   const [viewRecord, setViewRecord] = useState<AssetRecord | null>(null);
+
+  const { data: choices = {} } = useQuery({
+    queryKey: ['common-choices'],
+    queryFn: commonApi.getChoices,
+    ...queryOptions.static,
+  });
+  const assetTypeOptions = choices.BaseAssetType ?? [];
 
   const { data: statsData } = useQuery({
     queryKey: ['registry-dashboard', filterAssetType],
@@ -154,13 +162,13 @@ export default function AssetRegistryPage() {
             <select
               value={filterAssetType}
               onChange={(e) => {
-                setFilterAssetType(e.target.value as AssetType | '');
+                setFilterAssetType(e.target.value);
                 setCurrentPage(1);
               }}
               className="h-7 min-w-[120px] rounded-none border border-black bg-white px-2 text-[12px]"
             >
               <option value="">All types</option>
-              {ASSET_TYPE_OPTIONS.map((t) => (
+              {assetTypeOptions.map((t: any) => (
                 <option key={t.value} value={t.value}>
                   {t.label}
                 </option>

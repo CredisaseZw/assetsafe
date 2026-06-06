@@ -77,16 +77,14 @@ export default function HirePurchasePage() {
     if (results.length === 1) {
       const client = results[0];
       setSelectedFinancier(String(client.id));
-      setSelectedFinancierLabel(
-        client.name ?? client.trading_name ?? String(client.id),
-      );
+      setSelectedFinancierLabel(client.name ?? String(client.id));
       setCurrentPage(1);
       return;
     }
     if (results.length > 1) {
       const first = results[0];
       setSelectedFinancier(String(first.id));
-      setSelectedFinancierLabel(first.name ?? first.trading_name ?? '');
+      setSelectedFinancierLabel(first.name ?? '');
       setCurrentPage(1);
       toast.message(`Showing results for ${first.name ?? 'first match'}`);
       return;

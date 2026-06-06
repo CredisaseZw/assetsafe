@@ -8,7 +8,7 @@ import {
 export interface IndividualCreatePayload {
   first_name: string;
   last_name: string;
-  identification_type: 'national_id' | 'passport';
+  identification_type: string;
   identification_number: string;
   email?: string;
   gender?: string;

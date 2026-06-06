@@ -65,7 +65,7 @@ export const hirePurchaseApi = {
             '',
           chassis_number: record.chassis_number ?? '',
           engine_number: record.engine_number ?? '',
-          currency: record.currency,
+          currency: record.currency_code ?? record.currency ?? '',
           purchase_amount: record.purchase_amount ?? 0,
           instalment_amount: record.instalment_amount ?? 0,
           instalment_date: record.instalment_day ?? record.instalment_date ?? 1,
@@ -75,9 +75,9 @@ export const hirePurchaseApi = {
           end_date: record.agreement_end_date ?? record.end_date ?? '',
           financier_name:
             record.financier_display ?? record.financier_name ?? '',
-          financier_id: record.financier_id ?? 0,
+          financier_id: record.financier ?? record.financier_id ?? 0,
           data_date: record.data_date ?? record.lodge_date ?? '',
-          status: record.closure_confirmed ? 'closed' : 'active',
+          status: (record.closure_confirmed ? 'closed' : 'active') as HirePurchaseRecord['status'],
         }))
       : [];
 
@@ -126,19 +126,6 @@ export const hirePurchaseApi = {
   getFinanciers: async (): Promise<User[]> => {
     const { data } = await axiosInstance.get<ApiResponse<User[]>>(
       '/hire-purchase/financiers/',
-    );
-    return data.data ?? (data as unknown as User[]);
-  },
-
-  searchUsers: async (
-    query: string,
-    type?: 'individual' | 'company',
-  ): Promise<User[]> => {
-    const { data } = await axiosInstance.get<ApiResponse<User[]>>(
-      '/users/search/',
-      {
-        params: { q: query, type },
-      },
     );
     return data.data ?? (data as unknown as User[]);
   },
