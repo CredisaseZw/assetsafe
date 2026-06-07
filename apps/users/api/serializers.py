@@ -1,4 +1,5 @@
 import contextlib
+from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import authenticate
@@ -96,7 +97,16 @@ class ClientUserSerializer(serializers.ModelSerializer):
 class UserMiniSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "username", "email", "user_type", "is_verified", "client"]
+        fields = [
+            "id",
+            "username",
+            "email",
+            "user_type",
+            "is_verified",
+            "is_staff",
+            "is_superuser",
+            "client",
+        ]
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -160,13 +170,23 @@ class UserSerializer(serializers.ModelSerializer):
             "profile_object",
             "roles",
             "is_verified",
+            "is_staff",
+            "is_superuser",
             "last_login",
             "date_joined",
         ]
-        read_only_fields = ["last_login", "date_joined"]
+        read_only_fields = [
+            "last_login",
+            "date_joined",
+            "is_staff",
+            "is_superuser",
+            "user_type",
+            "roles",
+            "client",
+            "profile_object",
+        ]
 
     def get_profile_object(self, obj):
-        print("all the user details....", obj.roles)
         if not obj.profile_object:
             return None
 
@@ -184,6 +204,21 @@ class MinimalUserSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class ProfileUpdateSerializer(serializers.ModelSerializer):
+    """Fields a user may update on their own account."""
+
+    class Meta:
+        model = User
+        fields = ["first_name", "last_name", "email"]
+
+    def validate_email(self, value):
+        value = value.strip().lower()
+        qs = User.objects.filter(email__iexact=value).exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError("This email is already in use.")
+        return value
+
+
 class PasswordChangeSerializer(serializers.Serializer):
     current_password = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True)
@@ -197,7 +232,9 @@ class PasswordChangeSerializer(serializers.Serializer):
     def validate(self, data):
         if data["new_password"] != data["confirm_password"]:
             raise serializers.ValidationError("New passwords must match")
-        if self.context["request"].user.check_password(data["new_password"]):
+        user = self.context["request"].user
+        validate_password(data["new_password"], user=user)
+        if user.check_password(data["new_password"]):
             raise serializers.ValidationError(
                 "New password cannot be the same as the old password."
             )
@@ -216,3 +253,12 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         if data["new_password"] != data["confirm_password"]:
             raise serializers.ValidationError("New passwords must match")
         return data
+
+    def validate_new_password(self, value):
+        validate_password(value, user=self.context.get("user"))
+        return value
+
+
+class PasswordResetValidateSerializer(serializers.Serializer):
+    uid = serializers.CharField(required=True)
+    token = serializers.CharField(required=True)

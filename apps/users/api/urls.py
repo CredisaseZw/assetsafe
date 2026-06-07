@@ -10,6 +10,7 @@ from apps.users.api.views import (
     CheckCSRFView,
     PasswordChangeView,
     PasswordResetRequestView,
+    PasswordResetValidateView,
     PasswordResetConfirmView,
 )
 
@@ -28,6 +29,11 @@ urlpatterns = [
         "password/reset/",
         PasswordResetRequestView.as_view(),
         name="password-reset-request",
+    ),
+    path(
+        "password/reset/validate/",
+        PasswordResetValidateView.as_view(),
+        name="password-reset-validate",
     ),
     path(
         "password/reset/confirm/<uidb64>/<token>/",

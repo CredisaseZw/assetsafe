@@ -11,6 +11,7 @@ from django.db import transaction
 from rest_framework import serializers
 
 from apps.hire_purchase.models import HirePurchaseRegistration
+from apps.common.models import Currency
 
 
 # ---------------------------------------------------------------------------
@@ -30,6 +31,12 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
         source="financier", read_only=True
     )
     purchaser_display = serializers.SerializerMethodField(read_only=True)
+    currency = serializers.SlugRelatedField(
+        slug_field="code",
+        queryset=Currency.objects.all(),
+        allow_null=True,
+        required=False,
+    )
 
     class Meta:
         model = HirePurchaseRegistration

@@ -62,6 +62,19 @@ class HasRole(permissions.BasePermission):
         return request.user.roles.filter(name__in=required_roles).exists()
 
 
+class IsSuperuser(permissions.BasePermission):
+    """Allows access only to Django superusers."""
+
+    message = _("You must be a superuser to access this resource.")
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user
+            and request.user.is_authenticated
+            and request.user.is_superuser
+        )
+
+
 class IsVerified(permissions.BasePermission):
     """
     Allows access only to verified users.

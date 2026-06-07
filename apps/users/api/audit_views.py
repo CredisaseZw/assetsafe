@@ -10,7 +10,9 @@ No create, update, or delete is permitted (append-only policy).
 from __future__ import annotations
 
 from rest_framework import filters, viewsets
-from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
+
+from apps.users.utils.permissions import IsSuperuser
 
 from django_filters.rest_framework import DjangoFilterBackend
 
@@ -23,7 +25,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     """
     A read-only ViewSet that exposes the append-only audit trail.
 
-    *   Only staff users (``is_staff=True``) may access this endpoint.
+    *   Only superusers may access this endpoint.
     *   Results are returned in reverse-chronological order (newest first).
     *   Supports filtering by ``resource_type``, ``success``, and
         ``created_by``; and ordering by ``timestamp``.
@@ -31,7 +33,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = AuditLog.objects.select_related("created_by").all()
     serializer_class = AuditLogSerializer
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated, IsSuperuser]
     pagination_class = StandardResultsSetPagination
     filter_backends = [
         DjangoFilterBackend,

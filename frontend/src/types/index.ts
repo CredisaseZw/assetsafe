@@ -6,31 +6,9 @@ export type AssetCondition =
   | 'second_hand'
   | 'reconditioned'
   | 'non_functioning';
-export type Currency = 'USD' | 'ZWL' | 'ZAR' | 'GBP' | 'EUR';
+export type Currency = string;
 
-export const ASSET_TYPES = [
-  'Computers',
-  'Machinery',
-  'Equipment',
-  'Vehicles',
-  'Land',
-  'Building',
-  'Furniture',
-  'Shares',
-  'Inventory',
-  'Accounts Receivable',
-] as const;
-
-export type AssetType = (typeof ASSET_TYPES)[number];
-
-export const ASSET_CONDITIONS: { value: AssetCondition; label: string }[] = [
-  { value: 'new', label: 'New' },
-  { value: 'second_hand', label: 'Second Hand' },
-  { value: 'reconditioned', label: 'Reconditioned' },
-  { value: 'non_functioning', label: 'Non Functioning' },
-];
-
-export const CURRENCIES: Currency[] = ['USD', 'ZWL', 'ZAR', 'GBP', 'EUR'];
+export { toBackendAssetType } from '@/lib/assetTypes';
 
 // ─── API Response Wrapper ─────────────────────────────────────────────────────
 
@@ -68,7 +46,7 @@ export interface CollateralRecord {
   debtor_type: OwnerType;
   debtor_id: number;
   asset_description: string;
-  asset_type: AssetType;
+  asset_type: string;
   asset_make: string;
   asset_model: string;
   asset_year: number;
@@ -88,8 +66,6 @@ export interface CollateralRecord {
   financier_name: string;
   financier_type: OwnerType;
   financier_id: number;
-  data_source_name: string;
-  data_source_position: string;
   data_date: string;
   status: 'active' | 'pending_discharge' | 'discharged';
 }
@@ -103,13 +79,11 @@ export interface CollateralDashboard {
 export interface CollateralFormData {
   financier_type: OwnerType;
   financier_id: number;
-  data_source_name: string;
-  data_source_position: string;
   data_date: string;
   debtor_type: OwnerType;
   debtor_id: number;
   agreement_number: string;
-  asset_type: AssetType;
+  asset_type: string;
   asset_make: string;
   asset_model: string;
   asset_year: number;
@@ -139,7 +113,7 @@ export interface HirePurchaseRecord {
   purchaser_id: number;
   asset_make: string;
   asset_model: string;
-  asset_type: AssetType;
+  asset_type: string;
   asset_year: number;
   asset_condition: AssetCondition;
   reg_serial_number: string;
@@ -172,7 +146,7 @@ export interface HirePurchaseFormData {
   purchaser_type: OwnerType;
   purchaser_id: number;
   agreement_number: string;
-  asset_type: AssetType;
+  asset_type: string;
   asset_make: string;
   asset_model: string;
   asset_year: number;
@@ -201,7 +175,7 @@ export interface AssetRecord {
   owner_id: number;
   owner_asset_number: string;
   asset_description: string;
-  asset_type: AssetType;
+  asset_type: string;
   asset_make: string;
   asset_model: string;
   year_of_make: number;
@@ -228,7 +202,7 @@ export interface AssetFormData {
   owner_type: OwnerType;
   owner_id: number;
   owner_asset_number: string;
-  asset_type: AssetType;
+  asset_type: string;
   asset_make: string;
   asset_model: string;
   year_of_make: number;
@@ -251,4 +225,4 @@ export type CollateralSearchField =
   | 'debtor'
   | 'reg_serial_number'
   | 'financier';
-export type AssetSearchField = AssetType;
+export type AssetSearchField = string;

@@ -1,9 +1,10 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store';
 import { authApi, type LoginCredentials } from '@/api/authApi';
+import { canAccessAssetRegistry, resolveSafeRedirect } from '@/lib/registryNav';
 
 export function useAuth() {
   const navigate = useNavigate();
@@ -14,20 +15,17 @@ export function useAuth() {
     isInitializing,
     loginSuccess,
     logout: storeLogout,
-    setInitializing,
   } = useAuthStore();
-
-  // ── Bootstrap: clear the initial loading gate on mount ────────────────────
-  useEffect(() => {
-    setInitializing(false);
-  }, [setInitializing]);
 
   // ── Login ──────────────────────────────────────────────────────────────────
   const login = useCallback(
-    async (credentials: LoginCredentials) => {
+    async (credentials: LoginCredentials, redirectTo?: string) => {
       const user = await authApi.login(credentials);
       loginSuccess(user);
-      navigate('/collateral', { replace: true });
+      navigate(
+        resolveSafeRedirect(redirectTo, canAccessAssetRegistry(user, true)),
+        { replace: true },
+      );
       return user;
     },
     [loginSuccess, navigate],

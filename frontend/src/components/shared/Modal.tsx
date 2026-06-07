@@ -8,6 +8,7 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
+  disableBackdropClose?: boolean;
 }
 
 const sizeMap = {
@@ -23,6 +24,7 @@ export function Modal({
   title,
   children,
   size = 'lg',
+  disableBackdropClose = false,
 }: ModalProps) {
   if (!open) return null;
 
@@ -37,7 +39,7 @@ export function Modal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/45 p-4 pt-16"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onClick={(e) => !disableBackdropClose && e.target === e.currentTarget && onClose()}
     >
       <div
         className={cn(

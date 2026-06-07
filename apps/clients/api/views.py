@@ -127,7 +127,6 @@ class ClientViewSet(viewsets.ModelViewSet):
                     user_data=user_data
                 )
                 if user:
-                    print(f"User {user.email} created for client {client.name}")
                     self._send_welcome_email(user, user_data.get('password'))
 
                 return Response(

@@ -1,105 +1,128 @@
-import { useState } from 'react';
-import { ChevronDown, LogOut } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
 import { NavLink, useLocation } from 'react-router-dom';
+import type { LucideIcon } from 'lucide-react';
+import {
+  BarChart3,
+  HandCoins,
+  Landmark,
+  Package,
+  ScrollText,
+  Shield,
+  Users,
+} from 'lucide-react';
+import { useIsStaff } from '@/hooks/useIsStaff';
+import { useIsSuperuser } from '@/hooks/useIsSuperuser';
+import { SidebarUserMenu } from '@/components/layout/SidebarUserMenu';
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
+  SidebarRail,
 } from '@/components/ui/sidebar';
-// Dark mode removed — no toggle component
 
-export function AppSidebar() {
+function SidebarNavLink({
+  to,
+  icon: Icon,
+  label,
+  end,
+}: {
+  to: string;
+  icon: LucideIcon;
+  label: string;
+  end?: boolean;
+}) {
   const location = useLocation();
-  const [dashboardOpen, setDashboardOpen] = useState(() => {
-    const dashboardPaths = ['/', '/registry', '/collateral', '/hire-purchase'];
-
-    return dashboardPaths.some((path) => location.pathname.startsWith(path));
-  });
-  const { logout } = useAuth();
+  const isActive = end
+    ? location.pathname === to
+    : location.pathname === to || location.pathname.startsWith(`${to}/`);
 
   return (
-    <Sidebar>
+    <SidebarMenuItem>
+      <SidebarMenuButton asChild isActive={isActive} tooltip={label}>
+        <NavLink to={to}>
+          <Icon />
+          <span>{label}</span>
+        </NavLink>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}
+
+export function AppSidebar() {
+  const isStaff = useIsStaff();
+  const isSuperuser = useIsSuperuser();
+  return (
+    <Sidebar collapsible="icon">
       <SidebarHeader>
-        <div className="px-2 py-2 text-lg font-bold">AssetSafe</div>
+        <div className="flex items-center gap-2 px-1 py-1">
+          <Shield className="size-5 shrink-0 text-[#0f7d8e]" />
+          <span className="truncate text-lg font-bold group-data-[collapsible=icon]:hidden">
+            AssetSafe
+          </span>
+        </div>
       </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                type="button"
-                onClick={() => setDashboardOpen((open) => !open)}
-                aria-expanded={dashboardOpen}
-                className="justify-between"
-              >
-                <span>Dashboard</span>
-                <ChevronDown
-                  className={
-                    dashboardOpen
-                      ? 'h-4 w-4 rotate-180 transition-transform duration-200'
-                      : 'h-4 w-4 transition-transform duration-200'
-                  }
+          <SidebarGroupLabel>Dashboard</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {isStaff ? (
+                <SidebarNavLink
+                  to="/registry"
+                  icon={Package}
+                  label="Asset Registry"
                 />
-              </SidebarMenuButton>
-
-              {dashboardOpen ? (
-                <SidebarMenuSub>
-                  <SidebarMenuSubItem>
-                    <SidebarMenuSubButton asChild>
-                      <NavLink to="/registry">Asset Registry</NavLink>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                  <SidebarMenuSubItem>
-                    <SidebarMenuSubButton asChild>
-                      <NavLink to="/collateral">Collateral</NavLink>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                  <SidebarMenuSubItem>
-                    <SidebarMenuSubButton asChild>
-                      <NavLink to="/hire-purchase">Hire Purchase</NavLink>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                </SidebarMenuSub>
               ) : null}
-            </SidebarMenuItem>
+              <SidebarNavLink
+                to="/collateral"
+                icon={Landmark}
+                label="Collateral"
+              />
+              <SidebarNavLink
+                to="/hire-purchase"
+                icon={HandCoins}
+                label="Hire Purchase"
+              />
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <NavLink to="/reports">Report</NavLink>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
+        <SidebarGroup>
+          <SidebarGroupLabel>System</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarNavLink to="/reports" icon={BarChart3} label="Report" />
+              {isSuperuser ? (
+                <>
+                  <SidebarNavLink
+                    to="/admin/users"
+                    icon={Users}
+                    label="User management"
+                  />
+                  <SidebarNavLink
+                    to="/admin/audit-logs"
+                    icon={ScrollText}
+                    label="Audit logs"
+                  />
+                </>
+              ) : null}
+            </SidebarMenu>
+          </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter>
-        <div className="w-full px-2 py-2">
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                type="button"
-                onClick={async () => {
-                  await logout();
-                }}
-                className="flex w-full items-center gap-2 rounded px-3 py-2 text-sm font-semibold text-sidebar-foreground transition-colors hover:bg-[#f3f0ea]"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>Logout</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </div>
+        <SidebarUserMenu />
       </SidebarFooter>
+
+      <SidebarRail />
     </Sidebar>
   );
 }

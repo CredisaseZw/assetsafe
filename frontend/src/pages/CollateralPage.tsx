@@ -1,77 +1,87 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ArrowDown, ArrowUp, ArrowUpDown, Plus, Search } from 'lucide-react';
 import { collateralApi } from '@/api/collateralApi';
-import { StatCard } from '@/components/shared/StatCard';
+import { InlineStat } from '@/components/shared/InlineStat';
 import { TableSkeleton } from '@/components/shared/TableSkeleton';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/shared/Modal';
 import { CollateralForm } from '@/components/collateral/CollateralForm';
 import { CollateralViewModal } from '@/components/collateral/CollateralViewModal';
+import { NumberedPaginationFooter } from '@/components/shared/NumberedPaginationFooter';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
-import type { CollateralRecord, CollateralSearchField } from '@/types';
+import { invalidateRegistryQueries } from '@/lib/registryCache';
+import { registryQueryOptions } from '@/lib/registryQueryOptions';
+import { useAuthStore } from '@/store';
+import type { CollateralRecord } from '@/types';
 
-const PAGE_SIZE = 16;
+const PAGE_SIZE = 20;
 
 type CollateralSortOption = 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc';
 
-const SEARCH_OPTIONS: { value: CollateralSearchField; label: string }[] = [
-  { value: 'agreement_number', label: 'Agreement Number' },
-  { value: 'debtor', label: 'Debtor' },
-  { value: 'reg_serial_number', label: 'Reg/Serial Number' },
-  { value: 'financier', label: 'Financier' },
-];
-
 export default function CollateralPage() {
   const queryClient = useQueryClient();
-  const [searchField, setSearchField] =
-    useState<CollateralSearchField>('agreement_number');
+  const authReady = useAuthStore((s) => s.authReady);
   const [searchValue, setSearchValue] = useState('');
   const [sortOption, setSortOption] =
     useState<CollateralSortOption>('date-desc');
   const [currentPage, setCurrentPage] = useState(1);
-  const [appliedSearch, setAppliedSearch] = useState<{
-    field?: string;
-    value?: string;
-  }>({});
+  const [appliedSearch, setAppliedSearch] = useState('');
   const [addOpen, setAddOpen] = useState(false);
   const [viewRecord, setViewRecord] = useState<CollateralRecord | null>(null);
 
   const { data: statsData } = useQuery({
-    queryKey: ['collateral-dashboard', appliedSearch],
-    queryFn: () =>
-      collateralApi.getDashboard(
-        appliedSearch.value
-          ? {
-              search_field: appliedSearch.field,
-              search_value: appliedSearch.value,
-            }
-          : undefined,
-      ),
+    queryKey: ['collateral-dashboard'],
+    queryFn: () => collateralApi.getDashboard(),
+    enabled: authReady,
+    ...registryQueryOptions,
   });
 
   const {
     data: recordsData,
     isLoading,
     isError,
+    isFetching,
   } = useQuery({
-    queryKey: ['collateral-records', appliedSearch],
+    queryKey: ['collateral-records', appliedSearch, currentPage],
     queryFn: () =>
-      collateralApi.getRecords(
-        appliedSearch.value ? { search: appliedSearch.value } : undefined,
-      ),
+      collateralApi.getRecords({
+        ...(appliedSearch ? { search: appliedSearch } : {}),
+        page: currentPage,
+        page_size: PAGE_SIZE,
+      }),
+    enabled: authReady,
+    ...registryQueryOptions,
   });
 
+  const loadingRecords = !authReady || isLoading || isFetching;
+
   const handleSearch = () => {
-    setAppliedSearch({ field: searchField, value: searchValue });
+    setAppliedSearch(searchValue.trim());
     setCurrentPage(1);
   };
 
-  const totalRecords = recordsData?.length ?? 0;
+  const refreshList = (clearFilters = false) => {
+    if (clearFilters) {
+      setSearchValue('');
+      setAppliedSearch('');
+    }
+    setCurrentPage(1);
+    invalidateRegistryQueries(queryClient, 'collateral');
+  };
+
+  const totalRecords = recordsData?.count ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalRecords / PAGE_SIZE));
   const activePage = Math.min(currentPage, totalPages);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   const activeSortField = sortOption.startsWith('date') ? 'date' : 'name';
   const activeSortDirection = sortOption.endsWith('asc') ? 'asc' : 'desc';
 
@@ -90,13 +100,12 @@ export default function CollateralPage() {
   };
 
   const sortedRecords = useMemo(() => {
-    const rows = [...(recordsData ?? [])];
+    const rows = [...(recordsData?.records ?? [])];
 
     rows.sort((left, right) => {
       if (activeSortField === 'date') {
         const leftTime = new Date(left.lodge_date ?? '').getTime();
         const rightTime = new Date(right.lodge_date ?? '').getTime();
-
         return activeSortDirection === 'asc'
           ? leftTime - rightTime
           : rightTime - leftTime;
@@ -104,7 +113,6 @@ export default function CollateralPage() {
 
       const leftName = (left.debtor_name ?? '').toLowerCase();
       const rightName = (right.debtor_name ?? '').toLowerCase();
-
       return activeSortDirection === 'asc'
         ? leftName.localeCompare(rightName)
         : rightName.localeCompare(leftName);
@@ -113,217 +121,170 @@ export default function CollateralPage() {
     return rows;
   }, [activeSortDirection, activeSortField, recordsData]);
 
-  const pagedRecords = useMemo(() => {
-    if (!sortedRecords) {
-      return [] as CollateralRecord[];
-    }
-
-    const start = (activePage - 1) * PAGE_SIZE;
-    return sortedRecords.slice(start, start + PAGE_SIZE);
-  }, [sortedRecords, activePage]);
-
   const startItem = totalRecords === 0 ? 0 : (activePage - 1) * PAGE_SIZE + 1;
   const endItem = Math.min(activePage * PAGE_SIZE, totalRecords);
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-8 overflow-hidden">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <StatCard
-          label="Active Agreements"
-          value={statsData?.active_agreements ?? 0}
-        />
-        <StatCard
-          label="Pending Discharge Confirmation"
-          value={statsData?.pending_discharge_confirmation ?? 0}
-        />
-      </div>
-
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden border border-[#8f8f8f] bg-white">
-        <div className="bg-[#7f7a7b] px-4 py-2.5 text-center text-[18px] font-bold uppercase tracking-wide text-white">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden border border-[#8f8f8f] bg-white">
+        <div className="bg-[#7f7a7b] px-3 py-1.5 text-center text-[15px] font-bold uppercase tracking-wide text-white">
           Collateral Registry
         </div>
 
-        <div className="flex flex-wrap items-end justify-between gap-6 border-b border-[#8f8f8f] px-4 py-8">
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="flex items-center gap-3">
-              <span className="text-[18px] font-bold text-black">Search</span>
-              <select
-                value={searchField}
-                onChange={(e) =>
-                  setSearchField(e.target.value as CollateralSearchField)
-                }
-                className="h-9 min-w-[180px] rounded-none border-2 border-black bg-white px-3 text-sm text-black focus:outline-none"
-              >
-                {SEARCH_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-              <input
-                value={searchValue}
-                onChange={(e) => setSearchValue(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                placeholder="Agreement Number"
-                className="h-9 w-64 rounded-none border-2 border-black bg-white px-3 text-sm text-black placeholder:text-slate-500 focus:outline-none"
-              />
-              <Button
-                size="sm"
-                variant="primary"
-                leftIcon={<Search className="h-3.5 w-3.5" />}
-                onClick={handleSearch}
-              >
-                Search
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-0 self-end">
-            <Button
-              size="sm"
-              variant="success"
-              leftIcon={<Plus className="h-3.5 w-3.5" />}
-              onClick={() => setAddOpen(true)}
-              className="min-w-[110px] rounded-none border-r-0 text-[15px] font-bold text-white"
-            >
-              Add Single
-            </Button>
-            <Button
-              size="sm"
-              variant="danger"
-              leftIcon={<Plus className="h-3.5 w-3.5" />}
-              className="min-w-[120px] rounded-none text-[15px] font-bold text-white"
-            >
-              Add Multiple
-            </Button>
-          </div>
+        <div className="flex flex-wrap items-center gap-4 border-b border-[#8f8f8f] bg-[#f8f7f2] px-3 py-2">
+          <InlineStat
+            label="Active Agreements"
+            value={statsData?.active_agreements ?? 0}
+          />
+          <InlineStat
+            label="Pending Discharge"
+            value={statsData?.pending_discharge_confirmation ?? 0}
+          />
         </div>
 
-        <div className="border-t border-[#8f8f8f] bg-[#7f7a7b] px-4 py-2 text-center text-[16px] font-bold uppercase text-white">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#8f8f8f] px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[12px] font-bold text-black">Search</span>
+            <input
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              placeholder="Agreement, debtor, reg..."
+              className="h-7 w-56 border border-black bg-white px-2 text-[12px] focus:outline-none"
+            />
+            <Button
+              size="sm"
+              variant="primary"
+              leftIcon={<Search className="h-3 w-3" />}
+              onClick={handleSearch}
+              className="h-7 px-2 text-[12px]"
+            >
+              Search
+            </Button>
+          </div>
+
+          <Button
+            size="sm"
+            variant="success"
+            leftIcon={<Plus className="h-3.5 w-3.5" />}
+            onClick={() => setAddOpen(true)}
+            className="h-7 rounded-none px-3 text-[12px] font-bold"
+          >
+            Add Single
+          </Button>
+        </div>
+
+        <div className="bg-[#7f7a7b] px-3 py-1 text-center text-[14px] font-bold uppercase text-white">
           Active Debts
         </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden">
-          <div className="h-full min-h-0 overflow-auto">
-            <table className="w-full border-collapse text-[14px]">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-auto">
+            <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr className="sticky top-0 z-10 border-b border-[#8f8f8f] bg-white text-left divide-x divide-[#8f8f8f]">
-                  <th className="w-8 px-3 py-3 font-bold text-black">#</th>
-                  <th className="px-3 py-3 font-bold text-black">
+                  <th className="w-8 px-2 py-2 font-bold">#</th>
+                  <th className="px-2 py-2 font-bold">
                     <button
                       type="button"
                       onClick={() => toggleSort('date')}
                       className="flex items-center gap-1"
-                      title="Sort by lodge date"
                     >
-                      <span>Lodge Date</span>
+                      Lodge Date
                       {activeSortField === 'date' ? (
                         activeSortDirection === 'asc' ? (
-                          <ArrowUp className="h-3.5 w-3.5" />
+                          <ArrowUp className="h-3 w-3" />
                         ) : (
-                          <ArrowDown className="h-3.5 w-3.5" />
+                          <ArrowDown className="h-3 w-3" />
                         )
                       ) : (
-                        <ArrowUpDown className="h-3.5 w-3.5" />
+                        <ArrowUpDown className="h-3 w-3" />
                       )}
                     </button>
                   </th>
-                  <th className="px-3 py-3 font-bold text-black">
-                    Agreement No.
-                  </th>
-                  <th className="px-3 py-3 font-bold text-black">
+                  <th className="px-2 py-2 font-bold">Agreement No.</th>
+                  <th className="px-2 py-2 font-bold">
                     <button
                       type="button"
                       onClick={() => toggleSort('name')}
                       className="flex items-center gap-1"
-                      title="Sort by debtor name"
                     >
-                      <span>Debtor</span>
+                      Debtor
                       {activeSortField === 'name' ? (
                         activeSortDirection === 'asc' ? (
-                          <ArrowUp className="h-3.5 w-3.5" />
+                          <ArrowUp className="h-3 w-3" />
                         ) : (
-                          <ArrowDown className="h-3.5 w-3.5" />
+                          <ArrowDown className="h-3 w-3" />
                         )
                       ) : (
-                        <ArrowUpDown className="h-3.5 w-3.5" />
+                        <ArrowUpDown className="h-3 w-3" />
                       )}
                     </button>
                   </th>
-                  <th className="px-3 py-3 font-bold text-black">
-                    Asset Description
-                  </th>
-                  <th className="px-3 py-3 font-bold text-black">
-                    Reg/Serial No.
-                  </th>
-                  <th className="px-3 py-3 font-bold text-black">Currency</th>
-                  <th className="px-3 py-3 text-right font-bold text-black">
-                    Loan Amount
-                  </th>
-                  <th className="px-3 py-3 font-bold text-black">Start Date</th>
-                  <th className="px-3 py-3 font-bold text-black">End Date</th>
-                  <th className="px-3 py-3 font-bold text-black"></th>
+                  <th className="px-2 py-2 font-bold">Asset</th>
+                  <th className="px-2 py-2 font-bold">Reg/Serial</th>
+                  <th className="px-2 py-2 font-bold">Currency</th>
+                  <th className="px-2 py-2 font-bold text-right">Loan</th>
+                  <th className="px-2 py-2 font-bold">Start</th>
+                  <th className="px-2 py-2 font-bold">End</th>
+                  <th className="px-2 py-2 font-bold" />
                 </tr>
               </thead>
               <tbody>
-                {isLoading ? (
-                  <TableSkeleton rows={5} cols={11} />
+                {loadingRecords ? (
+                  <TableSkeleton rows={8} cols={11} />
                 ) : isError ? (
                   <tr>
-                    <td
-                      colSpan={11}
-                      className="py-8 text-center text-sm text-red-500"
-                    >
-                      Failed to load records. Please try again.
+                    <td colSpan={11} className="py-6 text-center text-red-500">
+                      Failed to load records.
                     </td>
                   </tr>
-                ) : !pagedRecords.length ? (
+                ) : !sortedRecords.length ? (
                   <EmptyState message="No collateral agreements found." />
                 ) : (
-                  pagedRecords.map((rec, idx) => (
+                  sortedRecords.map((rec, idx) => (
                     <tr
                       key={rec.id}
                       className={cn(
                         'border-b border-[#8f8f8f]',
-                        ((currentPage - 1) * PAGE_SIZE + idx) % 2 === 0
-                          ? 'bg-white'
-                          : 'bg-[#f7f7f7]',
+                        idx % 2 === 0 ? 'bg-white' : 'bg-[#f7f7f7]',
                       )}
                     >
-                      <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-center text-slate-700">
-                        {idx + 1}
+                      <td className="border-r border-[#8f8f8f] px-2 py-2 text-center">
+                        {(activePage - 1) * PAGE_SIZE + idx + 1}
                       </td>
-                      <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-slate-700">
+                      <td className="border-r border-[#8f8f8f] px-2 py-2">
                         {formatDate(rec.lodge_date)}
                       </td>
-                      <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle font-bold text-[#196A86]">
+                      <td className="border-r border-[#8f8f8f] px-2 py-2 font-bold text-[#196A86]">
                         {rec.agreement_number}
                       </td>
-                      <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-slate-800">
+                      <td className="border-r border-[#8f8f8f] px-2 py-2">
                         {rec.debtor_name}
                       </td>
-                      <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-slate-800">
+                      <td className="border-r border-[#8f8f8f] px-2 py-2">
                         {rec.asset_description}
                       </td>
-                      <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-slate-700">
+                      <td className="border-r border-[#8f8f8f] px-2 py-2">
                         {rec.serial_number || rec.asset_registration_no}
                       </td>
-                      <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-center text-slate-700">
+                      <td className="border-r border-[#8f8f8f] px-2 py-2 text-center">
                         {rec.currency}
                       </td>
-                      <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-right text-slate-800">
+                      <td className="border-r border-[#8f8f8f] px-2 py-2 text-right">
                         {formatCurrency(rec.loan_amount)}
                       </td>
-                      <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-slate-700">
+                      <td className="border-r border-[#8f8f8f] px-2 py-2">
                         {formatDate(rec.start_date)}
                       </td>
-                      <td className="border-r border-[#8f8f8f] px-3 py-2.5 align-middle text-slate-700">
+                      <td className="border-r border-[#8f8f8f] px-2 py-2">
                         {formatDate(rec.end_date)}
                       </td>
-                      <td className="px-3 py-2.5 align-middle">
+                      <td className="px-2 py-2">
                         <button
+                          type="button"
                           onClick={() => setViewRecord(rec)}
-                          className="min-w-[72px] rounded-none bg-[#196A86] px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-[#15586f]"
+                          className="bg-[#196A86] px-2 py-1 text-[11px] font-bold text-white hover:bg-[#15586f]"
                         >
                           View
                         </button>
@@ -335,55 +296,17 @@ export default function CollateralPage() {
             </table>
           </div>
 
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-[#8f8f8f] bg-[#f8f7f2] px-4 py-3 text-sm text-slate-700">
-            <div>
-              Showing {startItem} to {endItem} of {totalRecords} entries
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                disabled={activePage === 1}
-                className="border border-[#8f8f8f] bg-white px-3 py-1.5 text-sm font-medium text-black disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Prev
-              </button>
-              <div className="flex items-center gap-1">
-                {Array.from({ length: totalPages }).map((_, index) => {
-                  const page = index + 1;
-                  return (
-                    <button
-                      key={page}
-                      type="button"
-                      onClick={() => setCurrentPage(page)}
-                      className={cn(
-                        'min-w-9 border px-3 py-1.5 text-sm font-medium',
-                        page === activePage
-                          ? 'border-[#196A86] bg-[#196A86] text-white'
-                          : 'border-[#8f8f8f] bg-white text-black hover:bg-[#f1f1f1]',
-                      )}
-                    >
-                      {page}
-                    </button>
-                  );
-                })}
-              </div>
-              <button
-                type="button"
-                onClick={() =>
-                  setCurrentPage((page) => Math.min(totalPages, page + 1))
-                }
-                disabled={activePage === totalPages}
-                className="border border-[#8f8f8f] bg-white px-3 py-1.5 text-sm font-medium text-black disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
-          </div>
+          <NumberedPaginationFooter
+            startItem={startItem}
+            endItem={endItem}
+            totalRecords={totalRecords}
+            activePage={activePage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
         </div>
       </div>
 
-      {/* ── Add Collateral Modal ── */}
       <Modal
         open={addOpen}
         onClose={() => setAddOpen(false)}
@@ -394,26 +317,23 @@ export default function CollateralPage() {
           onSuccess={() => {
             setAddOpen(false);
             toast.success('Collateral record created successfully');
-            queryClient.invalidateQueries({
-              queryKey: ['collateral-dashboard'],
-            });
-            queryClient.invalidateQueries({ queryKey: ['collateral-records'] });
+            refreshList(true);
           }}
           onCancel={() => setAddOpen(false)}
         />
       </Modal>
 
-      {/* ── View / Edit Modal ── */}
       {viewRecord && (
         <CollateralViewModal
           record={viewRecord}
           onClose={() => setViewRecord(null)}
           onSaved={() => {
             setViewRecord(null);
-            queryClient.invalidateQueries({
-              queryKey: ['collateral-dashboard'],
-            });
-            queryClient.invalidateQueries({ queryKey: ['collateral-records'] });
+            refreshList(false);
+          }}
+          onDeleted={() => {
+            setViewRecord(null);
+            refreshList(false);
           }}
         />
       )}

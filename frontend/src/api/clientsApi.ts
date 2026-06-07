@@ -1,12 +1,22 @@
 import axiosInstance from './axiosInstance';
-import type { ApiResponse } from '@/types';
+import {
+  mapClientSearchResult,
+  unwrapSearchList,
+  type SearchOption,
+} from '@/lib/searchResults';
 
 export const clientsApi = {
-  searchClients: async (query: string): Promise<any[]> => {
-    const { data } = await axiosInstance.get<ApiResponse<any[]>>(
-      '/clients/search/',
-      { params: { q: query } },
+  /** GET /api/clients/search/?q=... */
+  searchClients: async (query: string): Promise<SearchOption[]> => {
+    const term = query.trim();
+    if (!term) return [];
+
+    const { data } = await axiosInstance.get<unknown>('/clients/search/', {
+      params: { q: term },
+    });
+
+    return unwrapSearchList(data).map((row) =>
+      mapClientSearchResult(row as Record<string, unknown>),
     );
-    return data.data ?? (data as unknown as any[]);
   },
 };

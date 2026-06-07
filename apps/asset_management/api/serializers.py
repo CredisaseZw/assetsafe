@@ -10,7 +10,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
-from apps.common.models import BaseAssetType
+from apps.common.models import BaseAssetType, Currency
 from apps.asset_management.models import AssetRegistration
 
 _VEHICLE_ONLY_FIELDS: tuple[str, ...] = (
@@ -58,6 +58,12 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
     owner_display = serializers.SerializerMethodField(
         read_only=True,
         help_text="Human-readable owner name; for display purposes only.",
+    )
+    currency = serializers.SlugRelatedField(
+        slug_field="code",
+        queryset=Currency.objects.all(),
+        allow_null=True,
+        required=False,
     )
 
     class Meta:
