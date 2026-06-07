@@ -1,6 +1,6 @@
 # To Do Is To Be
 
-[![CI](https://github.com/sehmaluva/actions/workflows/ci.yml/badge.svg)](https://github.com/sehmaluva/actions/workflows/ci.yml)
+[![CI](https://github.com/sehmaluva/assetsafe/actions/workflows/ci.yml/badge.svg)](https://github.com/sehmaluva/assetsafe/actions/workflows/ci.yml)
 
 *Esse est posse*
 
