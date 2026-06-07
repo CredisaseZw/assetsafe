@@ -31,6 +31,8 @@ interface DateInputProps {
   id?: string;
 }
 
+const MAX_DATE_YEAR = new Date().getFullYear() + 10;
+
 export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
   (
     { label, error, required, value, onChange, onBlur, name, disabled, id },
@@ -130,7 +132,7 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
                   defaultMonth={selectedDate ?? new Date()}
                   captionLayout="dropdown"
                   startMonth={new Date(1990, 0)}
-                  endMonth={new Date(2100, 11)}
+                  endMonth={new Date(MAX_DATE_YEAR, 11)}
                   classNames={{
                     root: 'p-3 text-sm',
                     month_caption:
