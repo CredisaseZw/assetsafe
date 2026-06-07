@@ -299,12 +299,13 @@ export default function HirePurchasePage() {
                   <th className="px-2 py-2 font-bold text-right">Amount</th>
                   <th className="px-2 py-2 font-bold">Start</th>
                   <th className="px-2 py-2 font-bold">End</th>
+                  <th className="px-2 py-2 font-bold">Status</th>
                   <th className="px-2 py-2 font-bold" />
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
-                  <TableSkeleton rows={8} cols={11} />
+                  <TableSkeleton rows={8} cols={12} />
                 ) : !sortedRecords.length ? (
                   <EmptyState message="No hire purchase agreements found." />
                 ) : (
@@ -345,6 +346,18 @@ export default function HirePurchasePage() {
                       </td>
                       <td className="border-r border-[#8f8f8f] px-2 py-2">
                         {formatDate(rec.end_date)}
+                      </td>
+                      <td className="border-r border-[#8f8f8f] px-2 py-2">
+                        <span className={cn(
+                          'inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase',
+                          rec.status === 'active'
+                            ? 'bg-green-100 text-green-800'
+                            : rec.status === 'pending_closure'
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-slate-100 text-slate-600',
+                        )}>
+                          {rec.status === 'pending_closure' ? 'Pending' : rec.status}
+                        </span>
                       </td>
                       <td className="px-2 py-2">
                         <button

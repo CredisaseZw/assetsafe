@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { Modal } from '@/components/shared/Modal';
 import { CollateralForm } from './CollateralForm';
 import type { CollateralRecord } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { assetTypeLabel } from '@/lib/assetTypes';
 import { Button } from '@/components/ui/button';
-import { Edit } from 'lucide-react';
+import { Edit, CheckCircle } from 'lucide-react';
 import { DeleteRecordButton } from '@/components/shared/DeleteRecordButton';
 import { collateralApi } from '@/api/collateralApi';
 
@@ -24,11 +25,31 @@ export function CollateralViewModal({
   onDeleted,
 }: CollateralViewModalProps) {
   const [editMode, setEditMode] = useState(false);
+  const [confirmingDischarge, setConfirmingDischarge] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: detail } = useQuery({
     queryKey: ['collateral-detail', record.id],
     queryFn: () => collateralApi.getRecord(record.id),
     staleTime: 5 * 60 * 1000,
+  });
+
+  const currentStatus = detail?.status ?? record.status;
+
+  const { mutate: discharge, isPending: isDischarging } = useMutation({
+    mutationFn: () => collateralApi.dischargeRecord(record.id),
+    onSuccess: () => {
+      toast.success('Collateral discharged successfully');
+      queryClient.invalidateQueries({ queryKey: ['collateral-detail', record.id] });
+      queryClient.invalidateQueries({ queryKey: ['collateral-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['collateral'] });
+      setConfirmingDischarge(false);
+      onSaved();
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message ?? 'Failed to discharge record');
+      setConfirmingDischarge(false);
+    },
   });
 
   return (
@@ -113,7 +134,41 @@ export function CollateralViewModal({
               onDelete={() => collateralApi.deleteRecord(record.id)}
               onDeleted={onDeleted}
             />
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
+              {currentStatus !== 'discharged' && (
+                confirmingDischarge ? (
+                  <>
+                    <span className="text-xs text-amber-700">Confirm discharge?</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="primary"
+                      loading={isDischarging}
+                      onClick={() => discharge()}
+                    >
+                      Yes, Discharge
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setConfirmingDischarge(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    leftIcon={<CheckCircle className="h-3.5 w-3.5" />}
+                    onClick={() => setConfirmingDischarge(true)}
+                  >
+                    Discharge
+                  </Button>
+                )
+              )}
               <Button variant="ghost" onClick={onClose}>
                 Close
               </Button>
