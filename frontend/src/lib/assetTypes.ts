@@ -28,8 +28,7 @@ export function toBackendAssetType(value: string): string {
   if (!value) return value;
   if (VALUE_TO_LABEL[value]) return value;
   return (
-    LEGACY_LABEL_TO_VALUE[value] ??
-    value.toLowerCase().replace(/\s+/g, '_')
+    LEGACY_LABEL_TO_VALUE[value] ?? value.toLowerCase().replace(/\s+/g, '_')
   );
 }
 

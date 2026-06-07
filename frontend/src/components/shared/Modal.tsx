@@ -39,7 +39,9 @@ export function Modal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/45 p-4 pt-16"
-      onClick={(e) => !disableBackdropClose && e.target === e.currentTarget && onClose()}
+      onClick={(e) =>
+        !disableBackdropClose && e.target === e.currentTarget && onClose()
+      }
     >
       <div
         className={cn(

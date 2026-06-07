@@ -15,13 +15,16 @@ function mapCollateralRecord(
     lodge_date: String(record.lodge_date ?? ''),
     agreement_number: String(record.agreement_number ?? ''),
     debtor_name: String(record.debtor_display ?? record.debtor_name ?? ''),
-    debtor_type: (record.debtor_type as CollateralRecord['debtor_type']) ?? 'individual',
+    debtor_type:
+      (record.debtor_type as CollateralRecord['debtor_type']) ?? 'individual',
     debtor_id: Number(
-      record.debtor_id ?? record.individual_debtor ?? record.company_debtor ?? 0,
+      record.debtor_id ??
+        record.individual_debtor ??
+        record.company_debtor ??
+        0,
     ),
     asset_description: String(
-      record.description ??
-        `${record.make ?? ''} ${record.model ?? ''}`.trim(),
+      record.description ?? `${record.make ?? ''} ${record.model ?? ''}`.trim(),
     ),
     asset_type: String(record.asset_type ?? ''),
     asset_make: String(record.make ?? ''),
@@ -40,18 +43,19 @@ function mapCollateralRecord(
     currency: String(record.currency_code ?? record.currency ?? 'USD'),
     loan_amount: Number(record.total_debt ?? record.loan_amount ?? 0),
     instalment_amount: Number(record.instalment_amount ?? 0),
-    instalment_date: Number(record.instalment_day ?? record.instalment_date ?? 1),
+    instalment_date: Number(
+      record.instalment_day ?? record.instalment_date ?? 1,
+    ),
     total_paid_to_date: Number(record.total_paid_to_date ?? 0),
     balance: Number(record.balance ?? 0),
-    start_date: String(
-      record.agreement_start_date ?? record.start_date ?? '',
-    ),
+    start_date: String(record.agreement_start_date ?? record.start_date ?? ''),
     end_date: String(record.agreement_end_date ?? record.end_date ?? ''),
     financier_name: String(
       record.financier_display ?? record.financier_name ?? '',
     ),
     financier_type:
-      (record.financier_type as CollateralRecord['financier_type']) ?? 'company',
+      (record.financier_type as CollateralRecord['financier_type']) ??
+      'company',
     financier_id: Number(record.financier ?? record.financier_id ?? 0),
     data_date: String(record.data_date ?? record.lodge_date ?? ''),
     status: record.is_discharged

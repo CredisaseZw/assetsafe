@@ -41,7 +41,9 @@ function flattenApiErrors(
 
   const out: { field: string; message: string }[] = [];
 
-  for (const [key, value] of Object.entries(payload as Record<string, unknown>)) {
+  for (const [key, value] of Object.entries(
+    payload as Record<string, unknown>,
+  )) {
     const path = prefix ? `${prefix}.${key}` : key;
 
     if (
@@ -79,9 +81,7 @@ export function applyApiValidationErrors<T extends FieldValues>(
   if (typeof body.error === 'string' && !body.errors) return false;
 
   const errorPayload =
-    body.errors ??
-    (typeof body.error === 'object' ? body.error : null) ??
-    body;
+    body.errors ?? (typeof body.error === 'object' ? body.error : null) ?? body;
 
   const flattened = flattenApiErrors(errorPayload);
   if (!flattened.length) return false;
@@ -92,4 +92,3 @@ export function applyApiValidationErrors<T extends FieldValues>(
 
   return true;
 }
-

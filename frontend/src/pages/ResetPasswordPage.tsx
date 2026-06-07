@@ -127,7 +127,9 @@ export default function ResetPasswordPage() {
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         <div className="space-y-1.5">
-          <label className="text-sm font-semibold text-black">New password</label>
+          <label className="text-sm font-semibold text-black">
+            New password
+          </label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
@@ -152,7 +154,9 @@ export default function ResetPasswordPage() {
             </button>
           </div>
           {errors.new_password ? (
-            <p className="text-xs text-red-600">{errors.new_password.message}</p>
+            <p className="text-xs text-red-600">
+              {errors.new_password.message}
+            </p>
           ) : null}
         </div>
 
@@ -166,7 +170,9 @@ export default function ResetPasswordPage() {
             autoComplete="new-password"
             className={cn(
               'w-full rounded-lg border px-3 py-2.5 text-sm',
-              errors.confirm_password ? 'border-red-500/50' : 'border-slate-300',
+              errors.confirm_password
+                ? 'border-red-500/50'
+                : 'border-slate-300',
             )}
           />
           {errors.confirm_password ? (

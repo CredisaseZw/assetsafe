@@ -4,14 +4,10 @@ export function parsePaginatedList<T>(
   mapRecord: (row: Record<string, unknown>) => T,
 ): { records: T[]; count: number } {
   const root =
-    data && typeof data === 'object'
-      ? (data as Record<string, unknown>)
-      : {};
+    data && typeof data === 'object' ? (data as Record<string, unknown>) : {};
 
   const payload =
-    root.data &&
-    typeof root.data === 'object' &&
-    !Array.isArray(root.data)
+    root.data && typeof root.data === 'object' && !Array.isArray(root.data)
       ? (root.data as Record<string, unknown>)
       : root;
 
@@ -31,9 +27,7 @@ export function parsePaginatedList<T>(
         : recordsRaw.length;
 
   return {
-    records: recordsRaw.map((row) =>
-      mapRecord(row as Record<string, unknown>),
-    ),
+    records: recordsRaw.map((row) => mapRecord(row as Record<string, unknown>)),
     count,
   };
 }

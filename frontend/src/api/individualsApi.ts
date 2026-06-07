@@ -41,7 +41,10 @@ export const individualsApi = {
   createIndividual: async (
     payload: IndividualCreatePayload,
   ): Promise<{ id: number; name: string }> => {
-    const { data } = await axiosInstance.post<unknown>('/individuals/', payload);
+    const { data } = await axiosInstance.post<unknown>(
+      '/individuals/',
+      payload,
+    );
     const body = (data as { data?: Record<string, unknown> })?.data ?? data;
     const record = body as Record<string, unknown>;
     const id = Number(record.id);

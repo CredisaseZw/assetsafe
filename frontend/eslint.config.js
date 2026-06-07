@@ -10,7 +10,7 @@ import queryPlugin from '@tanstack/eslint-plugin-query';
 
 /** @type {import('eslint').Linter.Config[]} */
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'node_modules']),
   queryPlugin.configs['flat/recommended'],
   {
     files: ['**/*.{ts,tsx}'],

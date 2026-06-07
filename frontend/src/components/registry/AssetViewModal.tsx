@@ -77,16 +77,45 @@ export function AssetViewModal({
             {[
               ['Registry No.', record.registration_number],
               ['Owner', detail?.owner_name ?? record.owner_name],
-              ['Asset', `${detail?.asset_make ?? ''} ${detail?.asset_model ?? ''}`.trim() || record.asset_description],
-              ['Asset Type', assetTypeLabel(detail?.asset_type ?? record.asset_type)],
+              [
+                'Asset',
+                `${detail?.asset_make ?? ''} ${detail?.asset_model ?? ''}`.trim() ||
+                  record.asset_description,
+              ],
+              [
+                'Asset Type',
+                assetTypeLabel(detail?.asset_type ?? record.asset_type),
+              ],
               ['Year', detail?.year_of_make ?? record.year_of_make],
               ['Condition', detail?.condition ?? record.condition],
-              ['Reg/Serial', detail?.serial_number || detail?.mv_registration_no || record.serial_number || record.mv_registration_no],
+              [
+                'Reg/Serial',
+                detail?.serial_number ||
+                  detail?.mv_registration_no ||
+                  record.serial_number ||
+                  record.mv_registration_no,
+              ],
               ['Currency', detail?.currency ?? record.currency],
-              ['Est. Value', formatCurrency(detail?.estimated_value ?? record.estimated_value)],
+              [
+                'Est. Value',
+                formatCurrency(
+                  detail?.estimated_value ?? record.estimated_value,
+                ),
+              ],
               ['Location', detail?.location_address ?? record.location_address],
-              ['Sub. Start', formatDate(detail?.subscription_start_date ?? record.subscription_start_date)],
-              ['Sub. End', formatDate(detail?.subscription_end_date ?? record.subscription_end_date)],
+              [
+                'Sub. Start',
+                formatDate(
+                  detail?.subscription_start_date ??
+                    record.subscription_start_date,
+                ),
+              ],
+              [
+                'Sub. End',
+                formatDate(
+                  detail?.subscription_end_date ?? record.subscription_end_date,
+                ),
+              ],
             ].map(([k, v]) => (
               <div key={String(k)}>
                 <dt className="text-xs font-medium uppercase text-slate-400">

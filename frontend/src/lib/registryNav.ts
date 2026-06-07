@@ -29,8 +29,7 @@ export function resolveSafeRedirect(
   path: string | undefined,
   isStaff: boolean,
 ): string {
-  const target =
-    path && path.startsWith('/') ? path : '/collateral';
+  const target = path && path.startsWith('/') ? path : '/collateral';
   if (!isStaff && target.startsWith(ASSET_REGISTRY_PATH)) {
     return '/collateral';
   }

@@ -9,10 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAuthBootstrap } from '@/hooks/useAuthBootstrap';
 import { useAuthStore } from '@/store';
 import { cn } from '@/lib/utils';
-import {
-  canAccessAssetRegistry,
-  resolveSafeRedirect,
-} from '@/lib/registryNav';
+import { canAccessAssetRegistry, resolveSafeRedirect } from '@/lib/registryNav';
 
 const schema = z.object({
   username: z.string().min(1, 'Username is required'),

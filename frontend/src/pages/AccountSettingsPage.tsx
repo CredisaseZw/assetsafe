@@ -133,7 +133,10 @@ export default function AccountSettingsPage() {
           className="space-y-4 rounded border border-[#8f8f8f] bg-white p-6"
         >
           <p className="text-sm text-slate-500">
-            Username: <span className="font-medium text-slate-800">{profile?.username}</span>
+            Username:{' '}
+            <span className="font-medium text-slate-800">
+              {profile?.username}
+            </span>
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -177,28 +180,30 @@ export default function AccountSettingsPage() {
           onSubmit={passwordForm.handleSubmit(onPasswordSubmit)}
           className="space-y-4 rounded border border-[#8f8f8f] bg-white p-6"
         >
-          {(['current_password', 'new_password', 'confirm_password'] as const).map(
-            (field) => (
-              <div key={field}>
-                <label className="text-sm font-semibold capitalize">
-                  {field.replace(/_/g, ' ')}
-                </label>
-                <input
-                  {...passwordForm.register(field)}
-                  type="password"
-                  autoComplete={
-                    field === 'current_password' ? 'current-password' : 'new-password'
-                  }
-                  className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-                />
-                {passwordForm.formState.errors[field] ? (
-                  <p className="mt-1 text-xs text-red-600">
-                    {passwordForm.formState.errors[field]?.message}
-                  </p>
-                ) : null}
-              </div>
-            ),
-          )}
+          {(
+            ['current_password', 'new_password', 'confirm_password'] as const
+          ).map((field) => (
+            <div key={field}>
+              <label className="text-sm font-semibold capitalize">
+                {field.replace(/_/g, ' ')}
+              </label>
+              <input
+                {...passwordForm.register(field)}
+                type="password"
+                autoComplete={
+                  field === 'current_password'
+                    ? 'current-password'
+                    : 'new-password'
+                }
+                className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              />
+              {passwordForm.formState.errors[field] ? (
+                <p className="mt-1 text-xs text-red-600">
+                  {passwordForm.formState.errors[field]?.message}
+                </p>
+              ) : null}
+            </div>
+          ))}
           <button
             type="submit"
             disabled={savingPassword}

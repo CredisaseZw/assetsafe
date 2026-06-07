@@ -69,7 +69,9 @@ export const assetRegistryApi = {
           location_address: record.location_address ?? '',
           subscription_start_date: record.subscription_start_date ?? '',
           subscription_end_date: record.subscription_end_date ?? '',
-          status: (record.is_active === false ? 'expired' : 'active') as AssetRecord['status'],
+          status: (record.is_active === false
+            ? 'expired'
+            : 'active') as AssetRecord['status'],
         }))
       : [];
 
@@ -104,7 +106,9 @@ export const assetRegistryApi = {
       location_address: r.location_address ?? '',
       subscription_start_date: r.subscription_start_date ?? '',
       subscription_end_date: r.subscription_end_date ?? '',
-      status: (r.is_active === false ? 'expired' : 'active') as AssetRecord['status'],
+      status: (r.is_active === false
+        ? 'expired'
+        : 'active') as AssetRecord['status'],
     };
   },
 
@@ -130,5 +134,4 @@ export const assetRegistryApi = {
   deleteRecord: async (id: number): Promise<void> => {
     await axiosInstance.delete(`/asset-management/${id}/`);
   },
-
 };

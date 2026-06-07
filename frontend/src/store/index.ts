@@ -26,8 +26,7 @@ export const useAuthStore = create<AuthState>()(
       isInitializing: false,
       authReady: false,
 
-      setUser: (user) =>
-        set({ user, isAuthenticated: true, authReady: true }),
+      setUser: (user) => set({ user, isAuthenticated: true, authReady: true }),
       setInitializing: (v) => set({ isInitializing: v }),
       setAuthReady: (v) => set({ authReady: v }),
 

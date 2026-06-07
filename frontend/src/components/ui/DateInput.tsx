@@ -32,7 +32,10 @@ interface DateInputProps {
 }
 
 export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
-  ({ label, error, required, value, onChange, onBlur, name, disabled, id }, _ref) => {
+  (
+    { label, error, required, value, onChange, onBlur, name, disabled, id },
+    _ref,
+  ) => {
     const [display, setDisplay] = useState(() => toDisplay(value ?? ''));
     const [open, setOpen] = useState(false);
 
@@ -77,7 +80,10 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
     return (
       <div className="flex flex-col gap-1">
         {label && (
-          <label htmlFor={inputId} className="text-xs font-medium text-slate-700">
+          <label
+            htmlFor={inputId}
+            className="text-xs font-medium text-slate-700"
+          >
             {label}
             {required && <span className="text-red-500 ml-0.5">*</span>}
           </label>
@@ -127,20 +133,25 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
                   endMonth={new Date(2100, 11)}
                   classNames={{
                     root: 'p-3 text-sm',
-                    month_caption: 'flex items-center justify-between mb-2 px-1',
+                    month_caption:
+                      'flex items-center justify-between mb-2 px-1',
                     dropdowns: 'flex gap-1',
-                    dropdown: 'rounded border border-slate-300 bg-white px-1 py-0.5 text-xs',
+                    dropdown:
+                      'rounded border border-slate-300 bg-white px-1 py-0.5 text-xs',
                     nav: 'flex gap-1',
                     button_previous: 'rounded p-1 hover:bg-slate-100',
                     button_next: 'rounded p-1 hover:bg-slate-100',
                     month_grid: 'w-full border-collapse',
                     weekdays: 'flex',
-                    weekday: 'w-8 text-center text-xs text-slate-400 font-normal pb-1',
+                    weekday:
+                      'w-8 text-center text-xs text-slate-400 font-normal pb-1',
                     weeks: '',
                     week: 'flex',
                     day: 'w-8 h-8 flex items-center justify-center',
-                    day_button: 'w-8 h-8 rounded text-xs hover:bg-slate-100 focus:outline-none',
-                    selected: '[&>button]:bg-[#0f7d8e] [&>button]:text-white [&>button]:hover:bg-[#0c6a79]',
+                    day_button:
+                      'w-8 h-8 rounded text-xs hover:bg-slate-100 focus:outline-none',
+                    selected:
+                      '[&>button]:bg-[#0f7d8e] [&>button]:text-white [&>button]:hover:bg-[#0c6a79]',
                     today: '[&>button]:font-bold [&>button]:text-[#0f7d8e]',
                     outside: 'opacity-30',
                     disabled: 'opacity-30 cursor-not-allowed',

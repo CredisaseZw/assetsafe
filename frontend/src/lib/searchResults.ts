@@ -23,7 +23,9 @@ export function unwrapSearchList(data: unknown): unknown[] {
   return [];
 }
 
-export function mapIndividualSearchResult(item: Record<string, unknown>): SearchOption {
+export function mapIndividualSearchResult(
+  item: Record<string, unknown>,
+): SearchOption {
   const first = String(item.first_name ?? '');
   const last = String(item.last_name ?? '');
   const name =
@@ -41,7 +43,9 @@ export function mapIndividualSearchResult(item: Record<string, unknown>): Search
   };
 }
 
-export function mapBranchSearchResult(item: Record<string, unknown>): SearchOption {
+export function mapBranchSearchResult(
+  item: Record<string, unknown>,
+): SearchOption {
   const company = item.company as Record<string, unknown> | undefined;
   const branchName = String(item.branch_name ?? '');
   const companyName = String(
@@ -52,13 +56,13 @@ export function mapBranchSearchResult(item: Record<string, unknown>): SearchOpti
     id: Number(item.id),
     name: branchName || companyName || `Branch #${item.id}`,
     subtitle:
-      String(company?.registration_number ?? '') ||
-      companyName ||
-      undefined,
+      String(company?.registration_number ?? '') || companyName || undefined,
   };
 }
 
-export function mapClientSearchResult(item: Record<string, unknown>): SearchOption {
+export function mapClientSearchResult(
+  item: Record<string, unknown>,
+): SearchOption {
   return {
     id: Number(item.id),
     name: String(item.name ?? item.trading_name ?? `Client #${item.id}`),

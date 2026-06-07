@@ -63,11 +63,10 @@ export function CompanyCreateForm({
     },
     onError: (err: unknown) => {
       if (!applyApiValidationErrors(setError, err)) {
-        const data = (err as { response?: { data?: { message?: string; error?: string } } })
-          ?.response?.data;
-        toast.error(
-          data?.message ?? data?.error ?? 'Failed to create company',
-        );
+        const data = (
+          err as { response?: { data?: { message?: string; error?: string } } }
+        )?.response?.data;
+        toast.error(data?.message ?? data?.error ?? 'Failed to create company');
       } else {
         toast.error('Please fix the highlighted fields');
       }

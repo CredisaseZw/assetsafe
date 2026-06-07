@@ -18,7 +18,10 @@ export interface RoutePreloadConfig {
  * Usage:
  * onMouseEnter={() => preloadRouteData(queryClient, collateralRouteConfig)}
  */
-export function preloadRouteData(queryClient: QueryClient, config: RoutePreloadConfig) {
+export function preloadRouteData(
+  queryClient: QueryClient,
+  config: RoutePreloadConfig,
+) {
   queryClient.prefetchQuery({
     queryKey: config.queryKey,
     queryFn: config.queryFn,
@@ -51,7 +54,8 @@ export const routePreloadConfigs = {
   registry: {
     queryKey: ['asset-registry-stats'],
     queryFn: async () => {
-      const { fetchAssetRegistryStats } = await import('@/api/assetRegistryApi');
+      const { fetchAssetRegistryStats } =
+        await import('@/api/assetRegistryApi');
       return fetchAssetRegistryStats();
     },
   },

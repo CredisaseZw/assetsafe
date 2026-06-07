@@ -115,10 +115,12 @@ export function HirePurchaseViewModal({
               onDeleted={onDeleted}
             />
             <div className="flex gap-2 items-center">
-              {record.status !== 'closed' && (
-                confirmingClosure ? (
+              {record.status !== 'closed' &&
+                (confirmingClosure ? (
                   <>
-                    <span className="text-xs text-amber-700">Confirm closure?</span>
+                    <span className="text-xs text-amber-700">
+                      Confirm closure?
+                    </span>
                     <Button
                       type="button"
                       size="sm"
@@ -147,8 +149,7 @@ export function HirePurchaseViewModal({
                   >
                     Confirm Closure
                   </Button>
-                )
-              )}
+                ))}
               <Button variant="ghost" onClick={onClose}>
                 Close
               </Button>

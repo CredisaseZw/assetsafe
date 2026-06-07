@@ -40,7 +40,9 @@ export function CollateralViewModal({
     mutationFn: () => collateralApi.dischargeRecord(record.id),
     onSuccess: () => {
       toast.success('Collateral discharged successfully');
-      queryClient.invalidateQueries({ queryKey: ['collateral-detail', record.id] });
+      queryClient.invalidateQueries({
+        queryKey: ['collateral-detail', record.id],
+      });
       queryClient.invalidateQueries({ queryKey: ['collateral-dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['collateral'] });
       setConfirmingDischarge(false);
@@ -106,16 +108,40 @@ export function CollateralViewModal({
               ['Financier', detail?.financier_name ?? record.financier_name],
               ['Debtor', detail?.debtor_name ?? record.debtor_name],
               ['Agreement No.', record.agreement_number],
-              ['Asset', `${detail?.asset_make ?? ''} ${detail?.asset_model ?? ''}`.trim() || record.asset_description],
-              ['Asset Type', assetTypeLabel(detail?.asset_type ?? record.asset_type)],
+              [
+                'Asset',
+                `${detail?.asset_make ?? ''} ${detail?.asset_model ?? ''}`.trim() ||
+                  record.asset_description,
+              ],
+              [
+                'Asset Type',
+                assetTypeLabel(detail?.asset_type ?? record.asset_type),
+              ],
               ['Year', detail?.asset_year ?? record.asset_year],
               ['Condition', detail?.asset_condition ?? record.asset_condition],
-              ['Reg/Serial', detail?.serial_number || detail?.asset_registration_no || record.serial_number || record.asset_registration_no],
+              [
+                'Reg/Serial',
+                detail?.serial_number ||
+                  detail?.asset_registration_no ||
+                  record.serial_number ||
+                  record.asset_registration_no,
+              ],
               ['Currency', detail?.currency ?? record.currency],
-              ['Loan Amount', formatCurrency(detail?.loan_amount ?? record.loan_amount)],
-              ['Instalment', formatCurrency(detail?.instalment_amount ?? record.instalment_amount)],
+              [
+                'Loan Amount',
+                formatCurrency(detail?.loan_amount ?? record.loan_amount),
+              ],
+              [
+                'Instalment',
+                formatCurrency(
+                  detail?.instalment_amount ?? record.instalment_amount,
+                ),
+              ],
               ['Balance', formatCurrency(detail?.balance ?? record.balance)],
-              ['Start Date', formatDate(detail?.start_date ?? record.start_date)],
+              [
+                'Start Date',
+                formatDate(detail?.start_date ?? record.start_date),
+              ],
               ['End Date', formatDate(detail?.end_date ?? record.end_date)],
               ['Status', detail?.status ?? record.status],
             ].map(([k, v]) => (
@@ -135,10 +161,12 @@ export function CollateralViewModal({
               onDeleted={onDeleted}
             />
             <div className="flex gap-2 items-center">
-              {currentStatus !== 'discharged' && (
-                confirmingDischarge ? (
+              {currentStatus !== 'discharged' &&
+                (confirmingDischarge ? (
                   <>
-                    <span className="text-xs text-amber-700">Confirm discharge?</span>
+                    <span className="text-xs text-amber-700">
+                      Confirm discharge?
+                    </span>
                     <Button
                       type="button"
                       size="sm"
@@ -167,8 +195,7 @@ export function CollateralViewModal({
                   >
                     Discharge
                   </Button>
-                )
-              )}
+                ))}
               <Button variant="ghost" onClick={onClose}>
                 Close
               </Button>
