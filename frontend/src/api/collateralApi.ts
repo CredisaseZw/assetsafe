@@ -54,7 +54,11 @@ function mapCollateralRecord(
       (record.financier_type as CollateralRecord['financier_type']) ?? 'company',
     financier_id: Number(record.financier ?? record.financier_id ?? 0),
     data_date: String(record.data_date ?? record.lodge_date ?? ''),
-    status: record.is_discharged ? 'discharged' : 'active',
+    status: record.is_discharged
+      ? 'discharged'
+      : record.is_pending_discharge
+        ? 'pending_discharge'
+        : 'active',
   };
 }
 
@@ -110,7 +114,9 @@ export const collateralApi = {
   },
 
   dischargeRecord: async (id: number): Promise<CollateralRecord> => {
-    const { data } = await axiosInstance.post(`/collateral/${id}/discharge/`);
+    const { data } = await axiosInstance.patch(`/collateral/${id}/discharge/`, {
+      is_discharged: true,
+    });
     return mapCollateralRecord(unwrapApiData<Record<string, unknown>>(data));
   },
 };

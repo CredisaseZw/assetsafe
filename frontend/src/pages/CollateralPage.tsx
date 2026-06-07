@@ -227,15 +227,16 @@ export default function CollateralPage() {
                   <th className="px-2 py-2 font-bold text-right">Loan</th>
                   <th className="px-2 py-2 font-bold">Start</th>
                   <th className="px-2 py-2 font-bold">End</th>
+                  <th className="px-2 py-2 font-bold">Status</th>
                   <th className="px-2 py-2 font-bold" />
                 </tr>
               </thead>
               <tbody>
                 {loadingRecords ? (
-                  <TableSkeleton rows={8} cols={11} />
+                  <TableSkeleton rows={8} cols={12} />
                 ) : isError ? (
                   <tr>
-                    <td colSpan={11} className="py-6 text-center text-red-500">
+                    <td colSpan={12} className="py-6 text-center text-red-500">
                       Failed to load records.
                     </td>
                   </tr>
@@ -279,6 +280,18 @@ export default function CollateralPage() {
                       </td>
                       <td className="border-r border-[#8f8f8f] px-2 py-2">
                         {formatDate(rec.end_date)}
+                      </td>
+                      <td className="border-r border-[#8f8f8f] px-2 py-2">
+                        <span className={cn(
+                          'inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase',
+                          rec.status === 'active'
+                            ? 'bg-green-100 text-green-800'
+                            : rec.status === 'pending_discharge'
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-slate-100 text-slate-600',
+                        )}>
+                          {rec.status === 'pending_discharge' ? 'Pending' : rec.status}
+                        </span>
                       </td>
                       <td className="px-2 py-2">
                         <button

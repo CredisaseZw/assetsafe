@@ -77,7 +77,11 @@ export const hirePurchaseApi = {
             record.financier_display ?? record.financier_name ?? '',
           financier_id: record.financier ?? record.financier_id ?? 0,
           data_date: record.data_date ?? record.lodge_date ?? '',
-          status: (record.closure_confirmed ? 'closed' : 'active') as HirePurchaseRecord['status'],
+          status: (record.closure_confirmed
+            ? 'closed'
+            : record.is_pending_closure
+              ? 'pending_closure'
+              : 'active') as HirePurchaseRecord['status'],
         }))
       : [];
 
@@ -117,10 +121,19 @@ export const hirePurchaseApi = {
   },
 
   confirmClosure: async (id: number): Promise<HirePurchaseRecord> => {
-    const { data } = await axiosInstance.post<ApiResponse<HirePurchaseRecord>>(
+    const { data } = await axiosInstance.patch<ApiResponse<HirePurchaseRecord>>(
       `/hire-purchase/${id}/confirm-closure/`,
+      { closure_confirmed: true },
     );
-    return data.data ?? (data as unknown as HirePurchaseRecord);
+    const raw = (data.data ?? data) as unknown as Record<string, unknown>;
+    return {
+      ...(data.data ?? (data as unknown as HirePurchaseRecord)),
+      status: (raw.closure_confirmed
+        ? 'closed'
+        : raw.is_pending_closure
+          ? 'pending_closure'
+          : 'active') as HirePurchaseRecord['status'],
+    };
   },
 
   getFinanciers: async (): Promise<User[]> => {

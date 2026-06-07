@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { Modal } from '@/components/shared/Modal';
 import { HirePurchaseForm } from './HirePurchaseForm';
 import type { HirePurchaseRecord } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Edit } from 'lucide-react';
+import { Edit, CheckCircle } from 'lucide-react';
 import { DeleteRecordButton } from '@/components/shared/DeleteRecordButton';
 import { hirePurchaseApi } from '@/api/hirePurchaseApi';
 
@@ -22,6 +24,23 @@ export function HirePurchaseViewModal({
   onDeleted,
 }: HirePurchaseViewModalProps) {
   const [editMode, setEditMode] = useState(false);
+  const [confirmingClosure, setConfirmingClosure] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { mutate: confirmClosure, isPending: isConfirming } = useMutation({
+    mutationFn: () => hirePurchaseApi.confirmClosure(record.id),
+    onSuccess: () => {
+      toast.success('Hire purchase closure confirmed');
+      queryClient.invalidateQueries({ queryKey: ['hire-purchase-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['hire-purchase'] });
+      setConfirmingClosure(false);
+      onSaved();
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message ?? 'Failed to confirm closure');
+      setConfirmingClosure(false);
+    },
+  });
 
   return (
     <Modal
@@ -78,6 +97,7 @@ export function HirePurchaseViewModal({
               ['Balance', formatCurrency(record.balance)],
               ['Start Date', formatDate(record.start_date)],
               ['End Date', formatDate(record.end_date)],
+              ['Status', record.status],
             ].map(([k, v]) => (
               <div key={String(k)}>
                 <dt className="text-xs font-medium uppercase text-slate-400">
@@ -94,7 +114,41 @@ export function HirePurchaseViewModal({
               onDelete={() => hirePurchaseApi.deleteRecord(record.id)}
               onDeleted={onDeleted}
             />
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
+              {record.status !== 'closed' && (
+                confirmingClosure ? (
+                  <>
+                    <span className="text-xs text-amber-700">Confirm closure?</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="primary"
+                      loading={isConfirming}
+                      onClick={() => confirmClosure()}
+                    >
+                      Yes, Confirm
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setConfirmingClosure(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    leftIcon={<CheckCircle className="h-3.5 w-3.5" />}
+                    onClick={() => setConfirmingClosure(true)}
+                  >
+                    Confirm Closure
+                  </Button>
+                )
+              )}
               <Button variant="ghost" onClick={onClose}>
                 Close
               </Button>
