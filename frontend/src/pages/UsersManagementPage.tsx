@@ -10,7 +10,7 @@ import { Modal } from '@/components/shared/Modal';
 import { Button } from '@/components/ui/button';
 import { formatDate } from '@/lib/utils';
 
-const PAGE_SIZE = 16;
+const PAGE_SIZE = 20;
 
 export default function UsersManagementPage() {
   const queryClient = useQueryClient();
@@ -79,7 +79,9 @@ export default function UsersManagementPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-900">User management</h1>
-          <p className="text-sm text-slate-600">Create and manage system users.</p>
+          <p className="text-sm text-slate-600">
+            Create and manage system users.
+          </p>
         </div>
         <Button type="button" onClick={() => setCreateOpen(true)}>
           <Plus className="mr-1 h-4 w-4" /> New user

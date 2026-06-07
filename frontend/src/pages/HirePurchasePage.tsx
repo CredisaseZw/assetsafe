@@ -24,7 +24,7 @@ import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import { invalidateRegistryQueries } from '@/lib/registryCache';
 import type { HirePurchaseRecord } from '@/types';
 
-const PAGE_SIZE = 16;
+const PAGE_SIZE = 20;
 
 type HirePurchaseSortOption =
   | 'date-desc'
@@ -134,16 +134,23 @@ export default function HirePurchasePage() {
       return [] as HirePurchaseRecord[];
     }
 
-    const compareDate = (left: HirePurchaseRecord, right: HirePurchaseRecord) => {
+    const compareDate = (
+      left: HirePurchaseRecord,
+      right: HirePurchaseRecord,
+    ) => {
       const leftTime = new Date(left.lodge_date ?? '').getTime();
       const rightTime = new Date(right.lodge_date ?? '').getTime();
       return leftTime - rightTime;
     };
 
     const compareName = (left: HirePurchaseRecord, right: HirePurchaseRecord) =>
-      (left.purchaser_name ?? '').localeCompare(right.purchaser_name ?? '', undefined, {
-        sensitivity: 'base',
-      });
+      (left.purchaser_name ?? '').localeCompare(
+        right.purchaser_name ?? '',
+        undefined,
+        {
+          sensitivity: 'base',
+        },
+      );
 
     const sorted = [...recordsData.records];
 
@@ -197,10 +204,10 @@ export default function HirePurchasePage() {
             <input
               value={financierQuery}
               onChange={(e) => setFinancierQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && void handleFinancierSearch()}
-              placeholder={
-                selectedFinancierLabel || 'Financier name...'
+              onKeyDown={(e) =>
+                e.key === 'Enter' && void handleFinancierSearch()
               }
+              placeholder={selectedFinancierLabel || 'Financier name...'}
               className="h-7 w-52 border border-black bg-white px-2 text-[12px] focus:outline-none"
             />
             <Button

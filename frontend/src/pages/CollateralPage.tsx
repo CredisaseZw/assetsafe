@@ -17,7 +17,7 @@ import { registryQueryOptions } from '@/lib/registryQueryOptions';
 import { useAuthStore } from '@/store';
 import type { CollateralRecord } from '@/types';
 
-const PAGE_SIZE = 16;
+const PAGE_SIZE = 20;
 
 type CollateralSortOption = 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc';
 

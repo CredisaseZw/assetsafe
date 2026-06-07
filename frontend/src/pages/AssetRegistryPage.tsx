@@ -17,7 +17,7 @@ import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import { invalidateRegistryQueries } from '@/lib/registryCache';
 import type { AssetRecord } from '@/types';
 
-const PAGE_SIZE = 16;
+const PAGE_SIZE = 20;
 
 type AssetSortOption = 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc';
 
@@ -230,7 +230,9 @@ export default function AssetRegistryPage() {
                       )}
                     </button>
                   </th>
-                  <th className="px-2 py-2 font-bold text-black">Regist. No.</th>
+                  <th className="px-2 py-2 font-bold text-black">
+                    Regist. No.
+                  </th>
                   <th className="px-2 py-2 font-bold text-black">
                     <button
                       type="button"
@@ -249,7 +251,9 @@ export default function AssetRegistryPage() {
                       )}
                     </button>
                   </th>
-                  <th className="px-2 py-2 font-bold text-black">Description</th>
+                  <th className="px-2 py-2 font-bold text-black">
+                    Description
+                  </th>
                   <th className="px-2 py-2 font-bold text-black">Reg/Serial</th>
                   <th className="px-2 py-2 font-bold text-black">Currency</th>
                   <th className="px-2 py-2 font-bold text-black text-right">
