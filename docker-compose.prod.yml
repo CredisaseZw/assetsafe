@@ -16,13 +16,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.prod
-    volumes:
-      - static_volume:/app/staticfiles:z
-      - media_volume:/app/media:z
     env_file:
       - .env
-    ports:
-      - "8000:8000"
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    expose:
+      - "8000"
     depends_on:
       redis:
         condition: service_healthy
@@ -33,11 +33,11 @@ services:
     command: uv run celery -A core worker -l info --concurrency=4
     env_file:
       - .env
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
     depends_on:
-      - redis
-      - app
+      redis:
+        condition: service_healthy
+      app:
+        condition: service_started
     restart: unless-stopped
 
   celery_beat:
@@ -46,8 +46,10 @@ services:
     env_file:
       - .env
     depends_on:
-      - redis
-      - app
+      redis:
+        condition: service_healthy
+      app:
+        condition: service_started
     restart: unless-stopped
 
   nginx:
@@ -60,15 +62,6 @@ services:
       - media_volume:/app/media:z
     depends_on:
       - app
-    restart: unless-stopped
-
-  frontend:
-    image: assetsafe-frontend:prod
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "3000:80"
     restart: unless-stopped
 
 volumes:
