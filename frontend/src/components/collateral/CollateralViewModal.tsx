@@ -67,9 +67,10 @@ export function CollateralViewModal({
             isEdit
             recordId={record.id}
             financierDisplayLabel={detail.financier_name}
+            dataSourceDisplayLabel={detail.data_source_display}
+            dataSourcePositionLabel={detail.data_source_position}
             debtorDisplayLabel={detail.debtor_name}
             initial={{
-              financier_type: detail.financier_type,
               financier_id: detail.financier_id,
               data_date: detail.data_date,
               debtor_type: detail.debtor_type,
@@ -106,6 +107,14 @@ export function CollateralViewModal({
           <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm sm:grid-cols-3">
             {[
               ['Financier', detail?.financier_name ?? record.financier_name],
+              [
+                'Data Source Name',
+                detail?.data_source_display ?? record.data_source_display,
+              ],
+              [
+                'Position',
+                detail?.data_source_position ?? record.data_source_position,
+              ],
               ['Debtor', detail?.debtor_name ?? record.debtor_name],
               ['Agreement No.', record.agreement_number],
               [

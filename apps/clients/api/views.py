@@ -162,7 +162,8 @@ class ClientViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='search')
     def search(self, request):
         """
-        Search for clients by name or external client ID
+        Search for clients by name or external client ID.
+        Optional query param entity_type: individual | company
         """
         query = request.query_params.get('q', '').strip()
         if not query:
@@ -170,11 +171,23 @@ class ClientViewSet(viewsets.ModelViewSet):
                 {"detail": "Query parameter 'q' is required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         clients = Client.objects.filter(
             Q(name__icontains=query) | Q(external_client_id__icontains=query)
-        ).distinct()
-        
+        )
+
+        entity_type = request.query_params.get('entity_type', '').strip().lower()
+        if entity_type == 'individual':
+            clients = clients.filter(
+                client_content_type=ContentType.objects.get_for_model(Individual)
+            )
+        elif entity_type == 'company':
+            clients = clients.filter(
+                client_content_type=ContentType.objects.get_for_model(CompanyBranch)
+            )
+
+        clients = clients.distinct()
+
         serializer = MinimalClientSerializer(clients, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

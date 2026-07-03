@@ -3,9 +3,9 @@ import type { AuthUser } from '@/api/authApi';
 export const ASSET_REGISTRY_PATH = '/registry';
 
 export const REGISTRY_DASHBOARD_TABS = [
-  { label: 'Asset', path: ASSET_REGISTRY_PATH, staffOnly: true },
-  { label: 'Collateral Registry', path: '/collateral', staffOnly: false },
+  { label: 'Collateral', path: '/collateral', staffOnly: false },
   { label: 'HP', path: '/hire-purchase', staffOnly: false },
+  { label: 'Registry', path: ASSET_REGISTRY_PATH, staffOnly: true },
 ] as const;
 
 export function isStaffUser(user: AuthUser | null | undefined): boolean {

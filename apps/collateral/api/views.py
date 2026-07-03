@@ -118,6 +118,7 @@ class CollateralRegistrationViewSet(BaseViewSet):
                 "financier",
                 "individual_debtor",
                 "company_debtor",
+                "created_by",
             ).filter(created_by__client=self.request.user.client)
 
         return CollateralRegistration.objects.select_related(
@@ -126,6 +127,7 @@ class CollateralRegistrationViewSet(BaseViewSet):
             "company_debtor",
             "company_debtor__company",
             "currency",
+            "created_by",
         ).all()
 
     # ------------------------------------------------------------------
