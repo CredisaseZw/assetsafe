@@ -262,13 +262,12 @@ export default function AssetRegistryPage() {
                   </th>
                   <th className="px-2 py-2 font-bold text-black">Sub. Start</th>
                   <th className="px-2 py-2 font-bold text-black">Sub. End</th>
-                  <th className="px-2 py-2 font-bold text-black">Status</th>
                   <th className="px-2 py-2 font-bold text-black" />
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
-                  <TableSkeleton rows={8} cols={12} />
+                  <TableSkeleton rows={8} cols={11} />
                 ) : !sortedRecords.length ? (
                   <EmptyState message="No assets found." />
                 ) : (
@@ -309,18 +308,6 @@ export default function AssetRegistryPage() {
                       </td>
                       <td className="border-r border-[#8f8f8f] px-2 py-2">
                         {formatDate(rec.subscription_end_date)}
-                      </td>
-                      <td className="border-r border-[#8f8f8f] px-2 py-2">
-                        <span
-                          className={cn(
-                            'inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase',
-                            rec.status === 'active'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-700',
-                          )}
-                        >
-                          {rec.status}
-                        </span>
                       </td>
                       <td className="px-2 py-2">
                         <button
