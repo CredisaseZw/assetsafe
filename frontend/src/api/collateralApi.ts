@@ -58,6 +58,8 @@ function mapCollateralRecord(
       'company',
     financier_id: Number(record.financier ?? record.financier_id ?? 0),
     data_date: String(record.data_date ?? record.lodge_date ?? ''),
+    data_source_display: String(record.data_source_display ?? ''),
+    data_source_position: String(record.data_source_position ?? ''),
     status: record.is_discharged
       ? 'discharged'
       : record.is_pending_discharge

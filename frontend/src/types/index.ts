@@ -68,11 +68,14 @@ export interface CollateralRecord {
   financier_id: number;
   data_date: string;
   status: 'active' | 'pending_discharge' | 'discharged';
+  data_source_display?: string;
+  data_source_position?: string;
 }
 
 export interface CollateralDashboard {
   active_agreements: number;
   pending_discharge_confirmation: number;
+  total_active_loan_value: number;
   records: CollateralRecord[];
 }
 

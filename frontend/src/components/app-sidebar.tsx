@@ -83,7 +83,7 @@ export function AppSidebar() {
               <SidebarNavLink
                 to="/collateral"
                 icon={Landmark}
-                label="Collateral"
+                label="Collateral Registry"
               />
               <SidebarNavLink
                 to="/hire-purchase"

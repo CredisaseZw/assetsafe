@@ -33,6 +33,8 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
     is_pending_discharge = serializers.SerializerMethodField(read_only=True)
     financier_display = serializers.SerializerMethodField(read_only=True)
     debtor_display = serializers.SerializerMethodField(read_only=True)
+    data_source_display = serializers.SerializerMethodField(read_only=True)
+    data_source_position = serializers.SerializerMethodField(read_only=True)
     currency = serializers.SlugRelatedField(
         slug_field="code",
         queryset=Currency.objects.all(),
@@ -78,6 +80,8 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
             "is_pending_discharge",
             "financier_display",
             "debtor_display",
+            "data_source_display",
+            "data_source_position",
         ]
         read_only_fields = [
             "id",
@@ -106,6 +110,16 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
 
     def get_debtor_display(self, obj: CollateralRegistration) -> str:
         return obj.debtor_display
+
+    def get_data_source_display(self, obj: CollateralRegistration) -> str:
+        if obj.created_by is None:
+            return ""
+        return obj.created_by.get_full_name() or obj.created_by.username or ""
+
+    def get_data_source_position(self, obj: CollateralRegistration) -> str:
+        if obj.created_by is None:
+            return ""
+        return obj.created_by.position or ""
 
     # ------------------------------------------------------------------
     # Field-level validation
@@ -249,6 +263,12 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
         6. Financier and debtor cannot be the same party.
         7. Active asset/device identifiers must be unique.
         """
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            user = request.user
+            if not user.is_staff and user.client:
+                attrs["financier"] = user.client
+
         # --- 1. Date ordering ---
         start = attrs.get(
             "agreement_start_date",
@@ -430,6 +450,11 @@ class CollateralDashboardSerializer(serializers.Serializer):
 
     active_agreements = serializers.IntegerField(min_value=0)
     pending_discharge_confirmation = serializers.IntegerField(min_value=0)
+    total_active_loan_value = serializers.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        min_value=0,
+    )
 
 
 class CollateralRegistrationListSerializer(CollateralRegistrationSerializer):

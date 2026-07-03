@@ -1,28 +1,34 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm, useFormState, Controller } from 'react-hook-form';
 import { zodResolver } from '@/lib/zodResolver';
-import { applyApiValidationErrors } from '@/lib/formErrors';
+import { applyApiValidationErrors, firstFormErrorMessage } from '@/lib/formErrors';
+import type { FieldErrors } from 'react-hook-form';
 import { z } from 'zod';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { UserPlus, Building } from 'lucide-react';
 import { collateralApi } from '@/api/collateralApi';
+import { clientsApi } from '@/api/clientsApi';
 import { individualsApi } from '@/api/individualsApi';
 import { companiesApi } from '@/api/companiesApi';
-import { clientsApi } from '@/api/clientsApi';
 import { Input } from '@/components/ui/input';
 import { DateInput } from '@/components/ui/DateInput';
 import AutocompleteInput from '@/components/shared/AutocompleteInput';
 import { Button } from '@/components/ui/button';
 import { FormSectionHeader } from '@/components/shared/FormSectionHeader';
 import { FieldError } from '@/components/shared/FieldError';
+import { Modal } from '@/components/shared/Modal';
+import { IndividualCreateForm } from '@/components/individuals/IndividualCreateForm';
+import { CompanyCreateForm } from '@/components/companies/CompanyCreateForm';
+import { ClientCreateForm } from '@/components/clients/ClientCreateForm';
 import { commonApi } from '@/api/commonApi';
 import { queryOptions } from '@/api/queryOptions';
+import { useAuthStore } from '@/store';
+import { isStaffUser } from '@/lib/registryNav';
+import { cn } from '@/lib/utils';
+import { authApi } from '@/api/authApi';
 
-const schema = z.object({
-  financier_type: z.string().min(1, 'Financier Type is required'),
-  financier_id: z
-    .number({ error: 'Financier is required' })
-    .min(1, 'Financier is required'),
+const collateralCoreSchema = z.object({
   data_date: z.string().min(1, 'Required'),
   debtor_type: z.string().min(1, 'Debtor Type is required'),
   debtor_id: z
@@ -47,14 +53,30 @@ const schema = z.object({
   end_date: z.string().min(1),
 });
 
-type FormValues = z.infer<typeof schema>;
+const staffCollateralSchema = collateralCoreSchema.extend({
+  financier_id: z
+    .number({ error: 'Financier is required' })
+    .min(1, 'Financier is required'),
+});
+
+function buildCollateralSchema(isClientUser: boolean) {
+  return isClientUser ? collateralCoreSchema : staffCollateralSchema;
+}
+
+type CoreFormValues = z.infer<typeof collateralCoreSchema>;
+type StaffFormValues = z.infer<typeof staffCollateralSchema>;
+type FormValues = CoreFormValues & { financier_id?: number };
 
 interface CollateralFormProps {
   initial?: Partial<FormValues>;
   financierDisplayLabel?: string;
+  dataSourceDisplayLabel?: string;
+  dataSourcePositionLabel?: string;
   debtorDisplayLabel?: string;
   onSuccess: () => void;
   onCancel: () => void;
+  /** When true shows "Save & Add Another" instead of "Upload" */
+  onSuccessAndAddAnother?: () => void;
   isEdit?: boolean;
   recordId?: number;
 }
@@ -62,25 +84,56 @@ interface CollateralFormProps {
 export function CollateralForm({
   initial,
   financierDisplayLabel,
+  dataSourceDisplayLabel,
+  dataSourcePositionLabel,
   debtorDisplayLabel,
   onSuccess,
   onCancel,
+  onSuccessAndAddAnother,
   isEdit,
   recordId,
 }: CollateralFormProps) {
+  const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
+  const isStaff = isStaffUser(user);
+  const isClientUser = !isStaff && !!user;
+  const clientFinancierId = user?.client_id;
+
+  const formSchema = useMemo(
+    () => buildCollateralSchema(isClientUser),
+    [isClientUser],
+  );
+
+  const [addIndividualOpen, setAddIndividualOpen] = useState(false);
+  const [addCompanyOpen, setAddCompanyOpen] = useState(false);
+  const [addClientOpen, setAddClientOpen] = useState(false);
+  const [financierLabel, setFinancierLabel] = useState(
+    financierDisplayLabel ?? '',
+  );
+  const [financierClientType, setFinancierClientType] = useState<
+    'individual' | 'company'
+  >('company');
+  const isFirstFinancierClientTypeRender = useRef(true);
+  const [debtorLabel, setDebtorLabel] = useState(debtorDisplayLabel ?? '');
+  const isFirstDebtorTypeRender = useRef(true);
+
   const { register, handleSubmit, control, watch, setError, setValue } =
     useForm<FormValues>({
-      resolver: zodResolver(schema),
+      resolver: zodResolver(formSchema),
       mode: 'onSubmit',
       reValidateMode: 'onChange',
       shouldFocusError: true,
       defaultValues: {
-        financier_type: 'company',
         debtor_type: 'individual',
         data_date: new Date().toISOString().split('T')[0],
         currency: '',
         asset_year: new Date().getFullYear(),
         total_paid_to_date: 0,
+        instalment_amount: 0,
+        instalment_date: 1,
+        ...(isClientUser
+          ? {}
+          : { financier_id: clientFinancierId }),
         ...initial,
       },
     });
@@ -116,14 +169,6 @@ export function CollateralForm({
   }, [assetConditionOptions, setValue, watch]);
 
   useEffect(() => {
-    if (!watch('financier_type') && partyTypeOptions.length > 0) {
-      const defaultFinancier =
-        partyTypeOptions.find((p: any) => p.value === 'company') ||
-        partyTypeOptions[0];
-      setValue('financier_type', defaultFinancier.value, {
-        shouldValidate: true,
-      });
-    }
     if (!watch('debtor_type') && partyTypeOptions.length > 0) {
       const defaultDebtor =
         partyTypeOptions.find((p: any) => p.value === 'individual') ||
@@ -132,18 +177,69 @@ export function CollateralForm({
     }
   }, [partyTypeOptions, setValue, watch]);
 
+  useEffect(() => {
+    if (isStaff || user?.client_id) return;
+    void authApi.me().then(setUser).catch(() => {});
+  }, [isStaff, user?.client_id, setUser]);
+
+  useEffect(() => {
+    if (!isClientUser || !clientFinancierId) return;
+    if (financierDisplayLabel) {
+      setFinancierLabel(financierDisplayLabel);
+    } else {
+      setFinancierLabel(user?.client_name ?? '');
+    }
+  }, [
+    isClientUser,
+    clientFinancierId,
+    user?.client_name,
+    financierDisplayLabel,
+  ]);
+
+  useEffect(() => {
+    if (isClientUser) return;
+    if (isFirstFinancierClientTypeRender.current) {
+      isFirstFinancierClientTypeRender.current = false;
+      return;
+    }
+    setValue('financier_id', 0 as unknown as number);
+    setFinancierLabel('');
+    setAddClientOpen(false);
+  }, [financierClientType, isClientUser, setValue]);
+
+  const watchedDebtorType = watch('debtor_type');
+  useEffect(() => {
+    if (isFirstDebtorTypeRender.current) {
+      isFirstDebtorTypeRender.current = false;
+      return;
+    }
+    setValue('debtor_id', 0 as unknown as number);
+    setDebtorLabel('');
+    setAddIndividualOpen(false);
+    setAddCompanyOpen(false);
+  }, [watchedDebtorType, setValue]);
+
   const watchedAssetType = watch('asset_type');
   const isVehicle = watchedAssetType === 'vehicles';
   const computedBalance =
     (watch('loan_amount') ?? 0) - (watch('total_paid_to_date') ?? 0);
+
+  const [addAnother, setAddAnother] = useState(false);
 
   const { mutate: submit, isPending } = useMutation({
     mutationFn: (data: FormValues) =>
       isEdit && recordId
         ? collateralApi.updateRecord(recordId, data as any)
         : collateralApi.createRecord(data as any),
-    onSuccess,
+    onSuccess: () => {
+      if (addAnother && onSuccessAndAddAnother) {
+        onSuccessAndAddAnother();
+      } else {
+        onSuccess();
+      }
+    },
     onError: (err: unknown) => {
+      setAddAnother(false);
       if (!applyApiValidationErrors(setError, err)) {
         const data = (
           err as { response?: { data?: { message?: string; error?: string } } }
@@ -155,302 +251,501 @@ export function CollateralForm({
     },
   });
 
-  const onInvalid = () => {
-    toast.error('Please fix the highlighted fields');
+  const onInvalid = (formErrors: FieldErrors<FormValues>) => {
+    setAddAnother(false);
+    toast.error(
+      firstFormErrorMessage(formErrors) ??
+        'Please fix the highlighted fields',
+    );
   };
 
+  const onFormSubmit = handleSubmit((data) => {
+    if (isClientUser) {
+      if (!clientFinancierId) {
+        toast.error(
+          'Unable to load your financier profile. Please refresh and try again.',
+        );
+        return;
+      }
+      submit({ ...data, financier_id: clientFinancierId } as StaffFormValues);
+      return;
+    }
+    submit(data as StaffFormValues);
+  }, onInvalid);
+
   return (
-    <form
-      onSubmit={handleSubmit((d) => submit(d), onInvalid)}
-      className="bg-white"
-      noValidate
-    >
-      {/* ── Financier Section ── */}
-      <FormSectionHeader title="Financier" variant="teal" />
-      <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
-        <div>
-          <label className="text-xs font-medium text-slate-600">
-            Financier Type
-          </label>
-          <select
-            {...register('financier_type')}
-            className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
-            disabled={!partyTypeOptions.length}
-          >
-            <option value="">
-              {partyTypeOptions.length ? 'Select type...' : 'Loading...'}
-            </option>
-            {partyTypeOptions.map((option: any) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="col-span-2">
-          <Controller
-            name="financier_id"
-            control={control}
-            render={({ field }) => (
-              <AutocompleteInput
-                label="Name / ID / Reg. No."
-                placeholder="Search financier..."
-                queryKey="collateral-financier"
-                displayLabel={financierDisplayLabel}
-                fetchFn={clientsApi.searchClients}
-                error={errors.financier_id?.message}
-                value={field.value}
-                onBlur={field.onBlur}
-                onChange={(v) => field.onChange(Number(v))}
+    <>
+      <form onSubmit={onFormSubmit} className="bg-white" noValidate>
+        {/* ── Financier Section ── */}
+        <FormSectionHeader title="Financier" variant="teal" />
+        {isClientUser ? (
+          <>
+            <div className="grid grid-cols-2 gap-3 p-4 pb-2 sm:grid-cols-4">
+              <div className="col-span-2 space-y-1">
+                <label className="text-xs font-medium text-slate-700">
+                  Financier Name
+                </label>
+                <div
+                  className={cn(
+                    'flex h-8 w-full items-center rounded-sm border bg-slate-50 px-2.5 text-sm text-slate-800',
+                    !clientFinancierId ? 'border-red-500' : 'border-slate-200',
+                  )}
+                >
+                  {financierLabel || user?.client_name || '—'}
+                </div>
+                {!clientFinancierId && (
+                  <FieldError message="Financier profile not loaded. Please refresh the page." />
+                )}
+              </div>
+              <Controller
+                name="data_date"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <DateInput
+                    label="Data Date"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    error={fieldState.error?.message}
+                    required
+                  />
+                )}
               />
+            </div>
+            <div className="grid grid-cols-2 gap-3 px-4 pb-4 sm:grid-cols-4">
+              <div className="col-span-2 space-y-1">
+                <label className="text-xs font-medium text-slate-700">
+                  Data Source Name
+                </label>
+                <div className="flex h-8 w-full items-center rounded-sm border border-slate-200 bg-slate-50 px-2.5 text-sm text-slate-800">
+                  {isEdit
+                    ? (dataSourceDisplayLabel ?? user?.name ?? '—')
+                    : (user?.name ?? '—')}
+                </div>
+              </div>
+              <div className="col-span-2 space-y-1">
+                <label className="text-xs font-medium text-slate-700">
+                  Position
+                </label>
+                <div className="flex h-8 w-full items-center rounded-sm border border-slate-200 bg-slate-50 px-2.5 text-sm text-slate-800">
+                  {isEdit
+                    ? (dataSourcePositionLabel ?? user?.position ?? '—')
+                    : (user?.position ?? '—')}
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3 p-4 pb-2 sm:grid-cols-4">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-700">
+                  Financier Type
+                </label>
+                <select
+                  value={financierClientType}
+                  onChange={(e) =>
+                    setFinancierClientType(
+                      e.target.value as 'individual' | 'company',
+                    )
+                  }
+                  className="h-8 w-full rounded-sm border border-slate-500 bg-white px-2.5 text-sm text-slate-900 focus:border-black focus:outline-none focus:ring-0"
+                  disabled={!partyTypeOptions.length}
+                >
+                  {partyTypeOptions.length === 0 ? (
+                    <option value="company">Loading...</option>
+                  ) : (
+                    partyTypeOptions.map((option: any) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+              <div className="col-span-2">
+                <Controller
+                  name="financier_id"
+                  control={control}
+                  render={({ field }) => (
+                    <AutocompleteInput
+                      label="Financier Name"
+                      placeholder="Search financier..."
+                      queryKey={`collateral-financier-${financierClientType}`}
+                      displayLabel={financierLabel}
+                      fetchFn={(q) =>
+                        clientsApi.searchClients(q, {
+                          entityType: financierClientType,
+                        })
+                      }
+                      error={errors.financier_id?.message}
+                      value={field.value}
+                      onBlur={field.onBlur}
+                      onChange={(v) => field.onChange(Number(v))}
+                    />
+                  )}
+                />
+              </div>
+              <Controller
+                name="data_date"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <DateInput
+                    label="Data Date"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    error={fieldState.error?.message}
+                    required
+                  />
+                )}
+              />
+            </div>
+            {isStaff && (
+              <div className="flex gap-2 px-4 pb-4">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  leftIcon={<UserPlus className="h-3 w-3" />}
+                  onClick={() => setAddClientOpen(true)}
+                >
+                  + Add Client
+                </Button>
+              </div>
             )}
-          />
+          </>
+        )}
+
+        {/* ── Debtor Section ── */}
+        <FormSectionHeader title="Debtor" variant="teal" />
+        <div className="flex gap-2 px-4 pt-2 pb-1">
+          <Button
+            type="button"
+            size="sm"
+            variant="primary"
+            leftIcon={<UserPlus className="h-3 w-3" />}
+            onClick={() => setAddIndividualOpen(true)}
+          >
+            + Add Individual
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            leftIcon={<Building className="h-3 w-3" />}
+            onClick={() => setAddCompanyOpen(true)}
+          >
+            + Add Company
+          </Button>
         </div>
-        <Controller
-          name="data_date"
-          control={control}
-          render={({ field, fieldState }) => (
-            <DateInput
-              label="Data Date"
-              value={field.value}
-              onChange={field.onChange}
-              onBlur={field.onBlur}
-              error={fieldState.error?.message}
-              required
+        <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
+          <div>
+            <label className="text-xs font-medium text-slate-600">
+              Debtor Type
+            </label>
+            <select
+              {...register('debtor_type')}
+              className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
+              disabled={!partyTypeOptions.length}
+            >
+              <option value="">
+                {partyTypeOptions.length ? 'Select type...' : 'Loading...'}
+              </option>
+              {partyTypeOptions.map((option: any) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="col-span-3">
+            <Controller
+              name="debtor_id"
+              control={control}
+              render={({ field }) => (
+                <AutocompleteInput
+                  label="Name / ID / Reg. No."
+                  placeholder="Search debtor..."
+                  queryKey={`collateral-debtor-${watch('debtor_type')}`}
+                  displayLabel={debtorLabel}
+                  fetchFn={(q) =>
+                    watch('debtor_type') === 'company'
+                      ? companiesApi.searchBranches(q)
+                      : individualsApi.searchIndividuals(q)
+                  }
+                  error={errors.debtor_id?.message}
+                  value={field.value}
+                  onBlur={field.onBlur}
+                  onChange={(v) => field.onChange(Number(v))}
+                />
+              )}
             />
-          )}
-        />
-      </div>
-
-      {/* ── Debtor Section ── */}
-      <FormSectionHeader title="Debtor" variant="teal" />
-      <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
-        <div>
-          <label className="text-xs font-medium text-slate-600">
-            Debtor Type
-          </label>
-          <select
-            {...register('debtor_type')}
-            className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
-            disabled={!partyTypeOptions.length}
-          >
-            <option value="">
-              {partyTypeOptions.length ? 'Select type...' : 'Loading...'}
-            </option>
-            {partyTypeOptions.map((option: any) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="col-span-3">
-          <Controller
-            name="debtor_id"
-            control={control}
-            render={({ field }) => (
-              <AutocompleteInput
-                label="Name / ID / Reg. No."
-                placeholder="Search debtor..."
-                queryKey={`collateral-debtor-${watch('debtor_type')}`}
-                displayLabel={debtorDisplayLabel}
-                fetchFn={(q) =>
-                  watch('debtor_type') === 'company'
-                    ? companiesApi.searchBranches(q)
-                    : individualsApi.searchIndividuals(q)
-                }
-                error={errors.debtor_id?.message}
-                value={field.value}
-                onBlur={field.onBlur}
-                onChange={(v) => field.onChange(Number(v))}
-              />
-            )}
-          />
-        </div>
-      </div>
-
-      {/* ── Agreement & Asset Details ── */}
-      <FormSectionHeader title="Agreement & Asset Details" variant="dark" />
-      <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
-        <Input
-          label="Agreement Number"
-          {...register('agreement_number')}
-          error={errors.agreement_number?.message}
-          required
-        />
-        <div>
-          <label className="text-xs font-medium text-slate-600">
-            Asset Type<span className="text-red-500 ml-0.5">*</span>
-          </label>
-          <select
-            {...register('asset_type')}
-            className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
-            disabled={!assetTypeOptions.length}
-          >
-            <option value="">
-              {assetTypeOptions.length ? 'Click to select...' : 'Loading...'}
-            </option>
-            {assetTypeOptions.map((t: any) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-          <FieldError message={errors.asset_type?.message} />
-        </div>
-        <Input
-          label="Make"
-          {...register('asset_make')}
-          error={errors.asset_make?.message}
-          required
-        />
-        <Input
-          label="Model"
-          {...register('asset_model')}
-          error={errors.asset_model?.message}
-          required
-        />
-        <Input
-          label="Year"
-          type="number"
-          {...register('asset_year')}
-          error={errors.asset_year?.message}
-          required
-        />
-        <div>
-          <label className="text-xs font-medium text-slate-600">
-            Condition
-          </label>
-          <select
-            {...register('asset_condition')}
-            className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
-            disabled={!assetConditionOptions.length}
-          >
-            <option value="">
-              {assetConditionOptions.length ? 'Select...' : 'Loading...'}
-            </option>
-            {assetConditionOptions.map((c: any) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <Input
-          label="MV Registration No."
-          {...register('asset_registration_no')}
-          disabled={!isVehicle}
-          className={!isVehicle ? 'bg-slate-100' : ''}
-        />
-        <Input
-          label="Chassis Number"
-          {...register('chassis_number')}
-          disabled={!isVehicle}
-          className={!isVehicle ? 'bg-slate-100' : ''}
-        />
-        <Input
-          label="Engine Number"
-          {...register('engine_number')}
-          disabled={!isVehicle}
-          className={!isVehicle ? 'bg-slate-100' : ''}
-        />
-        <Input label="Serial Number" {...register('serial_number')} />
-      </div>
-
-      {/* ── Financial Details ── */}
-      <FormSectionHeader title="Financial Details" variant="teal" />
-      <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
-        <div>
-          <label className="text-xs font-medium text-slate-600">
-            Currency<span className="text-red-500 ml-0.5">*</span>
-          </label>
-          <select
-            {...register('currency')}
-            className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
-            disabled={!currencies.length}
-          >
-            <option value="">
-              {currencies.length ? 'Select currency...' : 'Loading...'}
-            </option>
-            {currencies.map((currency) => (
-              <option key={currency.code} value={currency.code}>
-                {currency.code} - {currency.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <Input
-          label="Total Debt"
-          type="number"
-          step="0.01"
-          {...register('loan_amount')}
-          error={errors.loan_amount?.message}
-          required
-        />
-        <Input
-          label="Instalment Amount"
-          type="number"
-          step="0.01"
-          {...register('instalment_amount')}
-        />
-        <Input
-          label="Instalment Date (dd)"
-          type="number"
-          min="1"
-          max="31"
-          {...register('instalment_date')}
-        />
-        <Input
-          label="Total Paid to Date"
-          type="number"
-          step="0.01"
-          {...register('total_paid_to_date')}
-        />
-        <div>
-          <label className="text-xs font-medium text-slate-600">Balance</label>
-          <div className="mt-1 flex h-8 w-full items-center rounded border border-slate-200 bg-slate-50 px-2 text-sm text-slate-700">
-            {computedBalance.toFixed(2)}
           </div>
         </div>
-        <Controller
-          name="start_date"
-          control={control}
-          render={({ field, fieldState }) => (
-            <DateInput
-              label="Agreement Start Date"
-              value={field.value}
-              onChange={field.onChange}
-              onBlur={field.onBlur}
-              error={fieldState.error?.message}
-              required
-            />
-          )}
-        />
-        <Controller
-          name="end_date"
-          control={control}
-          render={({ field, fieldState }) => (
-            <DateInput
-              label="Agreement End Date"
-              value={field.value}
-              onChange={field.onChange}
-              onBlur={field.onBlur}
-              error={fieldState.error?.message}
-              required
-            />
-          )}
-        />
-      </div>
 
-      {/* ── Footer ── */}
-      <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-3">
-        <Button type="button" variant="ghost" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button type="submit" loading={isPending}>
-          {isEdit ? 'Save Changes' : 'Upload'}
-        </Button>
-      </div>
-    </form>
+        {/* ── Agreement & Asset Details ── */}
+        <FormSectionHeader title="Agreement & Asset Details" variant="dark" />
+        <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
+          <Input
+            label="Agreement Number"
+            {...register('agreement_number')}
+            error={errors.agreement_number?.message}
+            required
+          />
+          <div>
+            <label className="text-xs font-medium text-slate-600">
+              Asset Type<span className="text-red-500 ml-0.5">*</span>
+            </label>
+            <select
+              {...register('asset_type')}
+              className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
+              disabled={!assetTypeOptions.length}
+            >
+              <option value="">
+                {assetTypeOptions.length ? 'Click to select...' : 'Loading...'}
+              </option>
+              {assetTypeOptions.map((t: any) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+            <FieldError message={errors.asset_type?.message} />
+          </div>
+          <Input
+            label="Make"
+            {...register('asset_make')}
+            error={errors.asset_make?.message}
+            required
+          />
+          <Input
+            label="Model"
+            {...register('asset_model')}
+            error={errors.asset_model?.message}
+            required
+          />
+          <Input
+            label="Year"
+            type="number"
+            {...register('asset_year')}
+            error={errors.asset_year?.message}
+            required
+          />
+          <div>
+            <label className="text-xs font-medium text-slate-600">
+              Condition
+            </label>
+            <select
+              {...register('asset_condition')}
+              className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
+              disabled={!assetConditionOptions.length}
+            >
+              <option value="">
+                {assetConditionOptions.length ? 'Select...' : 'Loading...'}
+              </option>
+              {assetConditionOptions.map((c: any) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+            <FieldError message={errors.asset_condition?.message} />
+          </div>
+          <Input
+            label="MV Registration No."
+            {...register('asset_registration_no')}
+            disabled={!isVehicle}
+            className={!isVehicle ? 'bg-slate-100' : ''}
+          />
+          <Input
+            label="Chassis Number"
+            {...register('chassis_number')}
+            disabled={!isVehicle}
+            className={!isVehicle ? 'bg-slate-100' : ''}
+          />
+          <Input
+            label="Engine Number"
+            {...register('engine_number')}
+            disabled={!isVehicle}
+            className={!isVehicle ? 'bg-slate-100' : ''}
+          />
+          <Input label="Serial Number" {...register('serial_number')} />
+        </div>
+
+        {/* ── Financial Details ── */}
+        <FormSectionHeader title="Financial Details" variant="teal" />
+        <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
+          <div>
+            <label className="text-xs font-medium text-slate-600">
+              Currency<span className="text-red-500 ml-0.5">*</span>
+            </label>
+            <select
+              {...register('currency')}
+              className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
+              disabled={!currencies.length}
+            >
+              <option value="">
+                {currencies.length ? 'Select currency...' : 'Loading...'}
+              </option>
+              {currencies.map((currency) => (
+                <option key={currency.code} value={currency.code}>
+                  {currency.code} - {currency.name}
+                </option>
+              ))}
+            </select>
+            <FieldError message={errors.currency?.message} />
+          </div>
+          <Input
+            label="Total Debt"
+            type="number"
+            step="0.01"
+            {...register('loan_amount')}
+            error={errors.loan_amount?.message}
+            required
+          />
+          <Input
+            label="Instalment Amount"
+            type="number"
+            step="0.01"
+            {...register('instalment_amount')}
+          />
+          <Input
+            label="Instalment Date (dd)"
+            type="number"
+            min="1"
+            max="31"
+            {...register('instalment_date')}
+            error={errors.instalment_date?.message}
+          />
+          <Input
+            label="Total Paid to Date"
+            type="number"
+            step="0.01"
+            {...register('total_paid_to_date')}
+          />
+          <div>
+            <label className="text-xs font-medium text-slate-600">
+              Balance
+            </label>
+            <div className="mt-1 flex h-8 w-full items-center rounded border border-slate-200 bg-slate-50 px-2 text-sm text-slate-700">
+              {computedBalance.toFixed(2)}
+            </div>
+          </div>
+          <Controller
+            name="start_date"
+            control={control}
+            render={({ field, fieldState }) => (
+              <DateInput
+                label="Agreement Start Date"
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                error={fieldState.error?.message}
+                required
+              />
+            )}
+          />
+          <Controller
+            name="end_date"
+            control={control}
+            render={({ field, fieldState }) => (
+              <DateInput
+                label="Agreement End Date"
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                error={fieldState.error?.message}
+                required
+              />
+            )}
+          />
+        </div>
+
+        {/* ── Footer ── */}
+        <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-3">
+          <Button type="button" variant="ghost" onClick={onCancel}>
+            {onSuccessAndAddAnother ? 'Done' : 'Cancel'}
+          </Button>
+          <div className="flex gap-2">
+            {onSuccessAndAddAnother && !isEdit && (
+              <Button
+                type="submit"
+                variant="secondary"
+                loading={isPending && addAnother}
+                disabled={isPending && !addAnother}
+                onClick={() => setAddAnother(true)}
+              >
+                Save & Add Another
+              </Button>
+            )}
+            <Button
+              type="submit"
+              loading={isPending && !addAnother}
+              disabled={isPending && addAnother}
+              onClick={() => setAddAnother(false)}
+            >
+              {isEdit
+                ? 'Save Changes'
+                : onSuccessAndAddAnother
+                  ? 'Save'
+                  : 'Upload'}
+            </Button>
+          </div>
+        </div>
+      </form>
+
+      <Modal
+        open={addClientOpen}
+        onClose={() => setAddClientOpen(false)}
+        title="Add Client"
+        size="md"
+      >
+        <ClientCreateForm
+          onCancel={() => setAddClientOpen(false)}
+          initialEntityType={financierClientType}
+          onSuccess={({ id, name }) => {
+            setValue('financier_id', id, { shouldValidate: true });
+            setFinancierLabel(name);
+            setAddClientOpen(false);
+          }}
+        />
+      </Modal>
+
+      <Modal
+        open={addIndividualOpen}
+        onClose={() => setAddIndividualOpen(false)}
+        title="Add Individual"
+        size="lg"
+      >
+        <IndividualCreateForm
+          onCancel={() => setAddIndividualOpen(false)}
+          onSuccess={({ id, name }) => {
+            setValue('debtor_type', 'individual');
+            setValue('debtor_id', id, { shouldValidate: true });
+            setDebtorLabel(name);
+            setAddIndividualOpen(false);
+          }}
+        />
+      </Modal>
+
+      <Modal
+        open={addCompanyOpen}
+        onClose={() => setAddCompanyOpen(false)}
+        title="Add Company"
+        size="lg"
+        disableBackdropClose
+      >
+        <CompanyCreateForm
+          onCancel={() => setAddCompanyOpen(false)}
+          onSuccess={({ id, name }) => {
+            setValue('debtor_type', 'company');
+            setValue('debtor_id', id, { shouldValidate: true });
+            setDebtorLabel(name);
+            setAddCompanyOpen(false);
+          }}
+        />
+      </Modal>
+    </>
   );
 }
