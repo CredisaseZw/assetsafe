@@ -450,6 +450,11 @@ class CollateralDashboardSerializer(serializers.Serializer):
 
     active_agreements = serializers.IntegerField(min_value=0)
     pending_discharge_confirmation = serializers.IntegerField(min_value=0)
+    total_active_loan_value = serializers.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        min_value=0,
+    )
 
 
 class CollateralRegistrationListSerializer(CollateralRegistrationSerializer):

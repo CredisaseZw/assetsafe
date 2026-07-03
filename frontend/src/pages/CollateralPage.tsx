@@ -18,7 +18,7 @@ import { Modal } from '@/components/shared/Modal';
 import { CollateralForm } from '@/components/collateral/CollateralForm';
 import { CollateralViewModal } from '@/components/collateral/CollateralViewModal';
 import { NumberedPaginationFooter } from '@/components/shared/NumberedPaginationFooter';
-import { cn, formatCurrency, formatDate } from '@/lib/utils';
+import { cn, formatCurrency, formatDate, formatDollarAmount } from '@/lib/utils';
 import { invalidateRegistryQueries } from '@/lib/registryCache';
 import { registryQueryOptions } from '@/lib/registryQueryOptions';
 import { useAuthStore } from '@/store';
@@ -150,12 +150,11 @@ export default function CollateralPage() {
             label="Pending Discharge"
             value={statsData?.pending_discharge_confirmation ?? 0}
           />
-          {statsData?.total_active_loan_value !== undefined && (
-            <InlineStat
-              label="Active Loan Value"
-              value={formatCurrency(statsData.total_active_loan_value)}
-            />
-          )}
+          <InlineStat
+            label="Active Loan Value"
+            value={formatDollarAmount(statsData?.total_active_loan_value ?? 0)}
+            valueClassName="text-xl"
+          />
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#8f8f8f] px-3 py-2">

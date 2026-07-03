@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 
-from django.db.models import Count, Q, QuerySet
+from django.db.models import Count, Q, QuerySet, Sum
 from django.utils import timezone
 from rest_framework import filters, status
 from rest_framework.decorators import action
@@ -253,14 +253,17 @@ class CollateralRegistrationViewSet(BaseViewSet):
 
         """
         today = timezone.now().date()
-        aggregates: dict = CollateralRegistration.objects.aggregate(
-            active_agreements=Count(
-                "id",
-                filter=Q(
-                    agreement_start_date__lte=today,
-                    agreement_end_date__gte=today,
-                ),
-            ),
+        qs = CollateralRegistration.objects.all()
+        # Client users should only see their own portfolio totals.
+        if not request.user.is_staff and getattr(request.user, "client_id", None):
+            qs = qs.filter(financier_id=request.user.client_id)
+
+        active_filter = Q(
+            agreement_start_date__lte=today,
+            agreement_end_date__gte=today,
+        )
+        aggregates: dict = qs.aggregate(
+            active_agreements=Count("id", filter=active_filter),
             pending_discharge_confirmation=Count(
                 "id",
                 filter=Q(
@@ -268,7 +271,10 @@ class CollateralRegistrationViewSet(BaseViewSet):
                     is_discharged=False,
                 ),
             ),
+            total_active_loan_value=Sum("total_debt", filter=active_filter),
         )
+        if aggregates["total_active_loan_value"] is None:
+            aggregates["total_active_loan_value"] = 0
 
         serializer = CollateralDashboardSerializer(data=aggregates)
         serializer.is_valid(raise_exception=True)
