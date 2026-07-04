@@ -20,6 +20,8 @@ export interface CreateUserPayload {
   password: string;
   first_name?: string;
   last_name?: string;
+  position?: string;
+  client_id?: number;
   is_staff?: boolean;
   is_superuser?: boolean;
 }

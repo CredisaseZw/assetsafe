@@ -134,6 +134,8 @@ export interface HirePurchaseRecord {
   financier_id: number;
   data_date: string;
   status: 'active' | 'pending_closure' | 'closed';
+  data_source_display?: string;
+  data_source_position?: string;
 }
 
 export interface HirePurchaseDashboard {

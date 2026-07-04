@@ -14,6 +14,7 @@ import AssetRegistryPage from '@/pages/AssetRegistryPage';
 import AccountSettingsPage from '@/pages/AccountSettingsPage';
 import AuditLogsPage from '@/pages/AuditLogsPage';
 import UsersManagementPage from '@/pages/UsersManagementPage';
+import ReportsPage from '@/pages/ReportsPage';
 
 export const router = createBrowserRouter([
   {
@@ -59,6 +60,7 @@ export const router = createBrowserRouter([
         ),
       },
       { path: 'settings', element: <AccountSettingsPage /> },
+      { path: 'reports', element: <ReportsPage /> },
       {
         path: 'admin/audit-logs',
         element: (

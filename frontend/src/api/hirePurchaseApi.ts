@@ -1,5 +1,6 @@
 import axiosInstance from './axiosInstance';
 import { mapHirePurchaseFormToApi } from '@/lib/registryPayloads';
+import { unwrapApiData } from '@/lib/parsePaginatedApi';
 import type {
   ApiResponse,
   HirePurchaseDashboard,
@@ -7,6 +8,64 @@ import type {
   HirePurchaseFormData,
   User,
 } from '@/types';
+
+function mapHirePurchaseRecord(
+  record: Record<string, unknown>,
+): HirePurchaseRecord {
+  return {
+    id: Number(record.id),
+    lodge_date: String(record.lodge_date ?? ''),
+    agreement_number: String(record.agreement_number ?? ''),
+    purchaser_name: String(
+      record.purchaser_display ?? record.purchaser_name ?? '',
+    ),
+    purchaser_type:
+      (record.purchaser_type as HirePurchaseRecord['purchaser_type']) ??
+      'individual',
+    purchaser_id: Number(
+      record.purchaser_id ??
+        record.purchaser_individual ??
+        record.purchaser_company ??
+        0,
+    ),
+    asset_make: String(record.make ?? record.asset_make ?? ''),
+    asset_model: String(record.model ?? record.asset_model ?? ''),
+    asset_type: String(record.asset_type ?? ''),
+    asset_year: Number(record.year_of_make ?? record.asset_year ?? 0),
+    asset_condition:
+      (record.condition as HirePurchaseRecord['asset_condition']) ?? 'new',
+    reg_serial_number: String(
+      record.mv_registration_number ??
+        record.serial_number ??
+        record.reg_serial_number ??
+        '',
+    ),
+    chassis_number: String(record.chassis_number ?? ''),
+    engine_number: String(record.engine_number ?? ''),
+    currency: String(record.currency_code ?? record.currency ?? ''),
+    purchase_amount: Number(record.purchase_amount ?? 0),
+    instalment_amount: Number(record.instalment_amount ?? 0),
+    instalment_date: Number(
+      record.instalment_day ?? record.instalment_date ?? 1,
+    ),
+    total_paid_to_date: Number(record.total_paid_to_date ?? 0),
+    balance: Number(record.balance ?? 0),
+    start_date: String(record.agreement_start_date ?? record.start_date ?? ''),
+    end_date: String(record.agreement_end_date ?? record.end_date ?? ''),
+    financier_name: String(
+      record.financier_display ?? record.financier_name ?? '',
+    ),
+    financier_id: Number(record.financier ?? record.financier_id ?? 0),
+    data_date: String(record.data_date ?? record.lodge_date ?? ''),
+    data_source_display: String(record.data_source_display ?? ''),
+    data_source_position: String(record.data_source_position ?? ''),
+    status: (record.closure_confirmed
+      ? 'closed'
+      : record.is_pending_closure
+        ? 'pending_closure'
+        : 'active') as HirePurchaseRecord['status'],
+  };
+}
 
 export const hirePurchaseApi = {
   getDashboard: async (params?: {
@@ -41,58 +100,18 @@ export const hirePurchaseApi = {
           ? recordsRaw.length
           : 0;
     const records = Array.isArray(recordsRaw)
-      ? recordsRaw.map((record: any) => ({
-          id: record.id,
-          lodge_date: record.lodge_date,
-          agreement_number: record.agreement_number,
-          purchaser_name:
-            record.purchaser_display ?? record.purchaser_name ?? '',
-          purchaser_type: record.purchaser_type ?? 'individual',
-          purchaser_id:
-            record.purchaser_id ??
-            record.purchaser_individual ??
-            record.purchaser_company ??
-            0,
-          asset_make: record.make ?? record.asset_make ?? '',
-          asset_model: record.model ?? record.asset_model ?? '',
-          asset_type: record.asset_type,
-          asset_year: record.year_of_make ?? record.asset_year ?? 0,
-          asset_condition: record.condition ?? record.asset_condition ?? 'new',
-          reg_serial_number:
-            record.mv_registration_number ??
-            record.serial_number ??
-            record.reg_serial_number ??
-            '',
-          chassis_number: record.chassis_number ?? '',
-          engine_number: record.engine_number ?? '',
-          currency: record.currency_code ?? record.currency ?? '',
-          purchase_amount: record.purchase_amount ?? 0,
-          instalment_amount: record.instalment_amount ?? 0,
-          instalment_date: record.instalment_day ?? record.instalment_date ?? 1,
-          total_paid_to_date: record.total_paid_to_date ?? 0,
-          balance: record.balance ?? 0,
-          start_date: record.agreement_start_date ?? record.start_date ?? '',
-          end_date: record.agreement_end_date ?? record.end_date ?? '',
-          financier_name:
-            record.financier_display ?? record.financier_name ?? '',
-          financier_id: record.financier ?? record.financier_id ?? 0,
-          data_date: record.data_date ?? record.lodge_date ?? '',
-          status: (record.closure_confirmed
-            ? 'closed'
-            : record.is_pending_closure
-              ? 'pending_closure'
-              : 'active') as HirePurchaseRecord['status'],
-        }))
+      ? recordsRaw.map((record: Record<string, unknown>) =>
+          mapHirePurchaseRecord(record),
+        )
       : [];
 
     return { records, count };
   },
 
   getRecord: async (id: number): Promise<HirePurchaseRecord> => {
-    const { data } = await axiosInstance.get<ApiResponse<HirePurchaseRecord>>(
-      `/hire-purchase/${id}/`,
-    );
-    return data.data ?? (data as unknown as HirePurchaseRecord);
+    const { data } = await axiosInstance.get<unknown>(`/hire-purchase/${id}/`);
+    const raw = unwrapApiData<Record<string, unknown>>(data);
+    return mapHirePurchaseRecord(raw);
   },
 
   createRecord: async (

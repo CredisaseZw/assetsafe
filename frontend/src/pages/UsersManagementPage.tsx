@@ -1,16 +1,33 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { Building2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { usersApi, type CreateUserPayload } from '@/api/usersApi';
+import { clientsApi } from '@/api/clientsApi';
 import { TableSkeleton } from '@/components/shared/TableSkeleton';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { NumberedPaginationFooter } from '@/components/shared/NumberedPaginationFooter';
 import { Modal } from '@/components/shared/Modal';
 import { Button } from '@/components/ui/button';
+import AutocompleteInput from '@/components/shared/AutocompleteInput';
+import { ClientCreateForm } from '@/components/clients/ClientCreateForm';
 import { formatDate } from '@/lib/utils';
+import type { SearchOption } from '@/lib/searchResults';
 
 const PAGE_SIZE = 20;
+
+function initialFormState(): CreateUserPayload {
+  return {
+    email: '',
+    username: '',
+    password: '',
+    first_name: '',
+    last_name: '',
+    position: '',
+    is_staff: false,
+    is_superuser: false,
+  };
+}
 
 export default function UsersManagementPage() {
   const queryClient = useQueryClient();
@@ -18,16 +35,27 @@ export default function UsersManagementPage() {
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
-  const [form, setForm] = useState<CreateUserPayload>({
-    email: '',
-    username: '',
-    password: '',
-    first_name: '',
-    last_name: '',
-    is_staff: false,
-    is_superuser: false,
-  });
+  const [addClientOpen, setAddClientOpen] = useState(false);
+  const [form, setForm] = useState<CreateUserPayload>(initialFormState);
+  const [clientId, setClientId] = useState<number | undefined>();
+  const [clientLabel, setClientLabel] = useState('');
+  const [clientEntityType, setClientEntityType] = useState<
+    'individual' | 'company'
+  >('company');
   const [saving, setSaving] = useState(false);
+  const clientSearchResults = useRef<SearchOption[]>([]);
+
+  const resetCreateForm = () => {
+    setForm(initialFormState());
+    setClientId(undefined);
+    setClientLabel('');
+    setClientEntityType('company');
+  };
+
+  const closeCreateModal = () => {
+    setCreateOpen(false);
+    resetCreateForm();
+  };
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['managed-users', page, appliedSearch],
@@ -48,27 +76,33 @@ export default function UsersManagementPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!form.is_staff && !clientId) {
+      toast.error('Client users must be linked to a client.');
+      return;
+    }
+
     setSaving(true);
     try {
       await usersApi.create({
         ...form,
         email: form.email.trim().toLowerCase(),
-        username: form.username.trim() || form.email.split('@')[0],
+        username: form.username?.trim() || form.email.split('@')[0],
+        ...(clientId ? { client_id: clientId } : {}),
+        ...(form.position?.trim() ? { position: form.position.trim() } : {}),
       });
       toast.success('User created');
-      setCreateOpen(false);
-      setForm({
-        email: '',
-        username: '',
-        password: '',
-        first_name: '',
-        last_name: '',
-        is_staff: false,
-        is_superuser: false,
-      });
+      closeCreateModal();
       queryClient.invalidateQueries({ queryKey: ['managed-users'] });
-    } catch {
-      toast.error('Could not create user');
+    } catch (err: unknown) {
+      const detail = (
+        err as { response?: { data?: { detail?: string; email?: string[] } } }
+      )?.response?.data;
+      const message =
+        (typeof detail?.detail === 'string' && detail.detail) ||
+        (Array.isArray(detail?.email) && detail.email.join(' ')) ||
+        'Could not create user';
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -158,10 +192,11 @@ export default function UsersManagementPage() {
 
       <Modal
         open={createOpen}
-        onClose={() => setCreateOpen(false)}
+        onClose={closeCreateModal}
         title="Create user"
+        size="md"
       >
-        <form onSubmit={handleCreate} className="space-y-3">
+        <form onSubmit={handleCreate} className="space-y-4 p-1">
           {(
             [
               ['email', 'Email', 'email'],
@@ -169,6 +204,7 @@ export default function UsersManagementPage() {
               ['password', 'Password', 'password'],
               ['first_name', 'First name', 'text'],
               ['last_name', 'Last name', 'text'],
+              ['position', 'Position', 'text'],
             ] as const
           ).map(([key, label, type]) => (
             <div key={key}>
@@ -184,6 +220,88 @@ export default function UsersManagementPage() {
               />
             </div>
           ))}
+
+          <div className="rounded border border-slate-200 bg-slate-50 p-3 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-slate-800">
+                Client association
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                leftIcon={<Building2 className="h-3.5 w-3.5" />}
+                onClick={() => setAddClientOpen(true)}
+              >
+                Add Client
+              </Button>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-slate-600">
+                Client type
+              </label>
+              <select
+                value={clientEntityType}
+                onChange={(e) => {
+                  setClientEntityType(
+                    e.target.value as 'individual' | 'company',
+                  );
+                  setClientId(undefined);
+                  setClientLabel('');
+                }}
+                className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
+              >
+                <option value="company">Company</option>
+                <option value="individual">Individual</option>
+              </select>
+            </div>
+
+            <AutocompleteInput
+              label="Link client"
+              placeholder="Search client by name..."
+              queryKey={`user-create-client-${clientEntityType}`}
+              displayLabel={clientLabel}
+              fetchFn={async (q) => {
+                const results = await clientsApi.searchClients(q, {
+                  entityType: clientEntityType,
+                });
+                clientSearchResults.current = results;
+                return results;
+              }}
+              value={clientId}
+              onChange={(id) => {
+                if (!id) {
+                  setClientId(undefined);
+                  setClientLabel('');
+                  return;
+                }
+                setClientId(Number(id));
+                const match = clientSearchResults.current.find((r) => r.id === id);
+                setClientLabel(match?.name ?? '');
+              }}
+            />
+
+            {clientId ? (
+              <button
+                type="button"
+                className="text-xs text-[#196A86] underline"
+                onClick={() => {
+                  setClientId(undefined);
+                  setClientLabel('');
+                }}
+              >
+                Clear linked client
+              </button>
+            ) : null}
+
+            <p className="text-xs text-slate-500">
+              {form.is_staff
+                ? 'Optional for staff. Link a client to create a client portal user; leave blank for internal staff only.'
+                : 'Required for non-staff users. Search an existing client or use Add Client to register one first.'}
+            </p>
+          </div>
+
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -204,12 +322,9 @@ export default function UsersManagementPage() {
             />
             Superuser (admin tools)
           </label>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setCreateOpen(false)}
-            >
+
+          <div className="flex justify-end gap-2 border-t border-slate-200 pt-3">
+            <Button type="button" variant="outline" onClick={closeCreateModal}>
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>
@@ -217,6 +332,24 @@ export default function UsersManagementPage() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        open={addClientOpen}
+        onClose={() => setAddClientOpen(false)}
+        title="Add Client"
+        size="md"
+      >
+        <ClientCreateForm
+          initialEntityType={clientEntityType}
+          onCancel={() => setAddClientOpen(false)}
+          onSuccess={({ id, name }) => {
+            setClientId(id);
+            setClientLabel(name);
+            setAddClientOpen(false);
+            toast.success(`${name} linked — ready to assign to user`);
+          }}
+        />
       </Modal>
     </div>
   );

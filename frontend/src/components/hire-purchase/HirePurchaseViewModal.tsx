@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Edit, CheckCircle } from 'lucide-react';
 import { DeleteRecordButton } from '@/components/shared/DeleteRecordButton';
 import { hirePurchaseApi } from '@/api/hirePurchaseApi';
+import { invalidateRegistryQueries } from '@/lib/registryCache';
 
 interface HirePurchaseViewModalProps {
   record: HirePurchaseRecord;
@@ -31,8 +32,7 @@ export function HirePurchaseViewModal({
     mutationFn: () => hirePurchaseApi.confirmClosure(record.id),
     onSuccess: () => {
       toast.success('Hire purchase closure confirmed');
-      queryClient.invalidateQueries({ queryKey: ['hire-purchase-dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['hire-purchase'] });
+      invalidateRegistryQueries(queryClient, 'hp');
       setConfirmingClosure(false);
       onSaved();
     },
@@ -55,6 +55,8 @@ export function HirePurchaseViewModal({
           recordId={record.id}
           financierDisplayLabel={record.financier_name}
           purchaserDisplayLabel={record.purchaser_name}
+          dataSourceDisplayLabel={record.data_source_display}
+          dataSourcePositionLabel={record.data_source_position}
           initial={{
             financier_id: record.financier_id,
             data_date: record.data_date,
