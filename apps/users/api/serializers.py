@@ -43,6 +43,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
             "password",
             "first_name",
             "last_name",
+            "position",
             "client_id",
             "role_id",
             "is_staff",

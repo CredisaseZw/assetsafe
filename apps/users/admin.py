@@ -19,7 +19,7 @@ class CustomUserCreationForm(forms.ModelForm):
 
     class Meta:
         model = CustomUser
-        fields = ("email", "username")
+        fields = ("email", "username", "first_name", "last_name", "position")
 
     def clean_password2(self):
         password1 = self.cleaned_data.get("password1")
@@ -98,7 +98,7 @@ class CustomUserAdmin(UserAdmin):
         (None, {"fields": ("username", "password")}),
         (
             _("Personal info"),
-            {"fields": ("first_name", "last_name", "email", "profile_picture")},
+            {"fields": ("first_name", "last_name", "email", "position", "profile_picture")},
         ),
         (
             _("Permissions"),
@@ -144,6 +144,7 @@ class CustomUserAdmin(UserAdmin):
                     "password2",
                     "first_name",
                     "last_name",
+                    "position",
                     "is_staff",
                     "is_active",
                 ),

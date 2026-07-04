@@ -103,5 +103,8 @@ export function mapHirePurchaseFormToApi(data: Record<string, unknown>) {
     balance: data.balance,
     agreement_start_date: data.start_date,
     agreement_end_date: data.end_date,
+    ...(data.data_source_user_id
+      ? { data_source_user_id: data.data_source_user_id }
+      : {}),
   };
 }

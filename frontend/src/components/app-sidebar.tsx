@@ -88,7 +88,7 @@ export function AppSidebar() {
               <SidebarNavLink
                 to="/hire-purchase"
                 icon={HandCoins}
-                label="Hire Purchase"
+                label="Hire Purchase Registry"
               />
             </SidebarMenu>
           </SidebarGroupContent>

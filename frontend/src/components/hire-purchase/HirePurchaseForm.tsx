@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm, useFormState, Controller } from 'react-hook-form';
 import { zodResolver } from '@/lib/zodResolver';
 import { applyApiValidationErrors } from '@/lib/formErrors';
@@ -21,17 +21,17 @@ import { FormSectionHeader } from '@/components/shared/FormSectionHeader';
 import { FieldError } from '@/components/shared/FieldError';
 import { commonApi } from '@/api/commonApi';
 import { queryOptions } from '@/api/queryOptions';
+import { useAuthStore } from '@/store';
+import { isStaffUser } from '@/lib/registryNav';
+import { cn } from '@/lib/utils';
+import { authApi } from '@/api/authApi';
 
-const schema = z.object({
-  financier_id: z
-    .number({ error: 'Financier is required' })
-    .min(1, 'Financier is required'),
+const hpCoreSchema = z.object({
   data_date: z.string().min(1, 'Required'),
   purchaser_type: z.string().min(1, 'Purchaser Type is required'),
   purchaser_id: z
     .number({ error: 'Purchaser is required' })
     .min(1, 'Purchaser is required'),
-  purchaser_search: z.string().optional(),
   agreement_number: z.string().min(1, 'Required'),
   asset_type: z.string().min(1, 'Select asset type'),
   asset_make: z.string().min(1, 'Required'),
@@ -51,12 +51,37 @@ const schema = z.object({
   end_date: z.string().min(1),
 });
 
-type FormValues = z.infer<typeof schema>;
+const staffHpSchema = hpCoreSchema.extend({
+  financier_id: z
+    .number({ error: 'Financier is required' })
+    .min(1, 'Financier is required'),
+});
+
+function buildHpSchema(isClientUser: boolean) {
+  return isClientUser ? hpCoreSchema : staffHpSchema;
+}
+
+type CoreFormValues = z.infer<typeof hpCoreSchema>;
+type StaffFormValues = z.infer<typeof staffHpSchema>;
+type FormValues = CoreFormValues & { financier_id?: number };
+
+function ReadOnlyField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="space-y-1">
+      <label className="text-xs font-medium text-slate-700">{label}</label>
+      <div className="flex h-8 w-full items-center rounded-sm border border-slate-200 bg-slate-50 px-2.5 text-sm text-slate-800">
+        {value || '—'}
+      </div>
+    </div>
+  );
+}
 
 interface HirePurchaseFormProps {
   initial?: Partial<FormValues>;
   financierDisplayLabel?: string;
   purchaserDisplayLabel?: string;
+  dataSourceDisplayLabel?: string;
+  dataSourcePositionLabel?: string;
   onSuccess: () => void;
   onSaveAndAdd?: () => void;
   onCancel: () => void;
@@ -68,17 +93,53 @@ export function HirePurchaseForm({
   initial,
   financierDisplayLabel,
   purchaserDisplayLabel,
+  dataSourceDisplayLabel,
+  dataSourcePositionLabel,
   onSuccess,
   onSaveAndAdd,
   onCancel,
   isEdit,
   recordId,
 }: HirePurchaseFormProps) {
+  const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
+  const isStaff = isStaffUser(user);
+  const isClientUser = !isStaff && !!user;
+  const clientFinancierId = user?.client_id;
+
+  const formSchema = useMemo(
+    () => buildHpSchema(isClientUser && !isEdit),
+    [isClientUser, isEdit],
+  );
+
   const [addIndividualOpen, setAddIndividualOpen] = useState(false);
   const [addCompanyOpen, setAddCompanyOpen] = useState(false);
+  const [financierLabel, setFinancierLabel] = useState(
+    financierDisplayLabel ?? '',
+  );
+  const [financierClientType, setFinancierClientType] = useState<
+    'individual' | 'company'
+  >('company');
+  const isFirstFinancierClientTypeRender = useRef(true);
+  const [purchaserLabel, setPurchaserLabel] = useState(
+    purchaserDisplayLabel ?? '',
+  );
+  const isFirstPurchaserTypeRender = useRef(true);
+  const [dataSourceUserId, setDataSourceUserId] = useState<number | undefined>();
+  const [staffDataSourceName, setStaffDataSourceName] = useState('');
+  const [staffDataSourcePosition, setStaffDataSourcePosition] = useState('');
+  const [staffDataSourceSearchLabel, setStaffDataSourceSearchLabel] = useState('');
+
+  const clearDataSource = () => {
+    setDataSourceUserId(undefined);
+    setStaffDataSourceName('');
+    setStaffDataSourcePosition('');
+    setStaffDataSourceSearchLabel('');
+  };
+
   const { register, control, handleSubmit, watch, reset, setValue, setError } =
     useForm<FormValues>({
-      resolver: zodResolver(schema),
+      resolver: zodResolver(formSchema),
       mode: 'onSubmit',
       reValidateMode: 'onChange',
       shouldFocusError: true,
@@ -90,6 +151,7 @@ export function HirePurchaseForm({
         asset_condition: 'new',
         total_paid_to_date: 0,
         balance: 0,
+        ...(isClientUser && !isEdit ? {} : {}),
         ...initial,
       },
     });
@@ -110,6 +172,33 @@ export function HirePurchaseForm({
   const assetTypeOptions = choices.BaseAssetType ?? [];
   const assetConditionOptions = choices.AssetCondition ?? [];
   const currentPurchaserType = watch('purchaser_type');
+  const selectedFinancierId = watch('financier_id');
+
+  const { data: clientUsers = [] } = useQuery({
+    queryKey: ['hp-client-users', selectedFinancierId],
+    queryFn: () => clientsApi.listClientUsers(Number(selectedFinancierId)),
+    enabled:
+      !isEdit &&
+      isStaff &&
+      !!selectedFinancierId &&
+      Number(selectedFinancierId) > 0,
+  });
+
+  const { data: clientDetail } = useQuery({
+    queryKey: ['hp-client-detail', selectedFinancierId],
+    queryFn: () => clientsApi.getClient(Number(selectedFinancierId)),
+    enabled:
+      !isEdit &&
+      isStaff &&
+      financierClientType === 'individual' &&
+      !!selectedFinancierId &&
+      Number(selectedFinancierId) > 0,
+  });
+
+  const purchaserTypeLabel =
+    partyTypeOptions.find(
+      (option: { value: string }) => option.value === currentPurchaserType,
+    )?.label ?? currentPurchaserType;
 
   useEffect(() => {
     if (!watch('currency') && currencies.length > 0) {
@@ -128,13 +217,92 @@ export function HirePurchaseForm({
   useEffect(() => {
     if (!currentPurchaserType && partyTypeOptions.length > 0) {
       const defaultPurchaser =
-        partyTypeOptions.find((p: any) => p.value === 'individual') ||
+        partyTypeOptions.find((p: { value: string }) => p.value === 'individual') ||
         partyTypeOptions[0];
       setValue('purchaser_type', defaultPurchaser.value, {
         shouldValidate: true,
       });
     }
   }, [partyTypeOptions, setValue, currentPurchaserType]);
+
+  useEffect(() => {
+    if (isStaff || user?.client_id) return;
+    void authApi.me().then(setUser).catch(() => {});
+  }, [isStaff, user?.client_id, setUser]);
+
+  useEffect(() => {
+    if (!isClientUser || isEdit) return;
+    if (financierDisplayLabel) {
+      setFinancierLabel(financierDisplayLabel);
+    } else {
+      setFinancierLabel(user?.client_name ?? '');
+    }
+  }, [isClientUser, isEdit, user?.client_name, financierDisplayLabel]);
+
+  useEffect(() => {
+    if (isClientUser || isEdit) return;
+    if (isFirstFinancierClientTypeRender.current) {
+      isFirstFinancierClientTypeRender.current = false;
+      return;
+    }
+    setValue('financier_id', 0 as unknown as number);
+    setFinancierLabel('');
+    clearDataSource();
+  }, [financierClientType, isClientUser, isEdit, setValue]);
+
+  useEffect(() => {
+    if (isEdit || isClientUser) return;
+    clearDataSource();
+  }, [selectedFinancierId, isEdit, isClientUser]);
+
+  useEffect(() => {
+    if (isEdit || !isStaff || financierClientType !== 'individual' || !clientDetail) {
+      return;
+    }
+    const details = clientDetail.client_details;
+    const individualName =
+      (details?.full_name ??
+        `${details?.first_name ?? ''} ${details?.last_name ?? ''}`.trim()) ||
+      clientDetail.name;
+    setStaffDataSourceName(individualName);
+    setStaffDataSourceSearchLabel(individualName);
+    setStaffDataSourcePosition('');
+  }, [clientDetail, financierClientType, isEdit, isStaff]);
+
+  useEffect(() => {
+    if (isEdit || !isStaff || financierClientType !== 'individual') return;
+    if (clientUsers.length === 1) {
+      const linkedUser = clientUsers[0];
+      setDataSourceUserId(linkedUser.id);
+      if (linkedUser.position) {
+        setStaffDataSourcePosition(linkedUser.position);
+      }
+    }
+  }, [clientUsers, financierClientType, isEdit, isStaff]);
+
+  useEffect(() => {
+    if (isEdit) return;
+    if (isFirstPurchaserTypeRender.current) {
+      isFirstPurchaserTypeRender.current = false;
+      return;
+    }
+    setValue('purchaser_id', 0 as unknown as number);
+    setPurchaserLabel('');
+    setAddIndividualOpen(false);
+    setAddCompanyOpen(false);
+  }, [currentPurchaserType, isEdit, setValue]);
+
+  useEffect(() => {
+    if (purchaserDisplayLabel) {
+      setPurchaserLabel(purchaserDisplayLabel);
+    }
+  }, [purchaserDisplayLabel]);
+
+  useEffect(() => {
+    if (financierDisplayLabel) {
+      setFinancierLabel(financierDisplayLabel);
+    }
+  }, [financierDisplayLabel]);
 
   const watchAssetType = watch('asset_type');
   const isVehicle = watchAssetType === 'vehicles';
@@ -161,143 +329,369 @@ export function HirePurchaseForm({
     toast.error('Please fix the highlighted fields');
   };
 
+  const buildSubmitPayload = (data: FormValues) => {
+    const payload =
+      isClientUser && !isEdit
+        ? ({ ...data, financier_id: clientFinancierId } as StaffFormValues)
+        : (data as StaffFormValues);
+
+    if (isStaff && !isEdit && dataSourceUserId) {
+      return { ...payload, data_source_user_id: dataSourceUserId };
+    }
+    return payload;
+  };
+
+  const validateStaffDataSource = () => {
+    if (!isStaff || isEdit || !selectedFinancierId || Number(selectedFinancierId) <= 0) {
+      return true;
+    }
+    if (financierClientType === 'company' && !dataSourceUserId) {
+      toast.error('Please select a data source user for this company financier.');
+      return false;
+    }
+    return true;
+  };
+
+  const onFormSubmit = handleSubmit((data) => {
+    if (isClientUser && !isEdit) {
+      if (!clientFinancierId) {
+        toast.error(
+          'Unable to load your financier profile. Please refresh and try again.',
+        );
+        return;
+      }
+    }
+    if (!validateStaffDataSource()) return;
+    submit(buildSubmitPayload(data) as any);
+  }, onInvalid);
+
   const handleSaveAndAdd = handleSubmit((data) => {
-    submit(data, {
+    if (isClientUser && !isEdit && !clientFinancierId) {
+      toast.error(
+        'Unable to load your financier profile. Please refresh and try again.',
+      );
+      return;
+    }
+    if (!validateStaffDataSource()) return;
+
+    submit(buildSubmitPayload(data) as any, {
       onSuccess: () => {
         reset();
+        clearDataSource();
         onSaveAndAdd?.();
       },
     });
-  });
+  }, onInvalid);
+
+  const editDataSourceName = dataSourceDisplayLabel ?? '—';
+  const editDataSourcePosition = dataSourcePositionLabel ?? '—';
 
   return (
     <>
-      <form
-        onSubmit={handleSubmit((d) => submit(d), onInvalid)}
-        className="bg-white"
-        noValidate
-      >
-        <div className="flex gap-2 px-4 pt-4 pb-1">
-          <Button
-            type="button"
-            size="sm"
-            variant="primary"
-            leftIcon={<UserPlus className="h-3 w-3" />}
-            onClick={() => setAddIndividualOpen(true)}
-          >
-            + Add Individual
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            leftIcon={<Building className="h-3 w-3" />}
-            onClick={() => setAddCompanyOpen(true)}
-          >
-            + Add Company
-          </Button>
-        </div>
+      <form onSubmit={onFormSubmit} className="bg-white" noValidate>
+        {!isEdit && (
+          <div className="flex gap-2 px-4 pt-4 pb-1">
+            <Button
+              type="button"
+              size="sm"
+              variant="primary"
+              leftIcon={<UserPlus className="h-3 w-3" />}
+              onClick={() => setAddIndividualOpen(true)}
+            >
+              + Add Individual
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              leftIcon={<Building className="h-3 w-3" />}
+              onClick={() => setAddCompanyOpen(true)}
+            >
+              + Add Company
+            </Button>
+          </div>
+        )}
 
         {/* ── Financier Section ── */}
         <FormSectionHeader title="Financier" variant="red" />
-        <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3">
-          <div className="col-span-2">
-            <Controller
-              name="financier_id"
-              control={control}
-              render={({ field }) => (
-                <AutocompleteInput
+        {isEdit ? (
+          <>
+            <div className="grid grid-cols-2 gap-3 p-4 pb-2 sm:grid-cols-4">
+              <div className="col-span-2">
+                <ReadOnlyField
                   label="Financier Name"
-                  placeholder="Search financier..."
-                  queryKey="hp-financier"
-                  displayLabel={financierDisplayLabel}
-                  fetchFn={clientsApi.searchClients}
-                  error={errors.financier_id?.message}
-                  value={field.value}
-                  onBlur={field.onBlur}
-                  onChange={(v) => field.onChange(Number(v))}
+                  value={financierLabel || financierDisplayLabel || ''}
                 />
-              )}
-            />
-          </div>
-          <Controller
-            name="data_date"
-            control={control}
-            render={({ field, fieldState }) => (
-              <DateInput
-                label="Data Date"
-                value={field.value}
-                onChange={field.onChange}
-                onBlur={field.onBlur}
-                error={fieldState.error?.message}
-                required
-              />
-            )}
-          />
-        </div>
-
-        {/* ── Lessee / Purchaser Section ── */}
-        <FormSectionHeader title="Lessee" variant="teal" />
-        <div className="p-4 space-y-3">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <div>
-              <label className="text-xs font-medium text-slate-600">
-                Purchaser Type
-              </label>
-              <select
-                {...register('purchaser_type')}
-                className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
-                disabled={!partyTypeOptions.length}
-              >
-                <option value="">
-                  {partyTypeOptions.length
-                    ? 'Select type...'
-                    : 'Loading types...'}
-                </option>
-                {partyTypeOptions.map((option: any) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Search Purchaser */}
-          <div className="rounded border border-slate-200 bg-slate-50 p-3">
-            <p className="mb-2 text-xs font-semibold text-slate-600 uppercase">
-              Search:{' '}
-              {watch('purchaser_type') === 'individual'
-                ? 'Individual'
-                : 'Company'}
-            </p>
-            <div className="flex gap-2">
+              </div>
               <Controller
-                name="purchaser_id"
+                name="data_date"
                 control={control}
-                render={({ field }) => (
-                  <AutocompleteInput
-                    placeholder={
-                      watch('purchaser_type') === 'individual'
-                        ? 'Search by Name / National ID'
-                        : 'Search by Name / Reg Number'
-                    }
-                    queryKey={`hp-purchaser-${watch('purchaser_type')}`}
-                    displayLabel={purchaserDisplayLabel}
-                    fetchFn={(q) =>
-                      watch('purchaser_type') === 'company'
-                        ? companiesApi.searchBranches(q)
-                        : individualsApi.searchIndividuals(q)
-                    }
+                render={({ field, fieldState }) => (
+                  <DateInput
+                    label="Data Date"
                     value={field.value}
+                    onChange={field.onChange}
                     onBlur={field.onBlur}
-                    error={errors.purchaser_id?.message}
-                    onChange={(v) => field.onChange(Number(v))}
+                    error={fieldState.error?.message}
+                    required
                   />
                 )}
               />
             </div>
-          </div>
+            <div className="grid grid-cols-2 gap-3 px-4 pb-4 sm:grid-cols-4">
+              <div className="col-span-2">
+                <ReadOnlyField
+                  label="Data Source Name"
+                  value={editDataSourceName}
+                />
+              </div>
+              <div className="col-span-2">
+                <ReadOnlyField label="Position" value={editDataSourcePosition} />
+              </div>
+            </div>
+          </>
+        ) : isClientUser ? (
+          <>
+            <div className="grid grid-cols-2 gap-3 p-4 pb-2 sm:grid-cols-4">
+              <div className="col-span-2 space-y-1">
+                <label className="text-xs font-medium text-slate-700">
+                  Financier Name
+                </label>
+                <div
+                  className={cn(
+                    'flex h-8 w-full items-center rounded-sm border bg-slate-50 px-2.5 text-sm text-slate-800',
+                    !clientFinancierId ? 'border-red-500' : 'border-slate-200',
+                  )}
+                >
+                  {financierLabel || user?.client_name || '—'}
+                </div>
+                {!clientFinancierId && (
+                  <FieldError message="Financier profile not loaded. Please refresh the page." />
+                )}
+              </div>
+              <Controller
+                name="data_date"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <DateInput
+                    label="Data Date"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    error={fieldState.error?.message}
+                    required
+                  />
+                )}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3 px-4 pb-4 sm:grid-cols-4">
+              <div className="col-span-2">
+                <ReadOnlyField
+                  label="Data Source Name"
+                  value={user?.name ?? ''}
+                />
+              </div>
+              <div className="col-span-2">
+                <ReadOnlyField label="Position" value={user?.position ?? ''} />
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3 p-4 pb-2 sm:grid-cols-4">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-700">
+                  Financier Type
+                </label>
+                <select
+                  value={financierClientType}
+                  onChange={(e) =>
+                    setFinancierClientType(
+                      e.target.value as 'individual' | 'company',
+                    )
+                  }
+                  className="h-8 w-full rounded-sm border border-slate-500 bg-white px-2.5 text-sm text-slate-900 focus:border-black focus:outline-none focus:ring-0"
+                  disabled={!partyTypeOptions.length}
+                >
+                  {partyTypeOptions.length === 0 ? (
+                    <option value="company">Loading...</option>
+                  ) : (
+                    partyTypeOptions.map((option: { value: string; label: string }) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+              <div className="col-span-2">
+                <Controller
+                  name="financier_id"
+                  control={control}
+                  render={({ field }) => (
+                    <AutocompleteInput
+                      label="Financier Name"
+                      placeholder="Search financier..."
+                      queryKey={`hp-financier-${financierClientType}`}
+                      displayLabel={financierLabel}
+                      fetchFn={(q) =>
+                        clientsApi.searchClients(q, {
+                          entityType: financierClientType,
+                        })
+                      }
+                      error={errors.financier_id?.message}
+                      value={field.value}
+                      onBlur={field.onBlur}
+                      onChange={(v) => field.onChange(Number(v))}
+                    />
+                  )}
+                />
+              </div>
+              <Controller
+                name="data_date"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <DateInput
+                    label="Data Date"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    error={fieldState.error?.message}
+                    required
+                  />
+                )}
+              />
+            </div>
+            {selectedFinancierId && Number(selectedFinancierId) > 0 ? (
+              <div className="grid grid-cols-2 gap-3 px-4 pb-4 sm:grid-cols-4">
+                <div className="col-span-2">
+                  {financierClientType === 'company' ? (
+                    <AutocompleteInput
+                      label="Data Source Name"
+                      placeholder="Search user under client..."
+                      queryKey={`hp-data-source-${selectedFinancierId}`}
+                      displayLabel={staffDataSourceSearchLabel}
+                      minChars={1}
+                      fetchFn={async (q) => {
+                        const term = q.trim().toLowerCase();
+                        if (!term) return [];
+                        return clientUsers
+                          .filter(
+                            (u) =>
+                              u.name.toLowerCase().includes(term) ||
+                              (u.position?.toLowerCase().includes(term) ?? false),
+                          )
+                          .map((u) => ({
+                            id: u.id,
+                            name: u.name,
+                            subtitle: u.position,
+                          }));
+                      }}
+                      value={dataSourceUserId}
+                      onChange={(id) => {
+                        const selected = clientUsers.find((u) => u.id === id);
+                        setDataSourceUserId(id);
+                        setStaffDataSourceName(selected?.name ?? '');
+                        setStaffDataSourcePosition(selected?.position ?? '');
+                        setStaffDataSourceSearchLabel(selected?.name ?? '');
+                      }}
+                    />
+                  ) : (
+                    <ReadOnlyField
+                      label="Data Source Name"
+                      value={staffDataSourceName}
+                    />
+                  )}
+                </div>
+                <div className="col-span-2">
+                  <ReadOnlyField
+                    label="Position"
+                    value={staffDataSourcePosition}
+                  />
+                </div>
+              </div>
+            ) : null}
+          </>
+        )}
+
+        {/* ── Lessee / Purchaser Section ── */}
+        <FormSectionHeader title="Lessee" variant="teal" />
+        <div className="p-4 space-y-3">
+          {isEdit ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <ReadOnlyField
+                label="Purchaser Type"
+                value={purchaserTypeLabel}
+              />
+              <div className="col-span-3">
+                <ReadOnlyField
+                  label="Purchaser"
+                  value={purchaserLabel || purchaserDisplayLabel || ''}
+                />
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="text-xs font-medium text-slate-600">
+                    Purchaser Type
+                  </label>
+                  <select
+                    {...register('purchaser_type')}
+                    className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
+                    disabled={!partyTypeOptions.length}
+                  >
+                    <option value="">
+                      {partyTypeOptions.length
+                        ? 'Select type...'
+                        : 'Loading types...'}
+                    </option>
+                    {partyTypeOptions.map((option: { value: string; label: string }) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="rounded border border-slate-200 bg-slate-50 p-3">
+                <p className="mb-2 text-xs font-semibold text-slate-600 uppercase">
+                  Search:{' '}
+                  {watch('purchaser_type') === 'individual'
+                    ? 'Individual'
+                    : 'Company'}
+                </p>
+                <div className="flex gap-2">
+                  <Controller
+                    name="purchaser_id"
+                    control={control}
+                    render={({ field }) => (
+                      <AutocompleteInput
+                        placeholder={
+                          watch('purchaser_type') === 'individual'
+                            ? 'Search by Name / National ID'
+                            : 'Search by Name / Reg Number'
+                        }
+                        queryKey={`hp-purchaser-${watch('purchaser_type')}`}
+                        displayLabel={purchaserLabel}
+                        fetchFn={(q) =>
+                          watch('purchaser_type') === 'company'
+                            ? companiesApi.searchBranches(q)
+                            : individualsApi.searchIndividuals(q)
+                        }
+                        value={field.value}
+                        onBlur={field.onBlur}
+                        error={errors.purchaser_id?.message}
+                        onChange={(v) => field.onChange(Number(v))}
+                      />
+                    )}
+                  />
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* ── HP Details ── */}
@@ -321,7 +715,7 @@ export function HirePurchaseForm({
               <option value="">
                 {assetTypeOptions.length ? 'Click to select...' : 'Loading...'}
               </option>
-              {assetTypeOptions.map((t: any) => (
+              {assetTypeOptions.map((t: { value: string; label: string }) => (
                 <option key={t.value} value={t.value}>
                   {t.label}
                 </option>
@@ -349,7 +743,7 @@ export function HirePurchaseForm({
               <option value="">
                 {assetConditionOptions.length ? 'Select...' : 'Loading...'}
               </option>
-              {assetConditionOptions.map((c: any) => (
+              {assetConditionOptions.map((c: { value: string; label: string }) => (
                 <option key={c.value} value={c.value}>
                   {c.label}
                 </option>
@@ -357,6 +751,12 @@ export function HirePurchaseForm({
             </select>
           </div>
           <Input label="Serial Number" {...register('reg_serial_number')} />
+          {isVehicle && (
+            <>
+              <Input label="Chassis Number" {...register('chassis_number')} />
+              <Input label="Engine Number" {...register('engine_number')} />
+            </>
+          )}
           <div>
             <label className="text-xs font-medium text-slate-600">
               Currency<span className="text-red-500 ml-0.5">*</span>
@@ -459,7 +859,7 @@ export function HirePurchaseForm({
               Cancel
             </Button>
             <Button type="submit" variant="secondary" loading={isPending}>
-              Save And Exit
+              {isEdit ? 'Save Changes' : 'Save And Exit'}
             </Button>
           </div>
         </div>
@@ -476,6 +876,7 @@ export function HirePurchaseForm({
           onSuccess={({ id, name }) => {
             setValue('purchaser_type', 'individual');
             setValue('purchaser_id', id, { shouldValidate: true });
+            setPurchaserLabel(name);
             setAddIndividualOpen(false);
             toast.success(`${name} added — select from search if needed`);
           }}
@@ -494,6 +895,7 @@ export function HirePurchaseForm({
           onSuccess={({ id, name }) => {
             setValue('purchaser_type', 'company');
             setValue('purchaser_id', id, { shouldValidate: true });
+            setPurchaserLabel(name);
             setAddCompanyOpen(false);
             toast.success(`${name} added — search branch to link purchaser`);
           }}

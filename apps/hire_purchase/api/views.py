@@ -71,9 +71,7 @@ class HirePurchaseRegistrationViewSet(BaseViewSet):
         "serial_number",
         "mv_registration_number",
         "chassis_number",
-        "financier__username",
-        "financier__first_name",
-        "financier__last_name",
+        "financier__name",
         "make",
         "model",
     ]
