@@ -69,7 +69,23 @@ class CollateralRegistrationViewSet(BaseViewSet):
         "currency",
         "debtor_type",
     ]
-    search_fields: list[str] = [
+    SEARCH_FIELD_MAP: dict[str, list[str]] = {
+        "agreement_number": ["agreement_number"],
+        "debtor": [
+            "individual_debtor__first_name",
+            "individual_debtor__last_name",
+            "individual_debtor__identification_number",
+            "company_debtor__branch_name",
+            "company_debtor__company__registration_name",
+            "company_debtor__company__trading_name",
+        ],
+        "reg_serial_number": [
+            "serial_number",
+            "asset_registration_number",
+            "chassis_number",
+        ],
+    }
+    DEFAULT_SEARCH_FIELDS: list[str] = [
         "agreement_number",
         "individual_debtor__first_name",
         "individual_debtor__last_name",
@@ -90,6 +106,17 @@ class CollateralRegistrationViewSet(BaseViewSet):
         "total_debt",
     ]
     ordering: list[str] = ["-lodge_date"]
+
+    @property
+    def search_fields(self) -> list[str]:
+        """
+        Scopes ``SearchFilter`` to the fields backing the selected
+        ``search_field`` criteria (e.g. "Agreement Number", "Debtor",
+        "Reg/Serial Number"). Any unrecognised/absent value searches the
+        full default field set.
+        """
+        search_field = self.request.query_params.get("search_field")
+        return self.SEARCH_FIELD_MAP.get(search_field, self.DEFAULT_SEARCH_FIELDS)
 
     def get_serializer_class(self):
         """

@@ -31,6 +31,20 @@ type HirePurchaseSortOption =
   | 'name-asc'
   | 'name-desc';
 
+type HirePurchaseSearchField = 'agreement_number' | 'purchaser' | 'reg_serial_number';
+
+const SEARCH_FIELD_OPTIONS: { value: HirePurchaseSearchField; label: string }[] = [
+  { value: 'agreement_number', label: 'Agreement Number' },
+  { value: 'purchaser', label: 'Purchaser Name' },
+  { value: 'reg_serial_number', label: 'Reg/Serial Number' },
+];
+
+const SEARCH_FIELD_PLACEHOLDERS: Record<HirePurchaseSearchField, string> = {
+  agreement_number: 'Search by agreement number...',
+  purchaser: 'Search by purchaser name...',
+  reg_serial_number: 'Search by reg/serial number...',
+};
+
 /** Agreement end date has passed (matches backend pending-closure logic). */
 function isExpired(rec: HirePurchaseRecord): boolean {
   if (!rec.end_date) {
@@ -47,8 +61,12 @@ function isExpired(rec: HirePurchaseRecord): boolean {
 
 export default function HirePurchasePage() {
   const queryClient = useQueryClient();
+  const [searchField, setSearchField] =
+    useState<HirePurchaseSearchField>('agreement_number');
   const [searchValue, setSearchValue] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
+  const [appliedSearchField, setAppliedSearchField] =
+    useState<HirePurchaseSearchField>('agreement_number');
   const [sortOption, setSortOption] =
     useState<HirePurchaseSortOption>('date-desc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -64,10 +82,12 @@ export default function HirePurchasePage() {
   });
 
   const { data: recordsData, isLoading } = useQuery({
-    queryKey: ['hp-records', appliedSearch, currentPage],
+    queryKey: ['hp-records', appliedSearch, appliedSearchField, currentPage],
     queryFn: () =>
       hirePurchaseApi.getRecords({
-        ...(appliedSearch ? { search: appliedSearch } : {}),
+        ...(appliedSearch
+          ? { search: appliedSearch, search_field: appliedSearchField }
+          : {}),
         page: currentPage,
         page_size: PAGE_SIZE,
       }),
@@ -75,6 +95,7 @@ export default function HirePurchasePage() {
 
   const handleSearch = () => {
     setAppliedSearch(searchValue.trim());
+    setAppliedSearchField(searchField);
     setCurrentPage(1);
   };
 
@@ -82,6 +103,8 @@ export default function HirePurchasePage() {
     if (clearFilters) {
       setSearchValue('');
       setAppliedSearch('');
+      setSearchField('agreement_number');
+      setAppliedSearchField('agreement_number');
     }
     setCurrentPage(1);
     invalidateRegistryQueries(queryClient, 'hp');
@@ -185,11 +208,24 @@ export default function HirePurchasePage() {
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#8f8f8f] px-3 py-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[12px] font-bold text-black">Search</span>
+            <select
+              value={searchField}
+              onChange={(e) =>
+                setSearchField(e.target.value as HirePurchaseSearchField)
+              }
+              className="h-7 min-w-[140px] rounded-none border border-black bg-white px-2 text-[12px]"
+            >
+              {SEARCH_FIELD_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
             <input
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="Agreement, purchaser, financier, reg..."
+              placeholder={SEARCH_FIELD_PLACEHOLDERS[searchField]}
               className="h-7 w-56 border border-black bg-white px-2 text-[12px] focus:outline-none"
             />
             <Button
@@ -208,6 +244,8 @@ export default function HirePurchasePage() {
                 onClick={() => {
                   setSearchValue('');
                   setAppliedSearch('');
+                  setSearchField('agreement_number');
+                  setAppliedSearchField('agreement_number');
                   setCurrentPage(1);
                 }}
               >

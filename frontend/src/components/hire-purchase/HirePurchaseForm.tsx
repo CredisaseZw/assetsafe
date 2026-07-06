@@ -434,6 +434,7 @@ export function HirePurchaseForm({
                     onBlur={field.onBlur}
                     error={fieldState.error?.message}
                     required
+                    disabled
                   />
                 )}
               />
@@ -480,6 +481,7 @@ export function HirePurchaseForm({
                     onBlur={field.onBlur}
                     error={fieldState.error?.message}
                     required
+                    disabled
                   />
                 )}
               />
@@ -558,6 +560,7 @@ export function HirePurchaseForm({
                     onBlur={field.onBlur}
                     error={fieldState.error?.message}
                     required
+                    disabled
                   />
                 )}
               />

@@ -80,6 +80,7 @@ export const hirePurchaseApi = {
   getRecords: async (params?: {
     financier_id?: number;
     search?: string;
+    search_field?: string;
     page?: number;
     page_size?: number;
   }): Promise<{ records: HirePurchaseRecord[]; count: number }> => {

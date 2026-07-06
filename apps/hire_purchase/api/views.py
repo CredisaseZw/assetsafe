@@ -61,7 +61,22 @@ class HirePurchaseRegistrationViewSet(BaseViewSet):
         "closure_confirmed",
         "currency",
     ]
-    search_fields: list[str] = [
+    SEARCH_FIELD_MAP: dict[str, list[str]] = {
+        "agreement_number": ["agreement_number"],
+        "purchaser": [
+            "purchaser_individual__first_name",
+            "purchaser_individual__last_name",
+            "purchaser_company__branch_name",
+            "purchaser_company__company__trading_name",
+            "purchaser_company__company__registration_name",
+        ],
+        "reg_serial_number": [
+            "serial_number",
+            "mv_registration_number",
+            "chassis_number",
+        ],
+    }
+    DEFAULT_SEARCH_FIELDS: list[str] = [
         "agreement_number",
         "purchaser_individual__first_name",
         "purchaser_individual__last_name",
@@ -82,6 +97,17 @@ class HirePurchaseRegistrationViewSet(BaseViewSet):
         "purchase_amount",
     ]
     ordering: list[str] = ["-lodge_date"]
+
+    @property
+    def search_fields(self) -> list[str]:
+        """
+        Scopes ``SearchFilter`` to the fields backing the selected
+        ``search_field`` criteria (e.g. "Agreement Number", "Purchaser Name",
+        "Reg/Serial Number"). Any unrecognised/absent value searches the
+        full default field set.
+        """
+        search_field = self.request.query_params.get("search_field")
+        return self.SEARCH_FIELD_MAP.get(search_field, self.DEFAULT_SEARCH_FIELDS)
 
     def get_queryset(self) -> QuerySet[HirePurchaseRegistration]:
         """
