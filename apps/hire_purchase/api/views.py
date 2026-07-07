@@ -20,13 +20,17 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.asset_management.api.views import StandardResultsSetPagination
 from apps.common.api.views import BaseViewSet
-from apps.common.utils.helpers import extract_error_message
+from apps.common.utils.helpers import (
+    extract_error_message,
+    scope_registry_to_client_portfolio,
+)
 from apps.hire_purchase.models.models import HirePurchaseRegistration
 from apps.users.services.audit_service import create_audit_log
 from apps.users.utils.permissions import HasRole, roles_allowed
 from .serializers import (
     HirePurchaseClosureSerializer,
     HirePurchaseDashboardSerializer,
+    HirePurchaseRegistrationListSerializer,
     HirePurchaseRegistrationSerializer,
 )
 
@@ -61,7 +65,22 @@ class HirePurchaseRegistrationViewSet(BaseViewSet):
         "closure_confirmed",
         "currency",
     ]
-    search_fields: list[str] = [
+    SEARCH_FIELD_MAP: dict[str, list[str]] = {
+        "agreement_number": ["agreement_number"],
+        "purchaser": [
+            "purchaser_individual__first_name",
+            "purchaser_individual__last_name",
+            "purchaser_company__branch_name",
+            "purchaser_company__company__trading_name",
+            "purchaser_company__company__registration_name",
+        ],
+        "reg_serial_number": [
+            "serial_number",
+            "mv_registration_number",
+            "chassis_number",
+        ],
+    }
+    DEFAULT_SEARCH_FIELDS: list[str] = [
         "agreement_number",
         "purchaser_individual__first_name",
         "purchaser_individual__last_name",
@@ -71,9 +90,7 @@ class HirePurchaseRegistrationViewSet(BaseViewSet):
         "serial_number",
         "mv_registration_number",
         "chassis_number",
-        "financier__username",
-        "financier__first_name",
-        "financier__last_name",
+        "financier__name",
         "make",
         "model",
     ]
@@ -85,16 +102,54 @@ class HirePurchaseRegistrationViewSet(BaseViewSet):
     ]
     ordering: list[str] = ["-lodge_date"]
 
+    @property
+    def search_fields(self) -> list[str]:
+        """
+        Scopes ``SearchFilter`` to the fields backing the selected
+        ``search_field`` criteria (e.g. "Agreement Number", "Purchaser Name",
+        "Reg/Serial Number"). Any unrecognised/absent value searches the
+        full default field set.
+        """
+        search_field = self.request.query_params.get("search_field")
+        return self.SEARCH_FIELD_MAP.get(search_field, self.DEFAULT_SEARCH_FIELDS)
+
+    def get_serializer_class(self):
+        """
+        Return the appropriate serializer class based on the requested action.
+        We return the lighter ListSerializer for list actions for performance,
+        matching the Collateral and Asset Registry list endpoints.
+        """
+        if self.action == "list":
+            return HirePurchaseRegistrationListSerializer
+        return super().get_serializer_class()
+
     def get_queryset(self) -> QuerySet[HirePurchaseRegistration]:
         """
         Returns all HP records eagerly loaded via ``select_related``.
+
+        Client users only see records belonging to their own portfolio, i.e.
+        records where their client is the ``financier``. This mirrors the
+        filter used by ``stats()`` so the list total and headline counts
+        never disagree.
+
+        The main dashboard table should only surface active and
+        pending-closure agreements; already-closed records are excluded
+        from the list (but remain reachable directly by id for
+        retrieve/update/delete/confirm-closure).
         """
-        return HirePurchaseRegistration.objects.select_related(
+        qs = HirePurchaseRegistration.objects.select_related(
             "financier",
             "purchaser_individual",
             "purchaser_company",
             "purchaser_company__company",
         ).all()
+
+        qs = scope_registry_to_client_portfolio(qs, self.request.user)
+
+        if self.action == "list":
+            qs = qs.filter(closure_confirmed=False)
+
+        return qs
 
     # ------------------------------------------------------------------
     # Audit-logged CRUD hooks
@@ -198,14 +253,21 @@ class HirePurchaseRegistrationViewSet(BaseViewSet):
     def stats(self, request: Request) -> Response:
         """
         Returns the three headline statistics shown at the top of the HP
+        dashboard.
         """
         today = timezone.now().date()
+        qs = scope_registry_to_client_portfolio(
+            HirePurchaseRegistration.objects.all(),
+            request.user,
+        )
 
-        # Single aggregate call for the two count metrics.
-        aggregates: dict = HirePurchaseRegistration.objects.aggregate(
+        # Single aggregate call for the two count metrics. `active_agreements`
+        # excludes already-closed records so it can never disagree with the
+        # main table, which only ever shows open (non-closed) agreements.
+        aggregates: dict = qs.aggregate(
             active_agreements=Count(
                 "id",
-                filter=Q(agreement_end_date__gte=today),
+                filter=Q(agreement_end_date__gte=today, closure_confirmed=False),
             ),
             pending_closure_confirmation=Count(
                 "id",
@@ -218,9 +280,7 @@ class HirePurchaseRegistrationViewSet(BaseViewSet):
 
         # Distinct-financier count: cannot be folded into the aggregate above
         # without a subquery, so a second lightweight query is used.
-        number_of_financiers: int = (
-            HirePurchaseRegistration.objects.values("financier_id").distinct().count()
-        )
+        number_of_financiers: int = qs.values("financier_id").distinct().count()
 
         serializer = HirePurchaseDashboardSerializer(
             data={

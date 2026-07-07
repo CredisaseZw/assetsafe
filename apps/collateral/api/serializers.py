@@ -33,6 +33,9 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
     is_pending_discharge = serializers.SerializerMethodField(read_only=True)
     financier_display = serializers.SerializerMethodField(read_only=True)
     debtor_display = serializers.SerializerMethodField(read_only=True)
+    data_source_display = serializers.SerializerMethodField(read_only=True)
+    data_source_position = serializers.SerializerMethodField(read_only=True)
+    data_source_user_id = serializers.IntegerField(write_only=True, required=False)
     currency = serializers.SlugRelatedField(
         slug_field="code",
         queryset=Currency.objects.all(),
@@ -78,6 +81,9 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
             "is_pending_discharge",
             "financier_display",
             "debtor_display",
+            "data_source_display",
+            "data_source_position",
+            "data_source_user_id",
         ]
         read_only_fields = [
             "id",
@@ -106,6 +112,16 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
 
     def get_debtor_display(self, obj: CollateralRegistration) -> str:
         return obj.debtor_display
+
+    def get_data_source_display(self, obj: CollateralRegistration) -> str:
+        if obj.created_by is None:
+            return ""
+        return obj.created_by.get_full_name() or obj.created_by.username or ""
+
+    def get_data_source_position(self, obj: CollateralRegistration) -> str:
+        if obj.created_by is None:
+            return ""
+        return obj.created_by.position or ""
 
     # ------------------------------------------------------------------
     # Field-level validation
@@ -249,6 +265,12 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
         6. Financier and debtor cannot be the same party.
         7. Active asset/device identifiers must be unique.
         """
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            user = request.user
+            if not user.is_staff and user.client:
+                attrs["financier"] = user.client
+
         # --- 1. Date ordering ---
         start = attrs.get(
             "agreement_start_date",
@@ -366,7 +388,36 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        validated_data["created_by"] = self.context["request"].user
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        request_user = self.context["request"].user
+        data_source_user_id = validated_data.pop("data_source_user_id", None)
+
+        if request_user.is_staff and data_source_user_id:
+            try:
+                data_source_user = User.objects.get(pk=data_source_user_id)
+            except User.DoesNotExist as exc:
+                raise serializers.ValidationError(
+                    {"data_source_user_id": "Invalid data source user."}
+                ) from exc
+
+            financier = validated_data.get("financier")
+            if (
+                not financier
+                or data_source_user.client_id != getattr(financier, "pk", financier)
+            ):
+                raise serializers.ValidationError(
+                    {
+                        "data_source_user_id": (
+                            "Data source user must belong to the selected financier."
+                        )
+                    }
+                )
+            validated_data["created_by"] = data_source_user
+        else:
+            validated_data["created_by"] = request_user
+
         return super().create(validated_data)
 
     @transaction.atomic
@@ -430,6 +481,11 @@ class CollateralDashboardSerializer(serializers.Serializer):
 
     active_agreements = serializers.IntegerField(min_value=0)
     pending_discharge_confirmation = serializers.IntegerField(min_value=0)
+    total_active_loan_value = serializers.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        min_value=0,
+    )
 
 
 class CollateralRegistrationListSerializer(CollateralRegistrationSerializer):

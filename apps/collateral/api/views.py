@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 
-from django.db.models import Count, Q, QuerySet
+from django.db.models import Count, Q, QuerySet, Sum
 from django.utils import timezone
 from rest_framework import filters, status
 from rest_framework.decorators import action
@@ -17,7 +17,10 @@ from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 
 from django_filters.rest_framework import DjangoFilterBackend
-from apps.common.utils.helpers import extract_error_message
+from apps.common.utils.helpers import (
+    extract_error_message,
+    scope_registry_to_client_portfolio,
+)
 from apps.users.utils.permissions import HasRole, roles_allowed
 from apps.asset_management.api.views import StandardResultsSetPagination
 from apps.collateral.models.models import CollateralRegistration
@@ -69,7 +72,23 @@ class CollateralRegistrationViewSet(BaseViewSet):
         "currency",
         "debtor_type",
     ]
-    search_fields: list[str] = [
+    SEARCH_FIELD_MAP: dict[str, list[str]] = {
+        "agreement_number": ["agreement_number"],
+        "debtor": [
+            "individual_debtor__first_name",
+            "individual_debtor__last_name",
+            "individual_debtor__identification_number",
+            "company_debtor__branch_name",
+            "company_debtor__company__registration_name",
+            "company_debtor__company__trading_name",
+        ],
+        "reg_serial_number": [
+            "serial_number",
+            "asset_registration_number",
+            "chassis_number",
+        ],
+    }
+    DEFAULT_SEARCH_FIELDS: list[str] = [
         "agreement_number",
         "individual_debtor__first_name",
         "individual_debtor__last_name",
@@ -91,6 +110,17 @@ class CollateralRegistrationViewSet(BaseViewSet):
     ]
     ordering: list[str] = ["-lodge_date"]
 
+    @property
+    def search_fields(self) -> list[str]:
+        """
+        Scopes ``SearchFilter`` to the fields backing the selected
+        ``search_field`` criteria (e.g. "Agreement Number", "Debtor",
+        "Reg/Serial Number"). Any unrecognised/absent value searches the
+        full default field set.
+        """
+        search_field = self.request.query_params.get("search_field")
+        return self.SEARCH_FIELD_MAP.get(search_field, self.DEFAULT_SEARCH_FIELDS)
+
     def get_serializer_class(self):
         """
         Return the appropriate serializer class based on the requested action.
@@ -105,28 +135,30 @@ class CollateralRegistrationViewSet(BaseViewSet):
         Returns all collateral records with party relations eagerly loaded via
         ``select_related`` to prevent N+1 queries when list responses render
         ``financier_display`` and ``debtor_display``.
-        """
-        if self.request.user.roles.filter(
-            name__in=[
-                "client_user",
-                "client_admin",
-                "individual_client",
-                "company_client",
-            ]
-        ).exists():
-            return CollateralRegistration.objects.select_related(
-                "financier",
-                "individual_debtor",
-                "company_debtor",
-            ).filter(created_by__client=self.request.user.client)
 
-        return CollateralRegistration.objects.select_related(
+        Client users only see records belonging to their own portfolio, i.e.
+        records where their client is the ``financier``. This mirrors the
+        filter used by ``stats()`` so the list total and headline counts
+        never disagree.
+        """
+        qs = CollateralRegistration.objects.select_related(
             "financier",
             "individual_debtor",
             "company_debtor",
             "company_debtor__company",
             "currency",
+            "created_by",
         ).all()
+        qs = scope_registry_to_client_portfolio(qs, self.request.user)
+
+        # The main dashboard table should only surface active and
+        # pending-discharge agreements; already-discharged records are
+        # excluded from the list (but remain reachable directly by id for
+        # retrieve/update/delete/discharge).
+        if self.action == "list":
+            qs = qs.filter(is_discharged=False)
+
+        return qs
 
     # ------------------------------------------------------------------
     # Audit-logged CRUD hooks
@@ -146,7 +178,7 @@ class CollateralRegistrationViewSet(BaseViewSet):
             )
 
         except Exception as e:
-            logger.error(f"Error creating collateral registration: {e}")
+            logger.error("Error creating collateral registration: %s", e)
             return self._create_rendered_response(
                 {"error": "Something went wrong"},
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -169,7 +201,7 @@ class CollateralRegistrationViewSet(BaseViewSet):
             )
 
         except Exception as e:
-            logger.error(f"Error updating collateral registration: {e}")
+            logger.error("Error updating collateral registration: %s", e)
             return self._create_rendered_response(
                 {"error": "Something went wrong"}, status.HTTP_500_INTERNAL_SERVER_ERROR
             )
@@ -179,12 +211,14 @@ class CollateralRegistrationViewSet(BaseViewSet):
             instance = self.get_object()
             self.perform_destroy(instance)
             logger.info(
-                f"Collateral registration with agreement number {instance.agreement_number} deleted by user {request.user}"
+                "Collateral registration with agreement number %s deleted by user %s",
+                instance.agreement_number,
+                request.user,
             )
             return Response(status=status.HTTP_204_NO_CONTENT)
 
         except Exception as e:
-            logger.error(f"Error deleting collateral registration: {e}")
+            logger.error("Error deleting collateral registration: %s", e)
             return self._create_rendered_response(
                 {"error": "Something went wrong"}, status.HTTP_500_INTERNAL_SERVER_ERROR
             )
@@ -251,14 +285,18 @@ class CollateralRegistrationViewSet(BaseViewSet):
 
         """
         today = timezone.now().date()
-        aggregates: dict = CollateralRegistration.objects.aggregate(
-            active_agreements=Count(
-                "id",
-                filter=Q(
-                    agreement_start_date__lte=today,
-                    agreement_end_date__gte=today,
-                ),
-            ),
+        qs = scope_registry_to_client_portfolio(
+            CollateralRegistration.objects.all(),
+            request.user,
+        )
+
+        active_filter = Q(
+            agreement_start_date__lte=today,
+            agreement_end_date__gte=today,
+            is_discharged=False,
+        )
+        aggregates: dict = qs.aggregate(
+            active_agreements=Count("id", filter=active_filter),
             pending_discharge_confirmation=Count(
                 "id",
                 filter=Q(
@@ -266,7 +304,10 @@ class CollateralRegistrationViewSet(BaseViewSet):
                     is_discharged=False,
                 ),
             ),
+            total_active_loan_value=Sum("total_debt", filter=active_filter),
         )
+        if aggregates["total_active_loan_value"] is None:
+            aggregates["total_active_loan_value"] = 0
 
         serializer = CollateralDashboardSerializer(data=aggregates)
         serializer.is_valid(raise_exception=True)

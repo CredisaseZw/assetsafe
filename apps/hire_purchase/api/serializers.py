@@ -13,7 +13,6 @@ from rest_framework import serializers
 from apps.hire_purchase.models import HirePurchaseRegistration
 from apps.common.models import Currency
 
-
 # ---------------------------------------------------------------------------
 # Hire Purchase serializers
 # ---------------------------------------------------------------------------
@@ -31,6 +30,9 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
         source="financier", read_only=True
     )
     purchaser_display = serializers.SerializerMethodField(read_only=True)
+    data_source_display = serializers.SerializerMethodField(read_only=True)
+    data_source_position = serializers.SerializerMethodField(read_only=True)
+    data_source_user_id = serializers.IntegerField(write_only=True, required=False)
     currency = serializers.SlugRelatedField(
         slug_field="code",
         queryset=Currency.objects.all(),
@@ -72,6 +74,9 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
             "closure_confirmed_at",
             "is_active",
             "is_pending_closure",
+            "data_source_display",
+            "data_source_position",
+            "data_source_user_id",
             "date_created",
             "date_updated",
             "updated_by",
@@ -89,6 +94,8 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
             "is_pending_closure",
             "financier_display",
             "purchaser_display",
+            "data_source_display",
+            "data_source_position",
         ]
         extra_kwargs = {
             "mv_registration_number": {"required": False},
@@ -113,6 +120,16 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
         if obj.purchaser_company:
             return str(obj.purchaser_company)
         return ""
+
+    def get_data_source_display(self, obj: HirePurchaseRegistration) -> str:
+        if obj.created_by is None:
+            return ""
+        return obj.created_by.get_full_name() or obj.created_by.username or ""
+
+    def get_data_source_position(self, obj: HirePurchaseRegistration) -> str:
+        if obj.created_by is None:
+            return ""
+        return obj.created_by.position or ""
 
     # ------------------------------------------------------------------
     # Field-level validation
@@ -246,7 +263,35 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data: dict) -> HirePurchaseRegistration:
-        validated_data["created_by"] = self.context["request"].user
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        request_user = self.context["request"].user
+        data_source_user_id = validated_data.pop("data_source_user_id", None)
+
+        if request_user.is_staff and data_source_user_id:
+            try:
+                data_source_user = User.objects.get(pk=data_source_user_id)
+            except User.DoesNotExist as exc:
+                raise serializers.ValidationError(
+                    {"data_source_user_id": "Invalid data source user."}
+                ) from exc
+
+            financier = validated_data.get("financier")
+            if not financier or data_source_user.client_id != getattr(
+                financier, "pk", financier
+            ):
+                raise serializers.ValidationError(
+                    {
+                        "data_source_user_id": (
+                            "Data source user must belong to the selected financier."
+                        )
+                    }
+                )
+            validated_data["created_by"] = data_source_user
+        else:
+            validated_data["created_by"] = request_user
+
         return super().create(validated_data)
 
     @transaction.atomic
@@ -255,6 +300,62 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
     ) -> HirePurchaseRegistration:
         validated_data["updated_by"] = self.context["request"].user
         return super().update(instance, validated_data)
+
+
+class HirePurchaseRegistrationListSerializer(HirePurchaseRegistrationSerializer):
+    """
+    Lightweight read-only serializer optimized for list endpoints and
+    dashboards, mirroring the shape returned by the Collateral and Asset
+    Registry list endpoints.
+    """
+
+    lodge_date = serializers.DateField(read_only=True, format="%d-%b-%y")
+    agreement_start_date = serializers.DateField(read_only=True, format="%d-%b-%y")
+    agreement_end_date = serializers.DateField(read_only=True, format="%d-%b-%y")
+    currency_code = serializers.CharField(source="currency.code", read_only=True)
+    description = serializers.SerializerMethodField(
+        read_only=True,
+        help_text="Concatenated make and model for display purposes.",
+    )
+    primary_identifier = serializers.SerializerMethodField(
+        read_only=True,
+        help_text="Returns the MV registration number for vehicles, or the serial number otherwise.",
+    )
+
+    class Meta(HirePurchaseRegistrationSerializer.Meta):
+        """Inherits from HirePurchaseRegistrationSerializer.Meta, but overrides fields to a smaller subset for list performance."""
+
+        fields = [
+            "id",
+            "lodge_date",
+            "agreement_number",
+            "financier_display",
+            "purchaser_display",
+            "description",
+            "primary_identifier",
+            "currency_code",
+            "purchase_amount",
+            "agreement_start_date",
+            "agreement_end_date",
+            "closure_confirmed",
+        ]
+        read_only_fields = fields
+
+    def get_description(self, obj: HirePurchaseRegistration) -> str:
+        """Gets the description for the asset, which is a concatenation of the make and model."""
+        if obj.make and obj.model:
+            return f"{obj.make} {obj.model}"
+        if obj.make:
+            return obj.make
+        if obj.model:
+            return obj.model
+        return ""
+
+    def get_primary_identifier(self, obj: HirePurchaseRegistration) -> str:
+        """Gets the primary identifier for the asset, which is the MV registration number for vehicles or the serial number for other asset types."""
+        if obj.asset_type == "vehicles":
+            return obj.mv_registration_number
+        return obj.serial_number
 
 
 class HirePurchaseClosureSerializer(serializers.ModelSerializer):

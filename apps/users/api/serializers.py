@@ -43,6 +43,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
             "password",
             "first_name",
             "last_name",
+            "position",
             "client_id",
             "role_id",
             "is_staff",
@@ -95,18 +96,30 @@ class ClientUserSerializer(serializers.ModelSerializer):
 
 
 class UserMiniSerializer(serializers.ModelSerializer):
+    is_company_client = serializers.SerializerMethodField()
+    client_id = serializers.IntegerField(source="client.id", read_only=True, allow_null=True)
+    client_name = serializers.CharField(source="client.name", read_only=True, allow_null=True)
+
     class Meta:
         model = User
         fields = [
             "id",
             "username",
             "email",
+            "first_name",
+            "last_name",
+            "position",
             "user_type",
             "is_verified",
             "is_staff",
             "is_superuser",
-            "client",
+            "is_company_client",
+            "client_id",
+            "client_name",
         ]
+
+    def get_is_company_client(self, obj):
+        return bool(obj.client and obj.client.is_company_client)
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -156,6 +169,7 @@ class UserSerializer(serializers.ModelSerializer):
     client = MinimalClientSerializer(read_only=True)
     profile_object = serializers.SerializerMethodField()
     roles = RoleSerializer(many=True, read_only=True)
+    is_company_client = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -166,12 +180,14 @@ class UserSerializer(serializers.ModelSerializer):
             "user_type",
             "first_name",
             "last_name",
+            "position",
             "client",
             "profile_object",
             "roles",
             "is_verified",
             "is_staff",
             "is_superuser",
+            "is_company_client",
             "last_login",
             "date_joined",
         ]
@@ -184,7 +200,11 @@ class UserSerializer(serializers.ModelSerializer):
             "roles",
             "client",
             "profile_object",
+            "is_company_client",
         ]
+
+    def get_is_company_client(self, obj):
+        return bool(obj.client and obj.client.is_company_client)
 
     def get_profile_object(self, obj):
         if not obj.profile_object:

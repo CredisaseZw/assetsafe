@@ -35,28 +35,27 @@ export function preloadRouteData(
  */
 export const routePreloadConfigs = {
   collateral: {
-    queryKey: ['collateral-stats'],
+    queryKey: ['collateral-dashboard'],
     queryFn: async () => {
       // Import here to avoid circular deps
-      const { fetchCollateralStats } = await import('@/api/collateralApi');
-      return fetchCollateralStats();
+      const { collateralApi } = await import('@/api/collateralApi');
+      return collateralApi.getDashboard();
     },
   },
 
   hirePurchase: {
     queryKey: ['hp-dashboard'],
     queryFn: async () => {
-      const { fetchHPDashboard } = await import('@/api/hirePurchaseApi');
-      return fetchHPDashboard();
+      const { hirePurchaseApi } = await import('@/api/hirePurchaseApi');
+      return hirePurchaseApi.getDashboard();
     },
   },
 
   registry: {
-    queryKey: ['asset-registry-stats'],
+    queryKey: ['registry-dashboard'],
     queryFn: async () => {
-      const { fetchAssetRegistryStats } =
-        await import('@/api/assetRegistryApi');
-      return fetchAssetRegistryStats();
+      const { assetRegistryApi } = await import('@/api/assetRegistryApi');
+      return assetRegistryApi.getDashboard();
     },
   },
 };

@@ -58,6 +58,8 @@ function mapCollateralRecord(
       'company',
     financier_id: Number(record.financier ?? record.financier_id ?? 0),
     data_date: String(record.data_date ?? record.lodge_date ?? ''),
+    data_source_display: String(record.data_source_display ?? ''),
+    data_source_position: String(record.data_source_position ?? ''),
     status: record.is_discharged
       ? 'discharged'
       : record.is_pending_discharge
@@ -69,7 +71,6 @@ function mapCollateralRecord(
 export const collateralApi = {
   getDashboard: async (params?: {
     search_field?: string;
-    search_value?: string;
   }): Promise<CollateralDashboard> => {
     const { data } = await axiosInstance.get('/collateral/stats/', { params });
     return unwrapApiData<CollateralDashboard>(data);
@@ -78,7 +79,6 @@ export const collateralApi = {
   getRecords: async (params?: {
     search?: string;
     search_field?: string;
-    search_value?: string;
     page?: number;
     page_size?: number;
   }): Promise<{ records: CollateralRecord[]; count: number }> => {

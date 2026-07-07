@@ -87,6 +87,7 @@ class UserCreationService:
             password=user_data["password"],
             first_name=user_data.get("first_name", ""),
             last_name=user_data.get("last_name", ""),
+            position=user_data.get("position", "") or None,
             client=client,
             is_staff=user_data.get("is_staff", False),
             is_verified=user_data.get("is_verified", False),
@@ -148,6 +149,7 @@ class UserCreationService:
             is_verified=user_data.get("is_verified", True),
             first_name=user_data.get("first_name", ""),
             last_name=user_data.get("last_name", ""),
+            position=user_data.get("position", "") or None,
         )
 
         if role:

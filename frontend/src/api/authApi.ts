@@ -14,6 +14,10 @@ export interface AuthUser {
   first_name?: string;
   last_name?: string;
   role?: string;
+  position?: string;
+  is_company_client?: boolean;
+  client_id?: number;
+  client_name?: string;
   is_staff?: boolean;
   is_superuser?: boolean;
 }
@@ -51,6 +55,31 @@ export function normalizeAuthUser(raw: Record<string, unknown>): AuthUser {
         : typeof raw.role === 'string'
           ? raw.role
           : undefined,
+    position: typeof raw.position === 'string' ? raw.position : undefined,
+    is_company_client: raw.is_company_client === true,
+    client_id: (() => {
+      if (typeof raw.client_id === 'number') return raw.client_id;
+      if (typeof raw.client === 'number') return raw.client;
+      if (
+        raw.client &&
+        typeof raw.client === 'object' &&
+        typeof (raw.client as { id?: unknown }).id === 'number'
+      ) {
+        return Number((raw.client as { id: number }).id);
+      }
+      return undefined;
+    })(),
+    client_name: (() => {
+      if (typeof raw.client_name === 'string') return raw.client_name;
+      if (
+        raw.client &&
+        typeof raw.client === 'object' &&
+        typeof (raw.client as { name?: unknown }).name === 'string'
+      ) {
+        return (raw.client as { name: string }).name;
+      }
+      return undefined;
+    })(),
     is_staff: raw.is_staff === true,
     is_superuser: raw.is_superuser === true,
   };

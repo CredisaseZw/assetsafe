@@ -1,4 +1,9 @@
-import type { FieldValues, Path, UseFormSetError } from 'react-hook-form';
+import type {
+  FieldErrors,
+  FieldValues,
+  Path,
+  UseFormSetError,
+} from 'react-hook-form';
 
 /** Maps API / serializer field names to form field names. */
 const API_FIELD_MAP: Record<string, string> = {
@@ -91,4 +96,19 @@ export function applyApiValidationErrors<T extends FieldValues>(
   }
 
   return true;
+}
+
+/** Returns the first validation message from a react-hook-form errors object. */
+export function firstFormErrorMessage(
+  errors: FieldErrors,
+): string | undefined {
+  for (const value of Object.values(errors)) {
+    if (!value || typeof value !== 'object') continue;
+    if ('message' in value && typeof value.message === 'string') {
+      return value.message;
+    }
+    const nested = firstFormErrorMessage(value as FieldErrors);
+    if (nested) return nested;
+  }
+  return undefined;
 }

@@ -68,11 +68,14 @@ export interface CollateralRecord {
   financier_id: number;
   data_date: string;
   status: 'active' | 'pending_discharge' | 'discharged';
+  data_source_display?: string;
+  data_source_position?: string;
 }
 
 export interface CollateralDashboard {
   active_agreements: number;
   pending_discharge_confirmation: number;
+  total_active_loan_value: number;
   records: CollateralRecord[];
 }
 
@@ -111,6 +114,7 @@ export interface HirePurchaseRecord {
   purchaser_name: string;
   purchaser_type: OwnerType;
   purchaser_id: number;
+  asset_description: string;
   asset_make: string;
   asset_model: string;
   asset_type: string;
@@ -131,6 +135,8 @@ export interface HirePurchaseRecord {
   financier_id: number;
   data_date: string;
   status: 'active' | 'pending_closure' | 'closed';
+  data_source_display?: string;
+  data_source_position?: string;
 }
 
 export interface HirePurchaseDashboard {

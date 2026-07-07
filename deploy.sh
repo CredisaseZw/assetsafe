@@ -1,18 +1,19 @@
 #!/bin/bash
 set -e 
 
-echo "Starting deployment at $(date)"
+#echo "Starting deployment at $(date)"
 
 # Stash local changes
 git stash
 
-git pull origin main
+DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
+COMPOSE_FILE="docker-compose.prod.yml"
 
-docker system prune -f --volumes
+git pull origin "$DEPLOY_BRANCH"
 
 # Bring down containers
-docker compose down
+docker compose -f "$COMPOSE_FILE" down --remove-orphans
 
-docker compose up -d --build
+docker compose -f "$COMPOSE_FILE" up -d --build
 
 echo "Deployment completed at $(date)"

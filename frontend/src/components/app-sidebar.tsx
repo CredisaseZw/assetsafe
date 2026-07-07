@@ -73,6 +73,16 @@ export function AppSidebar() {
           <SidebarGroupLabel>Dashboard</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
+              <SidebarNavLink
+                to="/collateral"
+                icon={Landmark}
+                label="Collateral Registry"
+              />
+              <SidebarNavLink
+                to="/hire-purchase"
+                icon={HandCoins}
+                label="Hire Purchase Registry"
+              />
               {isStaff ? (
                 <SidebarNavLink
                   to="/registry"
@@ -80,16 +90,6 @@ export function AppSidebar() {
                   label="Asset Registry"
                 />
               ) : null}
-              <SidebarNavLink
-                to="/collateral"
-                icon={Landmark}
-                label="Collateral"
-              />
-              <SidebarNavLink
-                to="/hire-purchase"
-                icon={HandCoins}
-                label="Hire Purchase"
-              />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

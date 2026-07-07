@@ -55,9 +55,25 @@ const queryClient = new QueryClient({
 });
 
 // Simple React Query persistence using localStorage via dehydrate/hydrate
+//
+// NOTE: Bump the "v" suffix whenever a backend/API response shape or
+// filtering change means previously-cached data could be stale/incorrect.
+// Since `refetchOnMount` is disabled below, a hydrated cache entry is
+// served indefinitely (across reloads) until explicitly invalidated, so
+// changing this key is the way to force every browser to drop its old
+// persisted cache and fetch fresh data.
+const RQ_CACHE_KEY = 'RQ:cache:v3';
+
 if (typeof window !== 'undefined') {
   try {
-    const cached = window.localStorage.getItem('RQ:cache:v1');
+    // Clear out any older cache versions so stale entries don't linger.
+    for (const key of Object.keys(window.localStorage)) {
+      if (key.startsWith('RQ:cache:') && key !== RQ_CACHE_KEY) {
+        window.localStorage.removeItem(key);
+      }
+    }
+
+    const cached = window.localStorage.getItem(RQ_CACHE_KEY);
     if (cached) {
       const parsed = JSON.parse(cached);
       hydrate(queryClient, parsed);
@@ -66,7 +82,7 @@ if (typeof window !== 'undefined') {
     const persist = () => {
       try {
         const data = dehydrate(queryClient);
-        window.localStorage.setItem('RQ:cache:v1', JSON.stringify(data));
+        window.localStorage.setItem(RQ_CACHE_KEY, JSON.stringify(data));
       } catch {
         // ignore
       }
