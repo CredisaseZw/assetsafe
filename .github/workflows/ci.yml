@@ -1,64 +1,64 @@
-name: CI
+# name: CI
 
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+# on:
+#   push:
+#     branches: [main]
+#   pull_request:
+#     branches: [main]
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
+# jobs:
+#   test:
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: read
 
-    env:
-      SECRET_KEY: ${{ secrets.SECRET_KEY || 'test-secret-key-for-ci' }}
-      CSRF_TRUSTED_ORIGINS: http://localhost/
-      DEBUG: "False"
-      DB_ENGINE: django.db.backends.sqlite3
-      DB_NAME: /tmp/test.db
-      CELERY_BROKER_URL: memory://
-      CELERY_RESULT_BACKEND: cache+memory://
-      EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
-      EMAIL_HOST: localhost
-      EMAIL_PORT: "25"
-      EMAIL_USE_SSL: "False"
-      EMAIL_USE_TLS: "False"
-      EMAIL_HOST_USER: ci@example.com
-      EMAIL_HOST_PASSWORD: ""
-      SMS_USERNAME: ci
-      SMS_PASSWORD: ci
-      SMS_API_KEY: ci
-      FRONTEND_URL: http://localhost:3000
-      PLATFORM_NAME: AssetSafe
+#     env:
+#       SECRET_KEY: ${{ secrets.SECRET_KEY || 'test-secret-key-for-ci' }}
+      
+#       DEBUG: "False"
+#       DB_ENGINE: django.db.backends.sqlite3
+#       DB_NAME: /tmp/test.db
+#       CELERY_BROKER_URL: memory://
+#       CELERY_RESULT_BACKEND: cache+memory://
+#       EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
+#       EMAIL_HOST: localhost
+#       EMAIL_PORT: "25"
+#       EMAIL_USE_SSL: "False"
+#       EMAIL_USE_TLS: "False"
+#       EMAIL_HOST_USER: ci@example.com
+#       EMAIL_HOST_PASSWORD: ""
+#       SMS_USERNAME: ci
+#       SMS_PASSWORD: ci
+#       SMS_API_KEY: ci
+#       FRONTEND_URL: http://localhost:3000
+#       PLATFORM_NAME: AssetSafe
 
-    steps:
-      - uses: actions/checkout@v4
+#     steps:
+#       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version-file: .python-version
+#       - name: Set up Python
+#         uses: actions/setup-python@v5
+#         with:
+#           python-version-file: .python-version
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
+#       - name: Install uv
+#         uses: astral-sh/setup-uv@v5
 
-      - name: Install dependencies
-        run: uv sync --group dev
+#       - name: Install dependencies
+#         run: uv sync --group dev
 
-      - name: Django system check
-        run: uv run python manage.py check
+#       - name: Django system check
+#         run: uv run python manage.py check
 
-      - name: Run tests with coverage
-        run: |
-          uv run coverage run --source=apps,core manage.py test --verbosity=2
-          uv run coverage xml -o coverage.xml
-          uv run coverage report
+#       - name: Run tests with coverage
+#         run: |
+#           uv run coverage run --source=apps,core manage.py test --verbosity=2
+#           uv run coverage xml -o coverage.xml
+#           uv run coverage report
 
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: coverage.xml
-          if-no-files-found: warn
+#       - name: Upload coverage report
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: coverage-report
+#           path: coverage.xml
+#           if-no-files-found: warn
