@@ -68,7 +68,7 @@ export function AssetRegistryForm({
   const { register, control, handleSubmit, watch, setValue, setError } =
     useForm<FormValues>({
       resolver: zodResolver(schema),
-      mode: 'onSubmit',
+      mode: 'onBlur',
       reValidateMode: 'onChange',
       shouldFocusError: true,
       defaultValues: {

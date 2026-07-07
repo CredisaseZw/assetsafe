@@ -13,7 +13,6 @@ from rest_framework import serializers
 from apps.hire_purchase.models import HirePurchaseRegistration
 from apps.common.models import Currency
 
-
 # ---------------------------------------------------------------------------
 # Hire Purchase serializers
 # ---------------------------------------------------------------------------
@@ -279,9 +278,8 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
                 ) from exc
 
             financier = validated_data.get("financier")
-            if (
-                not financier
-                or data_source_user.client_id != getattr(financier, "pk", financier)
+            if not financier or data_source_user.client_id != getattr(
+                financier, "pk", financier
             ):
                 raise serializers.ValidationError(
                     {
@@ -302,6 +300,62 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
     ) -> HirePurchaseRegistration:
         validated_data["updated_by"] = self.context["request"].user
         return super().update(instance, validated_data)
+
+
+class HirePurchaseRegistrationListSerializer(HirePurchaseRegistrationSerializer):
+    """
+    Lightweight read-only serializer optimized for list endpoints and
+    dashboards, mirroring the shape returned by the Collateral and Asset
+    Registry list endpoints.
+    """
+
+    lodge_date = serializers.DateField(read_only=True, format="%d-%b-%y")
+    agreement_start_date = serializers.DateField(read_only=True, format="%d-%b-%y")
+    agreement_end_date = serializers.DateField(read_only=True, format="%d-%b-%y")
+    currency_code = serializers.CharField(source="currency.code", read_only=True)
+    description = serializers.SerializerMethodField(
+        read_only=True,
+        help_text="Concatenated make and model for display purposes.",
+    )
+    primary_identifier = serializers.SerializerMethodField(
+        read_only=True,
+        help_text="Returns the MV registration number for vehicles, or the serial number otherwise.",
+    )
+
+    class Meta(HirePurchaseRegistrationSerializer.Meta):
+        """Inherits from HirePurchaseRegistrationSerializer.Meta, but overrides fields to a smaller subset for list performance."""
+
+        fields = [
+            "id",
+            "lodge_date",
+            "agreement_number",
+            "financier_display",
+            "purchaser_display",
+            "description",
+            "primary_identifier",
+            "currency_code",
+            "purchase_amount",
+            "agreement_start_date",
+            "agreement_end_date",
+            "closure_confirmed",
+        ]
+        read_only_fields = fields
+
+    def get_description(self, obj: HirePurchaseRegistration) -> str:
+        """Gets the description for the asset, which is a concatenation of the make and model."""
+        if obj.make and obj.model:
+            return f"{obj.make} {obj.model}"
+        if obj.make:
+            return obj.make
+        if obj.model:
+            return obj.model
+        return ""
+
+    def get_primary_identifier(self, obj: HirePurchaseRegistration) -> str:
+        """Gets the primary identifier for the asset, which is the MV registration number for vehicles or the serial number for other asset types."""
+        if obj.asset_type == "vehicles":
+            return obj.mv_registration_number
+        return obj.serial_number
 
 
 class HirePurchaseClosureSerializer(serializers.ModelSerializer):

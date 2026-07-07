@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm, useFormState, Controller } from 'react-hook-form';
 import { zodResolver } from '@/lib/zodResolver';
-import { applyApiValidationErrors, firstFormErrorMessage } from '@/lib/formErrors';
+import {
+  applyApiValidationErrors,
+  firstFormErrorMessage,
+} from '@/lib/formErrors';
 import type { FieldErrors } from 'react-hook-form';
 import { z } from 'zod';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -15,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { DateInput } from '@/components/ui/DateInput';
 import AutocompleteInput from '@/components/shared/AutocompleteInput';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { FormSectionHeader } from '@/components/shared/FormSectionHeader';
 import { FieldError } from '@/components/shared/FieldError';
 import { Modal } from '@/components/shared/Modal';
@@ -90,6 +94,10 @@ interface CollateralFormProps {
   onSuccessAndAddAnother?: () => void;
   isEdit?: boolean;
   recordId?: number;
+  /** Edit mode only: invoked when "Close" is clicked, to discharge the record. */
+  onDischarge?: () => void;
+  /** Edit mode only: loading state for the discharge action. */
+  dischargePending?: boolean;
 }
 
 export function CollateralForm({
@@ -103,6 +111,8 @@ export function CollateralForm({
   onSuccessAndAddAnother,
   isEdit,
   recordId,
+  onDischarge,
+  dischargePending,
 }: CollateralFormProps) {
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
@@ -127,10 +137,13 @@ export function CollateralForm({
   const isFirstFinancierClientTypeRender = useRef(true);
   const [debtorLabel, setDebtorLabel] = useState(debtorDisplayLabel ?? '');
   const isFirstDebtorTypeRender = useRef(true);
-  const [dataSourceUserId, setDataSourceUserId] = useState<number | undefined>();
+  const [dataSourceUserId, setDataSourceUserId] = useState<
+    number | undefined
+  >();
   const [staffDataSourceName, setStaffDataSourceName] = useState('');
   const [staffDataSourcePosition, setStaffDataSourcePosition] = useState('');
-  const [staffDataSourceSearchLabel, setStaffDataSourceSearchLabel] = useState('');
+  const [staffDataSourceSearchLabel, setStaffDataSourceSearchLabel] =
+    useState('');
 
   const clearDataSource = () => {
     setDataSourceUserId(undefined);
@@ -142,7 +155,7 @@ export function CollateralForm({
   const { register, handleSubmit, control, watch, setError, setValue } =
     useForm<FormValues>({
       resolver: zodResolver(formSchema),
-      mode: 'onSubmit',
+      mode: 'onBlur',
       reValidateMode: 'onChange',
       shouldFocusError: true,
       defaultValues: {
@@ -153,9 +166,7 @@ export function CollateralForm({
         total_paid_to_date: 0,
         instalment_amount: 0,
         instalment_date: 1,
-        ...(isClientUser
-          ? {}
-          : { financier_id: clientFinancierId }),
+        ...(isClientUser ? {} : { financier_id: clientFinancierId }),
         ...initial,
       },
     });
@@ -223,7 +234,10 @@ export function CollateralForm({
 
   useEffect(() => {
     if (isStaff || user?.client_id) return;
-    void authApi.me().then(setUser).catch(() => {});
+    void authApi
+      .me()
+      .then(setUser)
+      .catch(() => {});
   }, [isStaff, user?.client_id, setUser]);
 
   useEffect(() => {
@@ -257,7 +271,12 @@ export function CollateralForm({
   }, [selectedFinancierId, isEdit, isClientUser]);
 
   useEffect(() => {
-    if (isEdit || !isStaff || financierClientType !== 'individual' || !clientDetail) {
+    if (
+      isEdit ||
+      !isStaff ||
+      financierClientType !== 'individual' ||
+      !clientDetail
+    ) {
       return;
     }
     const details = clientDetail.client_details;
@@ -317,6 +336,8 @@ export function CollateralForm({
     (watch('loan_amount') ?? 0) - (watch('total_paid_to_date') ?? 0);
 
   const [addAnother, setAddAnother] = useState(false);
+  const [confirmingUpdate, setConfirmingUpdate] = useState(false);
+  const [pendingSubmit, setPendingSubmit] = useState<FormValues | null>(null);
 
   const { mutate: submit, isPending } = useMutation({
     mutationFn: (data: FormValues) =>
@@ -324,6 +345,8 @@ export function CollateralForm({
         ? collateralApi.updateRecord(recordId, data as any)
         : collateralApi.createRecord(data as any),
     onSuccess: () => {
+      setConfirmingUpdate(false);
+      setPendingSubmit(null);
       if (addAnother && onSuccessAndAddAnother) {
         onSuccessAndAddAnother();
       } else {
@@ -331,6 +354,7 @@ export function CollateralForm({
       }
     },
     onError: (err: unknown) => {
+      setConfirmingUpdate(false);
       setAddAnother(false);
       if (!applyApiValidationErrors(setError, err)) {
         const data = (
@@ -346,16 +370,14 @@ export function CollateralForm({
   const onInvalid = (formErrors: FieldErrors<FormValues>) => {
     setAddAnother(false);
     toast.error(
-      firstFormErrorMessage(formErrors) ??
-        'Please fix the highlighted fields',
+      firstFormErrorMessage(formErrors) ?? 'Please fix the highlighted fields',
     );
   };
 
   const buildSubmitPayload = (data: FormValues) => {
-    const payload =
-      isClientUser
-        ? ({ ...data, financier_id: clientFinancierId } as StaffFormValues)
-        : (data as StaffFormValues);
+    const payload = isClientUser
+      ? ({ ...data, financier_id: clientFinancierId } as StaffFormValues)
+      : (data as StaffFormValues);
 
     if (isStaff && !isEdit && dataSourceUserId) {
       return { ...payload, data_source_user_id: dataSourceUserId };
@@ -363,12 +385,23 @@ export function CollateralForm({
     return payload;
   };
 
+  const performSubmit = (data: FormValues) => {
+    submit(buildSubmitPayload(data) as any);
+  };
+
   const validateStaffDataSource = () => {
-    if (!isStaff || isEdit || !selectedFinancierId || Number(selectedFinancierId) <= 0) {
+    if (
+      !isStaff ||
+      isEdit ||
+      !selectedFinancierId ||
+      Number(selectedFinancierId) <= 0
+    ) {
       return true;
     }
     if (financierClientType === 'company' && !dataSourceUserId) {
-      toast.error('Please select a data source user for this company financier.');
+      toast.error(
+        'Please select a data source user for this company financier.',
+      );
       return false;
     }
     return true;
@@ -382,8 +415,19 @@ export function CollateralForm({
       return;
     }
     if (!validateStaffDataSource()) return;
-    submit(buildSubmitPayload(data) as any);
+    if (isEdit) {
+      setPendingSubmit(data);
+      setConfirmingUpdate(true);
+      return;
+    }
+    performSubmit(data);
   }, onInvalid);
+
+  const handleConfirmUpdate = () => {
+    if (pendingSubmit) {
+      performSubmit(pendingSubmit);
+    }
+  };
 
   return (
     <>
@@ -568,7 +612,8 @@ export function CollateralForm({
                           .filter(
                             (u) =>
                               u.name.toLowerCase().includes(term) ||
-                              (u.position?.toLowerCase().includes(term) ?? false),
+                              (u.position?.toLowerCase().includes(term) ??
+                                false),
                           )
                           .map((u) => ({
                             id: u.id,
@@ -877,34 +922,53 @@ export function CollateralForm({
 
         {/* ── Footer ── */}
         <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-3">
-          <Button type="button" variant="ghost" onClick={onCancel}>
-            {onSuccessAndAddAnother ? 'Done' : 'Cancel'}
-          </Button>
-          <div className="flex gap-2">
-            {onSuccessAndAddAnother && !isEdit && (
+          {isEdit ? (
+            <>
               <Button
                 type="submit"
                 variant="secondary"
-                loading={isPending && addAnother}
-                disabled={isPending && !addAnother}
-                onClick={() => setAddAnother(true)}
+                loading={isPending}
+                onClick={() => setAddAnother(false)}
               >
-                Save & Add Another
+                Update
               </Button>
-            )}
-            <Button
-              type="submit"
-              loading={isPending && !addAnother}
-              disabled={isPending && addAnother}
-              onClick={() => setAddAnother(false)}
-            >
-              {isEdit
-                ? 'Save Changes'
-                : onSuccessAndAddAnother
-                  ? 'Save'
-                  : 'Upload'}
-            </Button>
-          </div>
+              <Button
+                type="button"
+                variant="danger"
+                loading={dischargePending}
+                onClick={onDischarge}
+              >
+                Close
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button type="button" variant="ghost" onClick={onCancel}>
+                {onSuccessAndAddAnother ? 'Done' : 'Cancel'}
+              </Button>
+              <div className="flex gap-2">
+                {onSuccessAndAddAnother && (
+                  <Button
+                    type="submit"
+                    variant="secondary"
+                    loading={isPending && addAnother}
+                    disabled={isPending && !addAnother}
+                    onClick={() => setAddAnother(true)}
+                  >
+                    Save & Add Another
+                  </Button>
+                )}
+                <Button
+                  type="submit"
+                  loading={isPending && !addAnother}
+                  disabled={isPending && addAnother}
+                  onClick={() => setAddAnother(false)}
+                >
+                  {onSuccessAndAddAnother ? 'Save' : 'Upload'}
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </form>
 
@@ -959,6 +1023,20 @@ export function CollateralForm({
           }}
         />
       </Modal>
+
+      <ConfirmDialog
+        open={confirmingUpdate}
+        title="Confirm Update"
+        message="Are you sure you want to save these changes?"
+        confirmLabel="Yes, Update"
+        variant="primary"
+        loading={isPending}
+        onConfirm={handleConfirmUpdate}
+        onCancel={() => {
+          setConfirmingUpdate(false);
+          setPendingSubmit(null);
+        }}
+      />
     </>
   );
 }

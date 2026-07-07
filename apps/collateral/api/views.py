@@ -17,7 +17,10 @@ from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 
 from django_filters.rest_framework import DjangoFilterBackend
-from apps.common.utils.helpers import extract_error_message
+from apps.common.utils.helpers import (
+    extract_error_message,
+    scope_registry_to_client_portfolio,
+)
 from apps.users.utils.permissions import HasRole, roles_allowed
 from apps.asset_management.api.views import StandardResultsSetPagination
 from apps.collateral.models.models import CollateralRegistration
@@ -132,23 +135,13 @@ class CollateralRegistrationViewSet(BaseViewSet):
         Returns all collateral records with party relations eagerly loaded via
         ``select_related`` to prevent N+1 queries when list responses render
         ``financier_display`` and ``debtor_display``.
-        """
-        if self.request.user.roles.filter(
-            name__in=[
-                "client_user",
-                "client_admin",
-                "individual_client",
-                "company_client",
-            ]
-        ).exists():
-            return CollateralRegistration.objects.select_related(
-                "financier",
-                "individual_debtor",
-                "company_debtor",
-                "created_by",
-            ).filter(created_by__client=self.request.user.client)
 
-        return CollateralRegistration.objects.select_related(
+        Client users only see records belonging to their own portfolio, i.e.
+        records where their client is the ``financier``. This mirrors the
+        filter used by ``stats()`` so the list total and headline counts
+        never disagree.
+        """
+        qs = CollateralRegistration.objects.select_related(
             "financier",
             "individual_debtor",
             "company_debtor",
@@ -156,6 +149,16 @@ class CollateralRegistrationViewSet(BaseViewSet):
             "currency",
             "created_by",
         ).all()
+        qs = scope_registry_to_client_portfolio(qs, self.request.user)
+
+        # The main dashboard table should only surface active and
+        # pending-discharge agreements; already-discharged records are
+        # excluded from the list (but remain reachable directly by id for
+        # retrieve/update/delete/discharge).
+        if self.action == "list":
+            qs = qs.filter(is_discharged=False)
+
+        return qs
 
     # ------------------------------------------------------------------
     # Audit-logged CRUD hooks
@@ -175,7 +178,7 @@ class CollateralRegistrationViewSet(BaseViewSet):
             )
 
         except Exception as e:
-            logger.error(f"Error creating collateral registration: {e}")
+            logger.error("Error creating collateral registration: %s", e)
             return self._create_rendered_response(
                 {"error": "Something went wrong"},
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -198,7 +201,7 @@ class CollateralRegistrationViewSet(BaseViewSet):
             )
 
         except Exception as e:
-            logger.error(f"Error updating collateral registration: {e}")
+            logger.error("Error updating collateral registration: %s", e)
             return self._create_rendered_response(
                 {"error": "Something went wrong"}, status.HTTP_500_INTERNAL_SERVER_ERROR
             )
@@ -208,12 +211,14 @@ class CollateralRegistrationViewSet(BaseViewSet):
             instance = self.get_object()
             self.perform_destroy(instance)
             logger.info(
-                f"Collateral registration with agreement number {instance.agreement_number} deleted by user {request.user}"
+                "Collateral registration with agreement number %s deleted by user %s",
+                instance.agreement_number,
+                request.user,
             )
             return Response(status=status.HTTP_204_NO_CONTENT)
 
         except Exception as e:
-            logger.error(f"Error deleting collateral registration: {e}")
+            logger.error("Error deleting collateral registration: %s", e)
             return self._create_rendered_response(
                 {"error": "Something went wrong"}, status.HTTP_500_INTERNAL_SERVER_ERROR
             )
@@ -280,14 +285,15 @@ class CollateralRegistrationViewSet(BaseViewSet):
 
         """
         today = timezone.now().date()
-        qs = CollateralRegistration.objects.all()
-        # Client users should only see their own portfolio totals.
-        if not request.user.is_staff and getattr(request.user, "client_id", None):
-            qs = qs.filter(financier_id=request.user.client_id)
+        qs = scope_registry_to_client_portfolio(
+            CollateralRegistration.objects.all(),
+            request.user,
+        )
 
         active_filter = Q(
             agreement_start_date__lte=today,
             agreement_end_date__gte=today,
+            is_discharged=False,
         )
         aggregates: dict = qs.aggregate(
             active_agreements=Count("id", filter=active_filter),

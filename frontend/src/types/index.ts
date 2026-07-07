@@ -114,6 +114,7 @@ export interface HirePurchaseRecord {
   purchaser_name: string;
   purchaser_type: OwnerType;
   purchaser_id: number;
+  asset_description: string;
   asset_make: string;
   asset_model: string;
   asset_type: string;

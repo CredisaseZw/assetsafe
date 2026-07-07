@@ -17,6 +17,7 @@ import AutocompleteInput from '@/components/shared/AutocompleteInput';
 import { individualsApi } from '@/api/individualsApi';
 import { companiesApi } from '@/api/companiesApi';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { FormSectionHeader } from '@/components/shared/FormSectionHeader';
 import { FieldError } from '@/components/shared/FieldError';
 import { commonApi } from '@/api/commonApi';
@@ -87,6 +88,10 @@ interface HirePurchaseFormProps {
   onCancel: () => void;
   isEdit?: boolean;
   recordId?: number;
+  /** Edit mode only: invoked when "Close" is clicked, to confirm closure of the record. */
+  onCloseRecord?: () => void;
+  /** Edit mode only: loading state for the closure action. */
+  closurePending?: boolean;
 }
 
 export function HirePurchaseForm({
@@ -100,6 +105,8 @@ export function HirePurchaseForm({
   onCancel,
   isEdit,
   recordId,
+  onCloseRecord,
+  closurePending,
 }: HirePurchaseFormProps) {
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
@@ -125,10 +132,13 @@ export function HirePurchaseForm({
     purchaserDisplayLabel ?? '',
   );
   const isFirstPurchaserTypeRender = useRef(true);
-  const [dataSourceUserId, setDataSourceUserId] = useState<number | undefined>();
+  const [dataSourceUserId, setDataSourceUserId] = useState<
+    number | undefined
+  >();
   const [staffDataSourceName, setStaffDataSourceName] = useState('');
   const [staffDataSourcePosition, setStaffDataSourcePosition] = useState('');
-  const [staffDataSourceSearchLabel, setStaffDataSourceSearchLabel] = useState('');
+  const [staffDataSourceSearchLabel, setStaffDataSourceSearchLabel] =
+    useState('');
 
   const clearDataSource = () => {
     setDataSourceUserId(undefined);
@@ -140,7 +150,7 @@ export function HirePurchaseForm({
   const { register, control, handleSubmit, watch, reset, setValue, setError } =
     useForm<FormValues>({
       resolver: zodResolver(formSchema),
-      mode: 'onSubmit',
+      mode: 'onBlur',
       reValidateMode: 'onChange',
       shouldFocusError: true,
       defaultValues: {
@@ -217,8 +227,9 @@ export function HirePurchaseForm({
   useEffect(() => {
     if (!currentPurchaserType && partyTypeOptions.length > 0) {
       const defaultPurchaser =
-        partyTypeOptions.find((p: { value: string }) => p.value === 'individual') ||
-        partyTypeOptions[0];
+        partyTypeOptions.find(
+          (p: { value: string }) => p.value === 'individual',
+        ) || partyTypeOptions[0];
       setValue('purchaser_type', defaultPurchaser.value, {
         shouldValidate: true,
       });
@@ -227,7 +238,10 @@ export function HirePurchaseForm({
 
   useEffect(() => {
     if (isStaff || user?.client_id) return;
-    void authApi.me().then(setUser).catch(() => {});
+    void authApi
+      .me()
+      .then(setUser)
+      .catch(() => {});
   }, [isStaff, user?.client_id, setUser]);
 
   useEffect(() => {
@@ -256,7 +270,12 @@ export function HirePurchaseForm({
   }, [selectedFinancierId, isEdit, isClientUser]);
 
   useEffect(() => {
-    if (isEdit || !isStaff || financierClientType !== 'individual' || !clientDetail) {
+    if (
+      isEdit ||
+      !isStaff ||
+      financierClientType !== 'individual' ||
+      !clientDetail
+    ) {
       return;
     }
     const details = clientDetail.client_details;
@@ -306,14 +325,24 @@ export function HirePurchaseForm({
 
   const watchAssetType = watch('asset_type');
   const isVehicle = watchAssetType === 'vehicles';
+  const computedBalance =
+    (watch('purchase_amount') ?? 0) - (watch('total_paid_to_date') ?? 0);
+
+  const [confirmingUpdate, setConfirmingUpdate] = useState(false);
+  const [pendingSubmit, setPendingSubmit] = useState<FormValues | null>(null);
 
   const { mutate: submit, isPending } = useMutation({
     mutationFn: (data: FormValues) =>
       isEdit && recordId
         ? hirePurchaseApi.updateRecord(recordId, data as any)
         : hirePurchaseApi.createRecord(data as any),
-    onSuccess,
+    onSuccess: () => {
+      setConfirmingUpdate(false);
+      setPendingSubmit(null);
+      onSuccess();
+    },
     onError: (err: unknown) => {
+      setConfirmingUpdate(false);
       if (!applyApiValidationErrors(setError, err)) {
         const data = (
           err as { response?: { data?: { message?: string; error?: string } } }
@@ -335,18 +364,37 @@ export function HirePurchaseForm({
         ? ({ ...data, financier_id: clientFinancierId } as StaffFormValues)
         : (data as StaffFormValues);
 
+    const withBalance = {
+      ...payload,
+      balance: (data.purchase_amount ?? 0) - (data.total_paid_to_date ?? 0),
+    };
+
     if (isStaff && !isEdit && dataSourceUserId) {
-      return { ...payload, data_source_user_id: dataSourceUserId };
+      return { ...withBalance, data_source_user_id: dataSourceUserId };
     }
-    return payload;
+    return withBalance;
+  };
+
+  const performSubmit = (
+    data: FormValues,
+    options?: Parameters<typeof submit>[1],
+  ) => {
+    submit(buildSubmitPayload(data) as any, options);
   };
 
   const validateStaffDataSource = () => {
-    if (!isStaff || isEdit || !selectedFinancierId || Number(selectedFinancierId) <= 0) {
+    if (
+      !isStaff ||
+      isEdit ||
+      !selectedFinancierId ||
+      Number(selectedFinancierId) <= 0
+    ) {
       return true;
     }
     if (financierClientType === 'company' && !dataSourceUserId) {
-      toast.error('Please select a data source user for this company financier.');
+      toast.error(
+        'Please select a data source user for this company financier.',
+      );
       return false;
     }
     return true;
@@ -362,8 +410,19 @@ export function HirePurchaseForm({
       }
     }
     if (!validateStaffDataSource()) return;
-    submit(buildSubmitPayload(data) as any);
+    if (isEdit) {
+      setPendingSubmit(data);
+      setConfirmingUpdate(true);
+      return;
+    }
+    performSubmit(data);
   }, onInvalid);
+
+  const handleConfirmUpdate = () => {
+    if (pendingSubmit) {
+      performSubmit(pendingSubmit);
+    }
+  };
 
   const handleSaveAndAdd = handleSubmit((data) => {
     if (isClientUser && !isEdit && !clientFinancierId) {
@@ -374,7 +433,7 @@ export function HirePurchaseForm({
     }
     if (!validateStaffDataSource()) return;
 
-    submit(buildSubmitPayload(data) as any, {
+    performSubmit(data, {
       onSuccess: () => {
         reset();
         clearDataSource();
@@ -447,7 +506,10 @@ export function HirePurchaseForm({
                 />
               </div>
               <div className="col-span-2">
-                <ReadOnlyField label="Position" value={editDataSourcePosition} />
+                <ReadOnlyField
+                  label="Position"
+                  value={editDataSourcePosition}
+                />
               </div>
             </div>
           </>
@@ -518,11 +580,13 @@ export function HirePurchaseForm({
                   {partyTypeOptions.length === 0 ? (
                     <option value="company">Loading...</option>
                   ) : (
-                    partyTypeOptions.map((option: { value: string; label: string }) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))
+                    partyTypeOptions.map(
+                      (option: { value: string; label: string }) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ),
+                    )
                   )}
                 </select>
               </div>
@@ -582,7 +646,8 @@ export function HirePurchaseForm({
                           .filter(
                             (u) =>
                               u.name.toLowerCase().includes(term) ||
-                              (u.position?.toLowerCase().includes(term) ?? false),
+                              (u.position?.toLowerCase().includes(term) ??
+                                false),
                           )
                           .map((u) => ({
                             id: u.id,
@@ -650,11 +715,13 @@ export function HirePurchaseForm({
                         ? 'Select type...'
                         : 'Loading types...'}
                     </option>
-                    {partyTypeOptions.map((option: { value: string; label: string }) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
+                    {partyTypeOptions.map(
+                      (option: { value: string; label: string }) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ),
+                    )}
                   </select>
                 </div>
               </div>
@@ -746,11 +813,13 @@ export function HirePurchaseForm({
               <option value="">
                 {assetConditionOptions.length ? 'Select...' : 'Loading...'}
               </option>
-              {assetConditionOptions.map((c: { value: string; label: string }) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
+              {assetConditionOptions.map(
+                (c: { value: string; label: string }) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ),
+              )}
             </select>
           </div>
           <Input label="Serial Number" {...register('reg_serial_number')} />
@@ -809,12 +878,14 @@ export function HirePurchaseForm({
             step="0.01"
             {...register('total_paid_to_date')}
           />
-          <Input
-            label="Balance"
-            type="number"
-            step="0.01"
-            {...register('balance')}
-          />
+          <div>
+            <label className="text-xs font-medium text-slate-600">
+              Balance
+            </label>
+            <div className="mt-1 flex h-8 w-full items-center rounded border border-slate-200 bg-slate-50 px-2 text-sm text-slate-700">
+              {computedBalance.toFixed(2)}
+            </div>
+          </div>
           <Controller
             name="start_date"
             control={control}
@@ -847,24 +918,42 @@ export function HirePurchaseForm({
 
         {/* ── Footer ── */}
         <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-3">
-          {!isEdit && (
-            <Button
-              type="button"
-              variant="primary"
-              loading={isPending}
-              onClick={handleSaveAndAdd}
-            >
-              + Save And Add
-            </Button>
+          {isEdit ? (
+            <>
+              <Button type="submit" variant="secondary" loading={isPending}>
+                Update
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                loading={closurePending}
+                onClick={onCloseRecord}
+              >
+                Close
+              </Button>
+            </>
+          ) : (
+            <>
+              {!isEdit && (
+                <Button
+                  type="button"
+                  variant="primary"
+                  loading={isPending}
+                  onClick={handleSaveAndAdd}
+                >
+                  + Save And Add
+                </Button>
+              )}
+              <div className="flex gap-2 ml-auto">
+                <Button type="button" variant="ghost" onClick={onCancel}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="secondary" loading={isPending}>
+                  Save And Exit
+                </Button>
+              </div>
+            </>
           )}
-          <div className="flex gap-2 ml-auto">
-            <Button type="button" variant="ghost" onClick={onCancel}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="secondary" loading={isPending}>
-              {isEdit ? 'Save Changes' : 'Save And Exit'}
-            </Button>
-          </div>
         </div>
       </form>
 
@@ -904,6 +993,20 @@ export function HirePurchaseForm({
           }}
         />
       </Modal>
+
+      <ConfirmDialog
+        open={confirmingUpdate}
+        title="Confirm Update"
+        message="Are you sure you want to save these changes?"
+        confirmLabel="Yes, Update"
+        variant="primary"
+        loading={isPending}
+        onConfirm={handleConfirmUpdate}
+        onCancel={() => {
+          setConfirmingUpdate(false);
+          setPendingSubmit(null);
+        }}
+      />
     </>
   );
 }

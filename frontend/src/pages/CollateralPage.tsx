@@ -135,6 +135,15 @@ export default function CollateralPage() {
     invalidateRegistryQueries(queryClient, 'collateral');
   };
 
+  const handleViewRecord = (rec: CollateralRecord) => {
+    void queryClient.prefetchQuery({
+      queryKey: ['collateral-detail', rec.id],
+      queryFn: () => collateralApi.getRecord(rec.id),
+      staleTime: 5 * 60 * 1000,
+    });
+    setViewRecord(rec);
+  };
+
   const totalRecords = recordsData?.count ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalRecords / PAGE_SIZE));
   const activePage = Math.min(currentPage, totalPages);
@@ -408,7 +417,7 @@ export default function CollateralPage() {
                       <td className="px-2 py-2">
                         <button
                           type="button"
-                          onClick={() => setViewRecord(rec)}
+                          onClick={() => handleViewRecord(rec)}
                           className={cn(
                             'flex items-center gap-1 px-2 py-1 text-[11px] font-bold uppercase text-white',
                             isPendingDischarge(rec)
@@ -498,10 +507,6 @@ export default function CollateralPage() {
           record={viewRecord}
           onClose={() => setViewRecord(null)}
           onSaved={() => {
-            setViewRecord(null);
-            refreshList(false);
-          }}
-          onDeleted={() => {
             setViewRecord(null);
             refreshList(false);
           }}
