@@ -71,7 +71,6 @@ function mapCollateralRecord(
 export const collateralApi = {
   getDashboard: async (params?: {
     search_field?: string;
-    search_value?: string;
   }): Promise<CollateralDashboard> => {
     const { data } = await axiosInstance.get('/collateral/stats/', { params });
     return unwrapApiData<CollateralDashboard>(data);
@@ -80,7 +79,6 @@ export const collateralApi = {
   getRecords: async (params?: {
     search?: string;
     search_field?: string;
-    search_value?: string;
     page?: number;
     page_size?: number;
   }): Promise<{ records: CollateralRecord[]; count: number }> => {

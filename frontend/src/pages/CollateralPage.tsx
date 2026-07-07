@@ -5,6 +5,7 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Eye,
   Layers,
   Plus,
   Search,
@@ -18,7 +19,12 @@ import { Modal } from '@/components/shared/Modal';
 import { CollateralForm } from '@/components/collateral/CollateralForm';
 import { CollateralViewModal } from '@/components/collateral/CollateralViewModal';
 import { NumberedPaginationFooter } from '@/components/shared/NumberedPaginationFooter';
-import { cn, formatCurrency, formatDate, formatDollarAmount } from '@/lib/utils';
+import {
+  cn,
+  formatCurrency,
+  formatDate,
+  formatDollarAmount,
+} from '@/lib/utils';
 import { invalidateRegistryQueries } from '@/lib/registryCache';
 import { registryQueryOptions } from '@/lib/registryQueryOptions';
 import { useAuthStore } from '@/store';
@@ -28,14 +34,51 @@ const PAGE_SIZE = 20;
 
 type CollateralSortOption = 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc';
 
+type CollateralSearchField = 'agreement_number' | 'debtor' | 'reg_serial_number';
+
+const SEARCH_FIELD_OPTIONS: { value: CollateralSearchField; label: string }[] = [
+  { value: 'agreement_number', label: 'Agreement Number' },
+  { value: 'debtor', label: 'Debtor' },
+  { value: 'reg_serial_number', label: 'Reg/Serial Number' },
+];
+
+const SEARCH_FIELD_PLACEHOLDERS: Record<CollateralSearchField, string> = {
+  agreement_number: 'Search by agreement number...',
+  debtor: 'Search by debtor...',
+  reg_serial_number: 'Search by reg/serial number...',
+};
+
+/** Agreement end date has passed (matches backend pending-discharge logic). */
+function isExpired(rec: CollateralRecord): boolean {
+  if (!rec.end_date) {
+    return false;
+  }
+  const end = new Date(rec.end_date);
+  if (Number.isNaN(end.getTime())) {
+    return false;
+  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return end < today;
+}
+
+/** True when a loan's end date has passed and it has not yet been discharged. */
+function isPendingDischarge(rec: CollateralRecord): boolean {
+  return isExpired(rec) && rec.status !== 'discharged';
+}
+
 export default function CollateralPage() {
   const queryClient = useQueryClient();
   const authReady = useAuthStore((s) => s.authReady);
+  const [searchField, setSearchField] =
+    useState<CollateralSearchField>('agreement_number');
   const [searchValue, setSearchValue] = useState('');
   const [sortOption, setSortOption] =
     useState<CollateralSortOption>('date-desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [appliedSearch, setAppliedSearch] = useState('');
+  const [appliedSearchField, setAppliedSearchField] =
+    useState<CollateralSearchField>('agreement_number');
   const [addOpen, setAddOpen] = useState(false);
   const [addMultipleOpen, setAddMultipleOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -55,10 +98,17 @@ export default function CollateralPage() {
     isError,
     isFetching,
   } = useQuery({
-    queryKey: ['collateral-records', appliedSearch, currentPage],
+    queryKey: [
+      'collateral-records',
+      appliedSearch,
+      appliedSearchField,
+      currentPage,
+    ],
     queryFn: () =>
       collateralApi.getRecords({
-        ...(appliedSearch ? { search: appliedSearch } : {}),
+        ...(appliedSearch
+          ? { search: appliedSearch, search_field: appliedSearchField }
+          : {}),
         page: currentPage,
         page_size: PAGE_SIZE,
       }),
@@ -70,6 +120,7 @@ export default function CollateralPage() {
 
   const handleSearch = () => {
     setAppliedSearch(searchValue.trim());
+    setAppliedSearchField(searchField);
     setCurrentPage(1);
   };
 
@@ -77,9 +128,20 @@ export default function CollateralPage() {
     if (clearFilters) {
       setSearchValue('');
       setAppliedSearch('');
+      setSearchField('agreement_number');
+      setAppliedSearchField('agreement_number');
     }
     setCurrentPage(1);
     invalidateRegistryQueries(queryClient, 'collateral');
+  };
+
+  const handleViewRecord = (rec: CollateralRecord) => {
+    void queryClient.prefetchQuery({
+      queryKey: ['collateral-detail', rec.id],
+      queryFn: () => collateralApi.getRecord(rec.id),
+      staleTime: 5 * 60 * 1000,
+    });
+    setViewRecord(rec);
   };
 
   const totalRecords = recordsData?.count ?? 0;
@@ -160,11 +222,24 @@ export default function CollateralPage() {
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#8f8f8f] px-3 py-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[12px] font-bold text-black">Search</span>
+            <select
+              value={searchField}
+              onChange={(e) =>
+                setSearchField(e.target.value as CollateralSearchField)
+              }
+              className="h-7 min-w-[140px] rounded-none border border-black bg-white px-2 text-[12px]"
+            >
+              {SEARCH_FIELD_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
             <input
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="Agreement, debtor, reg..."
+              placeholder={SEARCH_FIELD_PLACEHOLDERS[searchField]}
               className="h-7 w-56 border border-black bg-white px-2 text-[12px] focus:outline-none"
             />
             <Button
@@ -176,6 +251,21 @@ export default function CollateralPage() {
             >
               Search
             </Button>
+            {appliedSearch ? (
+              <button
+                type="button"
+                className="text-[11px] text-[#196A86] underline"
+                onClick={() => {
+                  setSearchValue('');
+                  setAppliedSearch('');
+                  setSearchField('agreement_number');
+                  setAppliedSearchField('agreement_number');
+                  setCurrentPage(1);
+                }}
+              >
+                Clear filter
+              </button>
+            ) : null}
           </div>
 
           <div className="flex gap-1">
@@ -217,7 +307,7 @@ export default function CollateralPage() {
         </div>
 
         <div className="bg-[#7f7a7b] px-3 py-1 text-center text-[14px] font-bold uppercase text-white">
-          Active Debts
+          Active Agreements
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -244,7 +334,7 @@ export default function CollateralPage() {
                       )}
                     </button>
                   </th>
-                  <th className="px-2 py-2 font-bold">Financier</th>
+                  <th className="px-2 py-2 font-bold">Agreement No.</th>
                   <th className="px-2 py-2 font-bold">
                     <button
                       type="button"
@@ -263,22 +353,23 @@ export default function CollateralPage() {
                       )}
                     </button>
                   </th>
-                  <th className="px-2 py-2 font-bold">Asset</th>
-                  <th className="px-2 py-2 font-bold">Reg/Serial</th>
+                  <th className="px-2 py-2 font-bold">Asset Description</th>
+                  <th className="px-2 py-2 font-bold">Reg/Serial Number</th>
                   <th className="px-2 py-2 font-bold">Currency</th>
-                  <th className="px-2 py-2 font-bold text-right">Loan</th>
-                  <th className="px-2 py-2 font-bold">Start</th>
-                  <th className="px-2 py-2 font-bold">End</th>
-                  <th className="px-2 py-2 font-bold">Status</th>
+                  <th className="px-2 py-2 font-bold text-right">
+                    Loan Amount
+                  </th>
+                  <th className="px-2 py-2 font-bold">Start Date</th>
+                  <th className="px-2 py-2 font-bold">End Date</th>
                   <th className="px-2 py-2 font-bold" />
                 </tr>
               </thead>
               <tbody>
                 {loadingRecords ? (
-                  <TableSkeleton rows={8} cols={12} />
+                  <TableSkeleton rows={8} cols={11} />
                 ) : isError ? (
                   <tr>
-                    <td colSpan={12} className="py-6 text-center text-red-500">
+                    <td colSpan={11} className="py-6 text-center text-red-500">
                       Failed to load records.
                     </td>
                   </tr>
@@ -299,8 +390,8 @@ export default function CollateralPage() {
                       <td className="border-r border-[#8f8f8f] px-2 py-2">
                         {formatDate(rec.lodge_date)}
                       </td>
-                      <td className="border-r border-[#8f8f8f] px-2 py-2 font-bold text-[#196A86]">
-                        {rec.financier_name}
+                      <td className="border-r border-[#8f8f8f] px-2 py-2">
+                        {rec.agreement_number}
                       </td>
                       <td className="border-r border-[#8f8f8f] px-2 py-2">
                         {rec.debtor_name}
@@ -323,28 +414,18 @@ export default function CollateralPage() {
                       <td className="border-r border-[#8f8f8f] px-2 py-2">
                         {formatDate(rec.end_date)}
                       </td>
-                      <td className="border-r border-[#8f8f8f] px-2 py-2">
-                        <span
-                          className={cn(
-                            'inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase',
-                            rec.status === 'active'
-                              ? 'bg-green-100 text-green-800'
-                              : rec.status === 'pending_discharge'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-slate-100 text-slate-600',
-                          )}
-                        >
-                          {rec.status === 'pending_discharge'
-                            ? 'Pending'
-                            : rec.status}
-                        </span>
-                      </td>
                       <td className="px-2 py-2">
                         <button
                           type="button"
-                          onClick={() => setViewRecord(rec)}
-                          className="bg-[#196A86] px-2 py-1 text-[11px] font-bold text-white hover:bg-[#15586f]"
+                          onClick={() => handleViewRecord(rec)}
+                          className={cn(
+                            'flex items-center gap-1 px-2 py-1 text-[11px] font-bold uppercase text-white',
+                            isPendingDischarge(rec)
+                              ? 'bg-[#f97316] hover:bg-[#ea580c]'
+                              : 'bg-[#196A86] hover:bg-[#15586f]',
+                          )}
                         >
+                          <Eye className="h-3 w-3" />
                           View
                         </button>
                       </td>
@@ -426,10 +507,6 @@ export default function CollateralPage() {
           record={viewRecord}
           onClose={() => setViewRecord(null)}
           onSaved={() => {
-            setViewRecord(null);
-            refreshList(false);
-          }}
-          onDeleted={() => {
             setViewRecord(null);
             refreshList(false);
           }}

@@ -1,6 +1,6 @@
 import axiosInstance from './axiosInstance';
 import { mapHirePurchaseFormToApi } from '@/lib/registryPayloads';
-import { unwrapApiData } from '@/lib/parsePaginatedApi';
+import { parsePaginatedList, unwrapApiData } from '@/lib/parsePaginatedApi';
 import type {
   ApiResponse,
   HirePurchaseDashboard,
@@ -28,6 +28,9 @@ function mapHirePurchaseRecord(
         record.purchaser_company ??
         0,
     ),
+    asset_description: String(
+      record.description ?? `${record.make ?? ''} ${record.model ?? ''}`.trim(),
+    ),
     asset_make: String(record.make ?? record.asset_make ?? ''),
     asset_model: String(record.model ?? record.asset_model ?? ''),
     asset_type: String(record.asset_type ?? ''),
@@ -37,6 +40,7 @@ function mapHirePurchaseRecord(
     reg_serial_number: String(
       record.mv_registration_number ??
         record.serial_number ??
+        record.primary_identifier ??
         record.reg_serial_number ??
         '',
     ),
@@ -71,15 +75,16 @@ export const hirePurchaseApi = {
   getDashboard: async (params?: {
     financier_id?: number;
   }): Promise<HirePurchaseDashboard> => {
-    const { data } = await axiosInstance.get<
-      ApiResponse<HirePurchaseDashboard>
-    >('/hire-purchase/stats/', { params });
-    return data.data ?? (data as unknown as HirePurchaseDashboard);
+    const { data } = await axiosInstance.get('/hire-purchase/stats/', {
+      params,
+    });
+    return unwrapApiData<HirePurchaseDashboard>(data);
   },
 
   getRecords: async (params?: {
     financier_id?: number;
     search?: string;
+    search_field?: string;
     page?: number;
     page_size?: number;
   }): Promise<{ records: HirePurchaseRecord[]; count: number }> => {
@@ -88,24 +93,10 @@ export const hirePurchaseApi = {
       ...rest,
       ...(financier_id ? { financier: financier_id } : {}),
     };
-    const { data } = await axiosInstance.get<any>('/hire-purchase/', {
+    const { data } = await axiosInstance.get('/hire-purchase/', {
       params: queryParams,
     });
-    const payload = data?.data ?? data;
-    const recordsRaw = payload?.results ?? payload?.data ?? payload ?? [];
-    const count =
-      typeof payload?.count === 'number'
-        ? payload.count
-        : Array.isArray(recordsRaw)
-          ? recordsRaw.length
-          : 0;
-    const records = Array.isArray(recordsRaw)
-      ? recordsRaw.map((record: Record<string, unknown>) =>
-          mapHirePurchaseRecord(record),
-        )
-      : [];
-
-    return { records, count };
+    return parsePaginatedList(data, mapHirePurchaseRecord);
   },
 
   getRecord: async (id: number): Promise<HirePurchaseRecord> => {

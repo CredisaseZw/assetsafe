@@ -21,6 +21,8 @@ import { HirePurchaseViewModal } from '@/components/hire-purchase/HirePurchaseVi
 import { NumberedPaginationFooter } from '@/components/shared/NumberedPaginationFooter';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import { invalidateRegistryQueries } from '@/lib/registryCache';
+import { registryQueryOptions } from '@/lib/registryQueryOptions';
+import { useAuthStore } from '@/store';
 import type { HirePurchaseRecord } from '@/types';
 
 const PAGE_SIZE = 20;
@@ -30,6 +32,20 @@ type HirePurchaseSortOption =
   | 'date-asc'
   | 'name-asc'
   | 'name-desc';
+
+type HirePurchaseSearchField = 'agreement_number' | 'purchaser' | 'reg_serial_number';
+
+const SEARCH_FIELD_OPTIONS: { value: HirePurchaseSearchField; label: string }[] = [
+  { value: 'agreement_number', label: 'Agreement Number' },
+  { value: 'purchaser', label: 'Purchaser Name' },
+  { value: 'reg_serial_number', label: 'Reg/Serial Number' },
+];
+
+const SEARCH_FIELD_PLACEHOLDERS: Record<HirePurchaseSearchField, string> = {
+  agreement_number: 'Search by agreement number...',
+  purchaser: 'Search by purchaser name...',
+  reg_serial_number: 'Search by reg/serial number...',
+};
 
 /** Agreement end date has passed (matches backend pending-closure logic). */
 function isExpired(rec: HirePurchaseRecord): boolean {
@@ -47,8 +63,13 @@ function isExpired(rec: HirePurchaseRecord): boolean {
 
 export default function HirePurchasePage() {
   const queryClient = useQueryClient();
+  const authReady = useAuthStore((s) => s.authReady);
+  const [searchField, setSearchField] =
+    useState<HirePurchaseSearchField>('agreement_number');
   const [searchValue, setSearchValue] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
+  const [appliedSearchField, setAppliedSearchField] =
+    useState<HirePurchaseSearchField>('agreement_number');
   const [sortOption, setSortOption] =
     useState<HirePurchaseSortOption>('date-desc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -61,20 +82,42 @@ export default function HirePurchasePage() {
   const { data: statsData } = useQuery({
     queryKey: ['hp-dashboard'],
     queryFn: () => hirePurchaseApi.getDashboard(),
+    enabled: authReady,
+    ...registryQueryOptions,
   });
 
-  const { data: recordsData, isLoading } = useQuery({
-    queryKey: ['hp-records', appliedSearch, currentPage],
+  const {
+    data: recordsData,
+    isLoading,
+    isFetching,
+  } = useQuery({
+    queryKey: ['hp-records', appliedSearch, appliedSearchField, currentPage],
     queryFn: () =>
       hirePurchaseApi.getRecords({
-        ...(appliedSearch ? { search: appliedSearch } : {}),
+        ...(appliedSearch
+          ? { search: appliedSearch, search_field: appliedSearchField }
+          : {}),
         page: currentPage,
         page_size: PAGE_SIZE,
       }),
+    enabled: authReady,
+    ...registryQueryOptions,
   });
+
+  const loadingRecords = !authReady || isLoading || isFetching;
+
+  const handleViewRecord = (rec: HirePurchaseRecord) => {
+    void queryClient.prefetchQuery({
+      queryKey: ['hire-purchase-detail', rec.id],
+      queryFn: () => hirePurchaseApi.getRecord(rec.id),
+      staleTime: 5 * 60 * 1000,
+    });
+    setViewRecord(rec);
+  };
 
   const handleSearch = () => {
     setAppliedSearch(searchValue.trim());
+    setAppliedSearchField(searchField);
     setCurrentPage(1);
   };
 
@@ -82,6 +125,8 @@ export default function HirePurchasePage() {
     if (clearFilters) {
       setSearchValue('');
       setAppliedSearch('');
+      setSearchField('agreement_number');
+      setAppliedSearchField('agreement_number');
     }
     setCurrentPage(1);
     invalidateRegistryQueries(queryClient, 'hp');
@@ -185,11 +230,24 @@ export default function HirePurchasePage() {
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#8f8f8f] px-3 py-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[12px] font-bold text-black">Search</span>
+            <select
+              value={searchField}
+              onChange={(e) =>
+                setSearchField(e.target.value as HirePurchaseSearchField)
+              }
+              className="h-7 min-w-[140px] rounded-none border border-black bg-white px-2 text-[12px]"
+            >
+              {SEARCH_FIELD_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
             <input
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="Agreement, purchaser, financier, reg..."
+              placeholder={SEARCH_FIELD_PLACEHOLDERS[searchField]}
               className="h-7 w-56 border border-black bg-white px-2 text-[12px] focus:outline-none"
             />
             <Button
@@ -208,6 +266,8 @@ export default function HirePurchasePage() {
                 onClick={() => {
                   setSearchValue('');
                   setAppliedSearch('');
+                  setSearchField('agreement_number');
+                  setAppliedSearchField('agreement_number');
                   setCurrentPage(1);
                 }}
               >
@@ -311,7 +371,7 @@ export default function HirePurchasePage() {
                 </tr>
               </thead>
               <tbody>
-                {isLoading ? (
+                {loadingRecords ? (
                   <TableSkeleton rows={8} cols={11} />
                 ) : !sortedRecords.length ? (
                   <EmptyState message="No hire purchase agreements found." />
@@ -337,7 +397,7 @@ export default function HirePurchasePage() {
                         {rec.purchaser_name}
                       </td>
                       <td className="border-r border-[#8f8f8f] px-2 py-2">
-                        {rec.asset_make} {rec.asset_model}
+                        {rec.asset_description}
                       </td>
                       <td className="border-r border-[#8f8f8f] px-2 py-2">
                         {rec.reg_serial_number}
@@ -357,7 +417,7 @@ export default function HirePurchasePage() {
                       <td className="px-2 py-2">
                         <button
                           type="button"
-                          onClick={() => setViewRecord(rec)}
+                          onClick={() => handleViewRecord(rec)}
                           className={cn(
                             'flex items-center gap-1 px-2 py-1 text-[11px] font-bold uppercase text-white',
                             isExpired(rec)
@@ -447,10 +507,6 @@ export default function HirePurchasePage() {
           record={viewRecord}
           onClose={() => setViewRecord(null)}
           onSaved={() => {
-            setViewRecord(null);
-            refreshList(false);
-          }}
-          onDeleted={() => {
             setViewRecord(null);
             refreshList(false);
           }}

@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm, useFormState, Controller } from 'react-hook-form';
 import { zodResolver } from '@/lib/zodResolver';
-import { applyApiValidationErrors, firstFormErrorMessage } from '@/lib/formErrors';
+import {
+  applyApiValidationErrors,
+  firstFormErrorMessage,
+} from '@/lib/formErrors';
 import type { FieldErrors } from 'react-hook-form';
 import { z } from 'zod';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -15,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { DateInput } from '@/components/ui/DateInput';
 import AutocompleteInput from '@/components/shared/AutocompleteInput';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { FormSectionHeader } from '@/components/shared/FormSectionHeader';
 import { FieldError } from '@/components/shared/FieldError';
 import { Modal } from '@/components/shared/Modal';
@@ -67,6 +71,17 @@ type CoreFormValues = z.infer<typeof collateralCoreSchema>;
 type StaffFormValues = z.infer<typeof staffCollateralSchema>;
 type FormValues = CoreFormValues & { financier_id?: number };
 
+function ReadOnlyField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="space-y-1">
+      <label className="text-xs font-medium text-slate-700">{label}</label>
+      <div className="flex h-8 w-full items-center rounded-sm border border-slate-200 bg-slate-50 px-2.5 text-sm text-slate-800">
+        {value || '—'}
+      </div>
+    </div>
+  );
+}
+
 interface CollateralFormProps {
   initial?: Partial<FormValues>;
   financierDisplayLabel?: string;
@@ -79,6 +94,10 @@ interface CollateralFormProps {
   onSuccessAndAddAnother?: () => void;
   isEdit?: boolean;
   recordId?: number;
+  /** Edit mode only: invoked when "Close" is clicked, to discharge the record. */
+  onDischarge?: () => void;
+  /** Edit mode only: loading state for the discharge action. */
+  dischargePending?: boolean;
 }
 
 export function CollateralForm({
@@ -92,6 +111,8 @@ export function CollateralForm({
   onSuccessAndAddAnother,
   isEdit,
   recordId,
+  onDischarge,
+  dischargePending,
 }: CollateralFormProps) {
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
@@ -116,11 +137,25 @@ export function CollateralForm({
   const isFirstFinancierClientTypeRender = useRef(true);
   const [debtorLabel, setDebtorLabel] = useState(debtorDisplayLabel ?? '');
   const isFirstDebtorTypeRender = useRef(true);
+  const [dataSourceUserId, setDataSourceUserId] = useState<
+    number | undefined
+  >();
+  const [staffDataSourceName, setStaffDataSourceName] = useState('');
+  const [staffDataSourcePosition, setStaffDataSourcePosition] = useState('');
+  const [staffDataSourceSearchLabel, setStaffDataSourceSearchLabel] =
+    useState('');
+
+  const clearDataSource = () => {
+    setDataSourceUserId(undefined);
+    setStaffDataSourceName('');
+    setStaffDataSourcePosition('');
+    setStaffDataSourceSearchLabel('');
+  };
 
   const { register, handleSubmit, control, watch, setError, setValue } =
     useForm<FormValues>({
       resolver: zodResolver(formSchema),
-      mode: 'onSubmit',
+      mode: 'onBlur',
       reValidateMode: 'onChange',
       shouldFocusError: true,
       defaultValues: {
@@ -131,9 +166,7 @@ export function CollateralForm({
         total_paid_to_date: 0,
         instalment_amount: 0,
         instalment_date: 1,
-        ...(isClientUser
-          ? {}
-          : { financier_id: clientFinancierId }),
+        ...(isClientUser ? {} : { financier_id: clientFinancierId }),
         ...initial,
       },
     });
@@ -153,6 +186,28 @@ export function CollateralForm({
   const partyTypeOptions = choices.PartyType ?? [];
   const assetTypeOptions = choices.CollateralAssetType ?? [];
   const assetConditionOptions = choices.AssetCondition ?? [];
+  const selectedFinancierId = watch('financier_id');
+
+  const { data: clientUsers = [] } = useQuery({
+    queryKey: ['collateral-client-users', selectedFinancierId],
+    queryFn: () => clientsApi.listClientUsers(Number(selectedFinancierId)),
+    enabled:
+      !isEdit &&
+      isStaff &&
+      !!selectedFinancierId &&
+      Number(selectedFinancierId) > 0,
+  });
+
+  const { data: clientDetail } = useQuery({
+    queryKey: ['collateral-client-detail', selectedFinancierId],
+    queryFn: () => clientsApi.getClient(Number(selectedFinancierId)),
+    enabled:
+      !isEdit &&
+      isStaff &&
+      financierClientType === 'individual' &&
+      !!selectedFinancierId &&
+      Number(selectedFinancierId) > 0,
+  });
 
   useEffect(() => {
     if (!watch('currency') && currencies.length > 0) {
@@ -179,7 +234,10 @@ export function CollateralForm({
 
   useEffect(() => {
     if (isStaff || user?.client_id) return;
-    void authApi.me().then(setUser).catch(() => {});
+    void authApi
+      .me()
+      .then(setUser)
+      .catch(() => {});
   }, [isStaff, user?.client_id, setUser]);
 
   useEffect(() => {
@@ -197,7 +255,7 @@ export function CollateralForm({
   ]);
 
   useEffect(() => {
-    if (isClientUser) return;
+    if (isClientUser || isEdit) return;
     if (isFirstFinancierClientTypeRender.current) {
       isFirstFinancierClientTypeRender.current = false;
       return;
@@ -205,10 +263,46 @@ export function CollateralForm({
     setValue('financier_id', 0 as unknown as number);
     setFinancierLabel('');
     setAddClientOpen(false);
-  }, [financierClientType, isClientUser, setValue]);
+  }, [financierClientType, isClientUser, isEdit, setValue]);
+
+  useEffect(() => {
+    if (isEdit || isClientUser) return;
+    clearDataSource();
+  }, [selectedFinancierId, isEdit, isClientUser]);
+
+  useEffect(() => {
+    if (
+      isEdit ||
+      !isStaff ||
+      financierClientType !== 'individual' ||
+      !clientDetail
+    ) {
+      return;
+    }
+    const details = clientDetail.client_details;
+    const individualName =
+      (details?.full_name ??
+        `${details?.first_name ?? ''} ${details?.last_name ?? ''}`.trim()) ||
+      clientDetail.name;
+    setStaffDataSourceName(individualName);
+    setStaffDataSourceSearchLabel(individualName);
+    setStaffDataSourcePosition('');
+  }, [clientDetail, financierClientType, isEdit, isStaff]);
+
+  useEffect(() => {
+    if (isEdit || !isStaff || financierClientType !== 'individual') return;
+    if (clientUsers.length === 1) {
+      const linkedUser = clientUsers[0];
+      setDataSourceUserId(linkedUser.id);
+      if (linkedUser.position) {
+        setStaffDataSourcePosition(linkedUser.position);
+      }
+    }
+  }, [clientUsers, financierClientType, isEdit, isStaff]);
 
   const watchedDebtorType = watch('debtor_type');
   useEffect(() => {
+    if (isEdit) return;
     if (isFirstDebtorTypeRender.current) {
       isFirstDebtorTypeRender.current = false;
       return;
@@ -217,7 +311,24 @@ export function CollateralForm({
     setDebtorLabel('');
     setAddIndividualOpen(false);
     setAddCompanyOpen(false);
-  }, [watchedDebtorType, setValue]);
+  }, [watchedDebtorType, isEdit, setValue]);
+
+  useEffect(() => {
+    if (debtorDisplayLabel) {
+      setDebtorLabel(debtorDisplayLabel);
+    }
+  }, [debtorDisplayLabel]);
+
+  useEffect(() => {
+    if (financierDisplayLabel) {
+      setFinancierLabel(financierDisplayLabel);
+    }
+  }, [financierDisplayLabel]);
+
+  const debtorTypeLabel =
+    partyTypeOptions.find(
+      (option: { value: string }) => option.value === watchedDebtorType,
+    )?.label ?? watchedDebtorType;
 
   const watchedAssetType = watch('asset_type');
   const isVehicle = watchedAssetType === 'vehicles';
@@ -225,6 +336,8 @@ export function CollateralForm({
     (watch('loan_amount') ?? 0) - (watch('total_paid_to_date') ?? 0);
 
   const [addAnother, setAddAnother] = useState(false);
+  const [confirmingUpdate, setConfirmingUpdate] = useState(false);
+  const [pendingSubmit, setPendingSubmit] = useState<FormValues | null>(null);
 
   const { mutate: submit, isPending } = useMutation({
     mutationFn: (data: FormValues) =>
@@ -232,6 +345,8 @@ export function CollateralForm({
         ? collateralApi.updateRecord(recordId, data as any)
         : collateralApi.createRecord(data as any),
     onSuccess: () => {
+      setConfirmingUpdate(false);
+      setPendingSubmit(null);
       if (addAnother && onSuccessAndAddAnother) {
         onSuccessAndAddAnother();
       } else {
@@ -239,6 +354,7 @@ export function CollateralForm({
       }
     },
     onError: (err: unknown) => {
+      setConfirmingUpdate(false);
       setAddAnother(false);
       if (!applyApiValidationErrors(setError, err)) {
         const data = (
@@ -254,31 +370,111 @@ export function CollateralForm({
   const onInvalid = (formErrors: FieldErrors<FormValues>) => {
     setAddAnother(false);
     toast.error(
-      firstFormErrorMessage(formErrors) ??
-        'Please fix the highlighted fields',
+      firstFormErrorMessage(formErrors) ?? 'Please fix the highlighted fields',
     );
   };
 
+  const buildSubmitPayload = (data: FormValues) => {
+    const payload = isClientUser
+      ? ({ ...data, financier_id: clientFinancierId } as StaffFormValues)
+      : (data as StaffFormValues);
+
+    if (isStaff && !isEdit && dataSourceUserId) {
+      return { ...payload, data_source_user_id: dataSourceUserId };
+    }
+    return payload;
+  };
+
+  const performSubmit = (data: FormValues) => {
+    submit(buildSubmitPayload(data) as any);
+  };
+
+  const validateStaffDataSource = () => {
+    if (
+      !isStaff ||
+      isEdit ||
+      !selectedFinancierId ||
+      Number(selectedFinancierId) <= 0
+    ) {
+      return true;
+    }
+    if (financierClientType === 'company' && !dataSourceUserId) {
+      toast.error(
+        'Please select a data source user for this company financier.',
+      );
+      return false;
+    }
+    return true;
+  };
+
   const onFormSubmit = handleSubmit((data) => {
-    if (isClientUser) {
-      if (!clientFinancierId) {
-        toast.error(
-          'Unable to load your financier profile. Please refresh and try again.',
-        );
-        return;
-      }
-      submit({ ...data, financier_id: clientFinancierId } as StaffFormValues);
+    if (isClientUser && !clientFinancierId) {
+      toast.error(
+        'Unable to load your financier profile. Please refresh and try again.',
+      );
       return;
     }
-    submit(data as StaffFormValues);
+    if (!validateStaffDataSource()) return;
+    if (isEdit) {
+      setPendingSubmit(data);
+      setConfirmingUpdate(true);
+      return;
+    }
+    performSubmit(data);
   }, onInvalid);
+
+  const handleConfirmUpdate = () => {
+    if (pendingSubmit) {
+      performSubmit(pendingSubmit);
+    }
+  };
 
   return (
     <>
       <form onSubmit={onFormSubmit} className="bg-white" noValidate>
         {/* ── Financier Section ── */}
         <FormSectionHeader title="Financier" variant="teal" />
-        {isClientUser ? (
+        {isEdit ? (
+          <>
+            <div className="grid grid-cols-2 gap-3 p-4 pb-2 sm:grid-cols-4">
+              <div className="col-span-2">
+                <ReadOnlyField
+                  label="Financier Name"
+                  value={financierLabel || financierDisplayLabel || ''}
+                />
+              </div>
+              <Controller
+                name="data_date"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <DateInput
+                    label="Data Date"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    error={fieldState.error?.message}
+                    required
+                    disabled
+                  />
+                )}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3 px-4 pb-4 sm:grid-cols-4">
+              <div className="col-span-2">
+                <ReadOnlyField
+                  label="Data Source Name"
+                  value={dataSourceDisplayLabel ?? user?.name ?? ''}
+                />
+              </div>
+              <div className="col-span-2">
+                <ReadOnlyField
+                  label="Position"
+                  value={dataSourcePositionLabel ?? user?.position ?? ''}
+                />
+              </div>
+            </div>
+          </>
+        ) : isClientUser ? (
           <>
             <div className="grid grid-cols-2 gap-3 p-4 pb-2 sm:grid-cols-4">
               <div className="col-span-2 space-y-1">
@@ -308,6 +504,7 @@ export function CollateralForm({
                     onBlur={field.onBlur}
                     error={fieldState.error?.message}
                     required
+                    disabled
                   />
                 )}
               />
@@ -318,9 +515,7 @@ export function CollateralForm({
                   Data Source Name
                 </label>
                 <div className="flex h-8 w-full items-center rounded-sm border border-slate-200 bg-slate-50 px-2.5 text-sm text-slate-800">
-                  {isEdit
-                    ? (dataSourceDisplayLabel ?? user?.name ?? '—')
-                    : (user?.name ?? '—')}
+                  {user?.name ?? '—'}
                 </div>
               </div>
               <div className="col-span-2 space-y-1">
@@ -328,9 +523,7 @@ export function CollateralForm({
                   Position
                 </label>
                 <div className="flex h-8 w-full items-center rounded-sm border border-slate-200 bg-slate-50 px-2.5 text-sm text-slate-800">
-                  {isEdit
-                    ? (dataSourcePositionLabel ?? user?.position ?? '—')
-                    : (user?.position ?? '—')}
+                  {user?.position ?? '—'}
                 </div>
               </div>
             </div>
@@ -397,10 +590,61 @@ export function CollateralForm({
                     onBlur={field.onBlur}
                     error={fieldState.error?.message}
                     required
+                    disabled
                   />
                 )}
               />
             </div>
+            {selectedFinancierId && Number(selectedFinancierId) > 0 ? (
+              <div className="grid grid-cols-2 gap-3 px-4 pb-4 sm:grid-cols-4">
+                <div className="col-span-2">
+                  {financierClientType === 'company' ? (
+                    <AutocompleteInput
+                      label="Data Source Name"
+                      placeholder="Search user under client..."
+                      queryKey={`collateral-data-source-${selectedFinancierId}`}
+                      displayLabel={staffDataSourceSearchLabel}
+                      minChars={1}
+                      fetchFn={async (q) => {
+                        const term = q.trim().toLowerCase();
+                        if (!term) return [];
+                        return clientUsers
+                          .filter(
+                            (u) =>
+                              u.name.toLowerCase().includes(term) ||
+                              (u.position?.toLowerCase().includes(term) ??
+                                false),
+                          )
+                          .map((u) => ({
+                            id: u.id,
+                            name: u.name,
+                            subtitle: u.position,
+                          }));
+                      }}
+                      value={dataSourceUserId}
+                      onChange={(id) => {
+                        const selected = clientUsers.find((u) => u.id === id);
+                        setDataSourceUserId(id);
+                        setStaffDataSourceName(selected?.name ?? '');
+                        setStaffDataSourcePosition(selected?.position ?? '');
+                        setStaffDataSourceSearchLabel(selected?.name ?? '');
+                      }}
+                    />
+                  ) : (
+                    <ReadOnlyField
+                      label="Data Source Name"
+                      value={staffDataSourceName}
+                    />
+                  )}
+                </div>
+                <div className="col-span-2">
+                  <ReadOnlyField
+                    label="Position"
+                    value={staffDataSourcePosition}
+                  />
+                </div>
+              </div>
+            ) : null}
             {isStaff && (
               <div className="flex gap-2 px-4 pb-4">
                 <Button
@@ -419,70 +663,84 @@ export function CollateralForm({
 
         {/* ── Debtor Section ── */}
         <FormSectionHeader title="Debtor" variant="teal" />
-        <div className="flex gap-2 px-4 pt-2 pb-1">
-          <Button
-            type="button"
-            size="sm"
-            variant="primary"
-            leftIcon={<UserPlus className="h-3 w-3" />}
-            onClick={() => setAddIndividualOpen(true)}
-          >
-            + Add Individual
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            leftIcon={<Building className="h-3 w-3" />}
-            onClick={() => setAddCompanyOpen(true)}
-          >
-            + Add Company
-          </Button>
-        </div>
-        <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
-          <div>
-            <label className="text-xs font-medium text-slate-600">
-              Debtor Type
-            </label>
-            <select
-              {...register('debtor_type')}
-              className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
-              disabled={!partyTypeOptions.length}
+        {!isEdit && (
+          <div className="flex gap-2 px-4 pt-2 pb-1">
+            <Button
+              type="button"
+              size="sm"
+              variant="primary"
+              leftIcon={<UserPlus className="h-3 w-3" />}
+              onClick={() => setAddIndividualOpen(true)}
             >
-              <option value="">
-                {partyTypeOptions.length ? 'Select type...' : 'Loading...'}
-              </option>
-              {partyTypeOptions.map((option: any) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
+              + Add Individual
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              leftIcon={<Building className="h-3 w-3" />}
+              onClick={() => setAddCompanyOpen(true)}
+            >
+              + Add Company
+            </Button>
+          </div>
+        )}
+        {isEdit ? (
+          <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
+            <ReadOnlyField label="Debtor Type" value={debtorTypeLabel} />
+            <div className="col-span-3">
+              <ReadOnlyField
+                label="Debtor"
+                value={debtorLabel || debtorDisplayLabel || ''}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
+            <div>
+              <label className="text-xs font-medium text-slate-600">
+                Debtor Type
+              </label>
+              <select
+                {...register('debtor_type')}
+                className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
+                disabled={!partyTypeOptions.length}
+              >
+                <option value="">
+                  {partyTypeOptions.length ? 'Select type...' : 'Loading...'}
                 </option>
-              ))}
-            </select>
+                {partyTypeOptions.map((option: any) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-span-3">
+              <Controller
+                name="debtor_id"
+                control={control}
+                render={({ field }) => (
+                  <AutocompleteInput
+                    label="Name / ID / Reg. No."
+                    placeholder="Search debtor..."
+                    queryKey={`collateral-debtor-${watch('debtor_type')}`}
+                    displayLabel={debtorLabel}
+                    fetchFn={(q) =>
+                      watch('debtor_type') === 'company'
+                        ? companiesApi.searchBranches(q)
+                        : individualsApi.searchIndividuals(q)
+                    }
+                    error={errors.debtor_id?.message}
+                    value={field.value}
+                    onBlur={field.onBlur}
+                    onChange={(v) => field.onChange(Number(v))}
+                  />
+                )}
+              />
+            </div>
           </div>
-          <div className="col-span-3">
-            <Controller
-              name="debtor_id"
-              control={control}
-              render={({ field }) => (
-                <AutocompleteInput
-                  label="Name / ID / Reg. No."
-                  placeholder="Search debtor..."
-                  queryKey={`collateral-debtor-${watch('debtor_type')}`}
-                  displayLabel={debtorLabel}
-                  fetchFn={(q) =>
-                    watch('debtor_type') === 'company'
-                      ? companiesApi.searchBranches(q)
-                      : individualsApi.searchIndividuals(q)
-                  }
-                  error={errors.debtor_id?.message}
-                  value={field.value}
-                  onBlur={field.onBlur}
-                  onChange={(v) => field.onChange(Number(v))}
-                />
-              )}
-            />
-          </div>
-        </div>
+        )}
 
         {/* ── Agreement & Asset Details ── */}
         <FormSectionHeader title="Agreement & Asset Details" variant="dark" />
@@ -664,34 +922,53 @@ export function CollateralForm({
 
         {/* ── Footer ── */}
         <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-3">
-          <Button type="button" variant="ghost" onClick={onCancel}>
-            {onSuccessAndAddAnother ? 'Done' : 'Cancel'}
-          </Button>
-          <div className="flex gap-2">
-            {onSuccessAndAddAnother && !isEdit && (
+          {isEdit ? (
+            <>
               <Button
                 type="submit"
                 variant="secondary"
-                loading={isPending && addAnother}
-                disabled={isPending && !addAnother}
-                onClick={() => setAddAnother(true)}
+                loading={isPending}
+                onClick={() => setAddAnother(false)}
               >
-                Save & Add Another
+                Update
               </Button>
-            )}
-            <Button
-              type="submit"
-              loading={isPending && !addAnother}
-              disabled={isPending && addAnother}
-              onClick={() => setAddAnother(false)}
-            >
-              {isEdit
-                ? 'Save Changes'
-                : onSuccessAndAddAnother
-                  ? 'Save'
-                  : 'Upload'}
-            </Button>
-          </div>
+              <Button
+                type="button"
+                variant="danger"
+                loading={dischargePending}
+                onClick={onDischarge}
+              >
+                Close
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button type="button" variant="ghost" onClick={onCancel}>
+                {onSuccessAndAddAnother ? 'Done' : 'Cancel'}
+              </Button>
+              <div className="flex gap-2">
+                {onSuccessAndAddAnother && (
+                  <Button
+                    type="submit"
+                    variant="secondary"
+                    loading={isPending && addAnother}
+                    disabled={isPending && !addAnother}
+                    onClick={() => setAddAnother(true)}
+                  >
+                    Save & Add Another
+                  </Button>
+                )}
+                <Button
+                  type="submit"
+                  loading={isPending && !addAnother}
+                  disabled={isPending && addAnother}
+                  onClick={() => setAddAnother(false)}
+                >
+                  {onSuccessAndAddAnother ? 'Save' : 'Upload'}
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </form>
 
@@ -746,6 +1023,20 @@ export function CollateralForm({
           }}
         />
       </Modal>
+
+      <ConfirmDialog
+        open={confirmingUpdate}
+        title="Confirm Update"
+        message="Are you sure you want to save these changes?"
+        confirmLabel="Yes, Update"
+        variant="primary"
+        loading={isPending}
+        onConfirm={handleConfirmUpdate}
+        onCancel={() => {
+          setConfirmingUpdate(false);
+          setPendingSubmit(null);
+        }}
+      />
     </>
   );
 }

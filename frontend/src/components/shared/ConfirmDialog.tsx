@@ -1,0 +1,68 @@
+import { Modal } from './Modal';
+import { Button } from '@/components/ui/button';
+
+interface ConfirmDialogProps {
+  open: boolean;
+  title?: string;
+  message: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  variant?: 'danger' | 'primary' | 'secondary' | 'success';
+  loading?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+/**
+ * App-styled replacement for the browser's native `window.confirm()`, so
+ * confirmation prompts match the rest of the UI instead of looking like a
+ * stock OS alert box.
+ *
+ * Render as a sibling of other modals (not nested inside them) so the
+ * backdrop and z-index behave correctly.
+ */
+export function ConfirmDialog({
+  open,
+  title = 'Please Confirm',
+  message,
+  confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
+  variant = 'danger',
+  loading = false,
+  onConfirm,
+  onCancel,
+}: ConfirmDialogProps) {
+  if (!open) return null;
+
+  return (
+    <Modal
+      open={open}
+      onClose={loading ? () => {} : onCancel}
+      title={title}
+      size="sm"
+      disableBackdropClose
+    >
+      <div className="space-y-4 bg-white p-5">
+        <p className="text-sm leading-relaxed text-slate-700">{message}</p>
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200 pt-3">
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={loading}
+            onClick={onCancel}
+          >
+            {cancelLabel}
+          </Button>
+          <Button
+            type="button"
+            variant={variant}
+            loading={loading}
+            onClick={onConfirm}
+          >
+            {confirmLabel}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}

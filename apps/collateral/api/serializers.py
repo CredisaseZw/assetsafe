@@ -35,6 +35,7 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
     debtor_display = serializers.SerializerMethodField(read_only=True)
     data_source_display = serializers.SerializerMethodField(read_only=True)
     data_source_position = serializers.SerializerMethodField(read_only=True)
+    data_source_user_id = serializers.IntegerField(write_only=True, required=False)
     currency = serializers.SlugRelatedField(
         slug_field="code",
         queryset=Currency.objects.all(),
@@ -82,6 +83,7 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
             "debtor_display",
             "data_source_display",
             "data_source_position",
+            "data_source_user_id",
         ]
         read_only_fields = [
             "id",
@@ -386,7 +388,36 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        validated_data["created_by"] = self.context["request"].user
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        request_user = self.context["request"].user
+        data_source_user_id = validated_data.pop("data_source_user_id", None)
+
+        if request_user.is_staff and data_source_user_id:
+            try:
+                data_source_user = User.objects.get(pk=data_source_user_id)
+            except User.DoesNotExist as exc:
+                raise serializers.ValidationError(
+                    {"data_source_user_id": "Invalid data source user."}
+                ) from exc
+
+            financier = validated_data.get("financier")
+            if (
+                not financier
+                or data_source_user.client_id != getattr(financier, "pk", financier)
+            ):
+                raise serializers.ValidationError(
+                    {
+                        "data_source_user_id": (
+                            "Data source user must belong to the selected financier."
+                        )
+                    }
+                )
+            validated_data["created_by"] = data_source_user
+        else:
+            validated_data["created_by"] = request_user
+
         return super().create(validated_data)
 
     @transaction.atomic

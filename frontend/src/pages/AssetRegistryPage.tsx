@@ -1,7 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowDown, ArrowUp, ArrowUpDown, Plus, Search } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Layers,
+  Plus,
+  Search,
+} from 'lucide-react';
 import { assetRegistryApi } from '@/api/assetRegistryApi';
 import { commonApi } from '@/api/commonApi';
 import { queryOptions } from '@/api/queryOptions';
@@ -29,7 +36,10 @@ export default function AssetRegistryPage() {
   const [sortOption, setSortOption] = useState<AssetSortOption>('date-desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [addOpen, setAddOpen] = useState(false);
+  const [addMultipleOpen, setAddMultipleOpen] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [viewRecord, setViewRecord] = useState<AssetRecord | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: choices = {} } = useQuery({
     queryKey: ['common-choices'],
@@ -192,15 +202,42 @@ export default function AssetRegistryPage() {
             </Button>
           </div>
 
-          <Button
-            size="sm"
-            variant="success"
-            leftIcon={<Plus className="h-3.5 w-3.5" />}
-            onClick={() => setAddOpen(true)}
-            className="h-7 rounded-none px-3 text-[12px] font-bold"
-          >
-            Add Single
-          </Button>
+          <div className="flex gap-1">
+            <Button
+              size="sm"
+              variant="success"
+              leftIcon={<Plus className="h-3.5 w-3.5" />}
+              onClick={() => setAddOpen(true)}
+              className="h-7 rounded-none px-3 text-[12px] font-bold"
+            >
+              Add Single
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              leftIcon={<Layers className="h-3.5 w-3.5" />}
+              onClick={() => fileInputRef.current?.click()}
+              className="h-7 rounded-none px-3 text-[12px] font-bold"
+            >
+              Add Multiple
+            </Button>
+            {/* Hidden file input — CSV / Excel only */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                if (file) {
+                  setUploadFile(file);
+                  setAddMultipleOpen(true);
+                }
+                // reset so the same file can be re-selected if needed
+                e.target.value = '';
+              }}
+            />
+          </div>
         </div>
 
         <div className="shrink-0 bg-[#7f7a7b] px-3 py-1 text-center text-[14px] font-bold uppercase text-white">
@@ -232,7 +269,7 @@ export default function AssetRegistryPage() {
                     </button>
                   </th>
                   <th className="px-2 py-2 font-bold text-black">
-                    Regist. No.
+                    Registor. No.
                   </th>
                   <th className="px-2 py-2 font-bold text-black">
                     <button
@@ -253,12 +290,14 @@ export default function AssetRegistryPage() {
                     </button>
                   </th>
                   <th className="px-2 py-2 font-bold text-black">
-                    Description
+                    Asset Description
                   </th>
-                  <th className="px-2 py-2 font-bold text-black">Reg/Serial</th>
+                  <th className="px-2 py-2 font-bold text-black">
+                    Reg/Serial Number
+                  </th>
                   <th className="px-2 py-2 font-bold text-black">Currency</th>
                   <th className="px-2 py-2 font-bold text-black text-right">
-                    Est. Value
+                    Estimate Value
                   </th>
                   <th className="px-2 py-2 font-bold text-black">
                     Sub. Start Date
@@ -354,6 +393,45 @@ export default function AssetRegistryPage() {
           }}
           onCancel={() => setAddOpen(false)}
         />
+      </Modal>
+
+      <Modal
+        open={addMultipleOpen}
+        onClose={() => {
+          setAddMultipleOpen(false);
+          setUploadFile(null);
+        }}
+        title="Upload Multiple Records"
+        size="sm"
+      >
+        <div className="flex flex-col gap-4 p-6">
+          <div className="flex items-center gap-3 rounded border border-slate-200 bg-slate-50 px-4 py-3">
+            <Layers className="h-5 w-5 shrink-0 text-slate-400" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-slate-800">
+                {uploadFile?.name}
+              </p>
+              <p className="text-xs text-slate-500">
+                {uploadFile ? (uploadFile.size / 1024).toFixed(1) + ' KB' : ''}
+              </p>
+            </div>
+          </div>
+          <p className="text-sm text-slate-500">
+            Import functionality coming soon. Your file has been selected and is
+            ready for processing.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setAddMultipleOpen(false);
+                setUploadFile(null);
+              }}
+            >
+              Close
+            </Button>
+          </div>
+        </div>
       </Modal>
 
       {viewRecord && (

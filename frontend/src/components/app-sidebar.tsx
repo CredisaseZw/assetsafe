@@ -73,13 +73,6 @@ export function AppSidebar() {
           <SidebarGroupLabel>Dashboard</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {isStaff ? (
-                <SidebarNavLink
-                  to="/registry"
-                  icon={Package}
-                  label="Asset Registry"
-                />
-              ) : null}
               <SidebarNavLink
                 to="/collateral"
                 icon={Landmark}
@@ -90,6 +83,13 @@ export function AppSidebar() {
                 icon={HandCoins}
                 label="Hire Purchase Registry"
               />
+              {isStaff ? (
+                <SidebarNavLink
+                  to="/registry"
+                  icon={Package}
+                  label="Asset Registry"
+                />
+              ) : null}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
