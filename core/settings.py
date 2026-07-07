@@ -284,11 +284,11 @@ SIMPLE_JWT = {
 }
 
 # CSRF Settings
-CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",")
+CSRF_TRUSTED_ORIGINS = getenv_list("CSRF_TRUSTED_ORIGINS")
 
 # CORS Settings
 # https://github.com/adamchainz/django-cors-headers
-CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+CORS_ALLOWED_ORIGINS = getenv_list("CORS_ALLOWED_ORIGINS")
 CORS_ALLOW_CREDENTIALS = True  # Allow cookies to be sent
 CORS_ALLOW_HEADERS = [
     "content-type",
