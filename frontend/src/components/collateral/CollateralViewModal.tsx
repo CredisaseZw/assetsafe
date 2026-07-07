@@ -180,7 +180,7 @@ export function CollateralViewModal({
 
       <ConfirmDialog
         open={confirmingDischarge}
-        title="Confirm Close"
+        title="Confirm Discharge"
         message="Are you sure you want to mark this collateral as discharged?"
         confirmLabel="Yes, Discharge"
         variant="danger"
