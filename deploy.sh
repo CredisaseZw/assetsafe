@@ -1,15 +1,15 @@
 #!/bin/bash
 set -e 
 
-echo "Starting deployment at $(date)"
+#echo "Starting deployment at $(date)"
 
 # Stash local changes
-git stash
+#git stash
 
 DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
 COMPOSE_FILE="docker-compose.prod.yml"
 
-git pull origin "$DEPLOY_BRANCH"
+#git pull origin "$DEPLOY_BRANCH"
 
 # Bring down containers
 docker compose -f "$COMPOSE_FILE" down --remove-orphans
