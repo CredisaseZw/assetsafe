@@ -20,7 +20,12 @@ import { Modal } from '@/components/shared/Modal';
 import { HirePurchaseForm } from '@/components/hire-purchase/HirePurchaseForm';
 import { HirePurchaseViewModal } from '@/components/hire-purchase/HirePurchaseViewModal';
 import { NumberedPaginationFooter } from '@/components/shared/NumberedPaginationFooter';
-import { cn, formatCurrency, formatDate, formatDollarAmount } from '@/lib/utils';
+import {
+  cn,
+  formatCurrency,
+  formatDate,
+  formatDollarAmount,
+} from '@/lib/utils';
 import { invalidateRegistryQueries } from '@/lib/registryCache';
 import { registryQueryOptions } from '@/lib/registryQueryOptions';
 import { useAuthStore } from '@/store';

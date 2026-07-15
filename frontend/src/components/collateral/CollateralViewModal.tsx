@@ -128,10 +128,7 @@ export function CollateralViewModal({
                     detail?.asset_category ?? record.asset_category,
                   ),
                 ],
-                [
-                  'Asset Type',
-                  detail?.asset_type || record.asset_type || '—',
-                ],
+                ['Asset Type', detail?.asset_type || record.asset_type || '—'],
                 ['Year', detail?.asset_year ?? record.asset_year],
                 [
                   'Condition',

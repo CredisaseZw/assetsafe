@@ -11,7 +11,8 @@ import {
   Plus,
   Search,
 } from 'lucide-react';
-import { collateralApi } from '@/api/collateralApi';import { InlineStat } from '@/components/shared/InlineStat';
+import { collateralApi } from '@/api/collateralApi';
+import { InlineStat } from '@/components/shared/InlineStat';
 import { TableSkeleton } from '@/components/shared/TableSkeleton';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Button } from '@/components/ui/button';

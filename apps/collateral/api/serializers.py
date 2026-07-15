@@ -22,7 +22,6 @@ from apps.common.utils.lookups import ensure_valid_lookup_value
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from django.core.exceptions import ValidationError as DjangoValidationError
 
-
 # ---------------------------------------------------------------------------
 # Collateral Registry serializers
 # ---------------------------------------------------------------------------
@@ -418,9 +417,8 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
                 ) from exc
 
             financier = validated_data.get("financier")
-            if (
-                not financier
-                or data_source_user.client_id != getattr(financier, "pk", financier)
+            if not financier or data_source_user.client_id != getattr(
+                financier, "pk", financier
             ):
                 raise serializers.ValidationError(
                     {

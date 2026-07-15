@@ -93,10 +93,7 @@ function NavSubLink({
   );
 }
 
-function pathIsActive(
-  pathname: string,
-  paths: readonly string[],
-): boolean {
+function pathIsActive(pathname: string, paths: readonly string[]): boolean {
   return paths.some(
     (path) => pathname === path || pathname.startsWith(`${path}/`),
   );
@@ -168,11 +165,7 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               </Collapsible>
 
-              <SidebarNavLink
-                to="/reports"
-                icon={BarChart3}
-                label="Reports"
-              />
+              <SidebarNavLink to="/reports" icon={BarChart3} label="Reports" />
 
               {isSuperuser ? (
                 <Collapsible

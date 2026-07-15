@@ -568,7 +568,10 @@ export function HirePurchaseForm({
               </div>
               <div className="col-span-2">
                 {(user?.position ?? '').trim() ? (
-                  <ReadOnlyField label="Position" value={user?.position ?? ''} />
+                  <ReadOnlyField
+                    label="Position"
+                    value={user?.position ?? ''}
+                  />
                 ) : (
                   <Input
                     label="Position"

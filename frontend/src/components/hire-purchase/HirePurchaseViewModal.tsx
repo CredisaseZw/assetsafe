@@ -119,10 +119,7 @@ export function HirePurchaseViewModal({
                     detail?.asset_category ?? record.asset_category,
                   ),
                 ],
-                [
-                  'Asset Type',
-                  detail?.asset_type || record.asset_type || '—',
-                ],
+                ['Asset Type', detail?.asset_type || record.asset_type || '—'],
                 [
                   'Reg/Serial',
                   detail?.reg_serial_number || record.reg_serial_number,
