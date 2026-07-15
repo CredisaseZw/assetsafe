@@ -15,9 +15,27 @@ export interface ChoiceOption {
 export interface CommonChoicesResponse {
   PartyType?: ChoiceOption[];
   BaseAssetType?: ChoiceOption[];
+  CollateralAssetCategory?: ChoiceOption[];
   CollateralAssetType?: ChoiceOption[];
   AssetCondition?: ChoiceOption[];
+  CustodyType?: ChoiceOption[];
   IdentificationType?: ChoiceOption[];
+}
+
+export type ManagedChoiceCategory =
+  | 'PartyType'
+  | 'BaseAssetType'
+  | 'AssetCondition'
+  | 'CollateralAssetCategory';
+
+export interface ManagedChoice {
+  id: number;
+  category: ManagedChoiceCategory;
+  value: string;
+  label: string;
+  is_system: boolean;
+  is_active: boolean;
+  sort_order: number;
 }
 
 export const commonApi = {
@@ -32,5 +50,43 @@ export const commonApi = {
     const { data } =
       await axiosInstance.get<CommonChoicesResponse>('/common/choices/');
     return data;
+  },
+
+  listManagedChoices: async (params?: {
+    category?: ManagedChoiceCategory;
+    active_only?: boolean;
+  }): Promise<ManagedChoice[]> => {
+    const { data } = await axiosInstance.get<ManagedChoice[]>(
+      '/common/managed-choices/',
+      {
+        params: {
+          ...(params?.category ? { category: params.category } : {}),
+          active_only:
+            params?.active_only === undefined
+              ? true
+              : params.active_only
+                ? 'true'
+                : 'false',
+        },
+      },
+    );
+    return data ?? [];
+  },
+
+  createManagedChoice: async (payload: {
+    category: ManagedChoiceCategory;
+    value: string;
+    label: string;
+    sort_order?: number;
+  }): Promise<ManagedChoice> => {
+    const { data } = await axiosInstance.post<ManagedChoice>(
+      '/common/managed-choices/',
+      payload,
+    );
+    return data;
+  },
+
+  deleteManagedChoice: async (id: number): Promise<void> => {
+    await axiosInstance.delete(`/common/managed-choices/${id}/`);
   },
 };

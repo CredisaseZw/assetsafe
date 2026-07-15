@@ -46,6 +46,7 @@ export interface CollateralRecord {
   debtor_type: OwnerType;
   debtor_id: number;
   asset_description: string;
+  asset_category: string;
   asset_type: string;
   asset_make: string;
   asset_model: string;
@@ -86,6 +87,7 @@ export interface CollateralFormData {
   debtor_type: OwnerType;
   debtor_id: number;
   agreement_number: string;
+  asset_category: string;
   asset_type: string;
   asset_make: string;
   asset_model: string;
@@ -117,6 +119,7 @@ export interface HirePurchaseRecord {
   asset_description: string;
   asset_make: string;
   asset_model: string;
+  asset_category: string;
   asset_type: string;
   asset_year: number;
   asset_condition: AssetCondition;
@@ -143,6 +146,7 @@ export interface HirePurchaseDashboard {
   number_of_financiers: number;
   active_agreements: number;
   pending_closure_confirmation: number;
+  total_active_loan_value: number;
   records: HirePurchaseRecord[];
 }
 
@@ -152,6 +156,7 @@ export interface HirePurchaseFormData {
   purchaser_type: OwnerType;
   purchaser_id: number;
   agreement_number: string;
+  asset_category: string;
   asset_type: string;
   asset_make: string;
   asset_model: string;
@@ -181,6 +186,7 @@ export interface AssetRecord {
   owner_id: number;
   owner_asset_number: string;
   asset_description: string;
+  asset_category: string;
   asset_type: string;
   asset_make: string;
   asset_model: string;
@@ -208,6 +214,7 @@ export interface AssetFormData {
   owner_type: OwnerType;
   owner_id: number;
   owner_asset_number: string;
+  asset_category: string;
   asset_type: string;
   asset_make: string;
   asset_model: string;

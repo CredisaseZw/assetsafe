@@ -12,6 +12,10 @@ from rest_framework import serializers
 
 from apps.hire_purchase.models import HirePurchaseRegistration
 from apps.common.models import Currency
+from apps.common.models.models import LookupOption
+from apps.common.utils.lookups import ensure_valid_lookup_value
+from rest_framework.exceptions import ValidationError as DRFValidationError
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 # ---------------------------------------------------------------------------
 # Hire Purchase serializers
@@ -52,6 +56,7 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
             "purchaser_type",
             "data_date",
             "agreement_number",
+            "asset_category",
             "asset_type",
             "make",
             "model",
@@ -130,6 +135,16 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
         if obj.created_by is None:
             return ""
         return obj.created_by.position or ""
+
+    def validate_asset_category(self, value: str) -> str:
+        try:
+            return ensure_valid_lookup_value(
+                LookupOption.CATEGORY_BASE_ASSET_TYPE,
+                value,
+                field="asset_category",
+            )
+        except DjangoValidationError as exc:
+            raise DRFValidationError(exc.message_dict) from exc
 
     # ------------------------------------------------------------------
     # Field-level validation
@@ -353,7 +368,7 @@ class HirePurchaseRegistrationListSerializer(HirePurchaseRegistrationSerializer)
 
     def get_primary_identifier(self, obj: HirePurchaseRegistration) -> str:
         """Gets the primary identifier for the asset, which is the MV registration number for vehicles or the serial number for other asset types."""
-        if obj.asset_type == "vehicles":
+        if obj.asset_category == "vehicles":
             return obj.mv_registration_number
         return obj.serial_number
 
@@ -411,3 +426,6 @@ class HirePurchaseDashboardSerializer(serializers.Serializer):
     number_of_financiers = serializers.IntegerField(min_value=0)
     active_agreements = serializers.IntegerField(min_value=0)
     pending_closure_confirmation = serializers.IntegerField(min_value=0)
+    total_active_loan_value = serializers.DecimalField(
+        max_digits=24, decimal_places=2, min_value=0
+    )

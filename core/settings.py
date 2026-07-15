@@ -119,6 +119,7 @@ INSTALLED_APPS = [
     "apps.asset_management",
     "apps.hire_purchase",
     "apps.collateral",
+    "apps.enquiries",
     "apps.users",
     "apps.individuals",
     "apps.companies",

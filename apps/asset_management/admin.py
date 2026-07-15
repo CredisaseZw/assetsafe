@@ -9,12 +9,12 @@ class AssetRegistrationAdmin(admin.ModelAdmin):
         "registration_number",
         "owner_display",
         "owner_type",
-        "asset_type",
+        "asset_category",
         "make",
         "model",
         "lodge_date",
     )
-    list_filter = ("asset_type", "owner_type", "condition", "lodge_date")
+    list_filter = ("asset_category", "owner_type", "condition", "lodge_date")
     search_fields = (
         "registration_number",
         "individual_owner__first_name",
@@ -59,6 +59,7 @@ class AssetRegistrationAdmin(admin.ModelAdmin):
             "Asset Details",
             {
                 "fields": (
+                    "asset_category",
                     "asset_type",
                     "make",
                     "model",

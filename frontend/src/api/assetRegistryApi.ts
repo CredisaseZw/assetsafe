@@ -10,7 +10,7 @@ import type {
 
 export const assetRegistryApi = {
   getDashboard: async (params?: {
-    asset_type?: string;
+    asset_category?: string;
   }): Promise<AssetRegistryDashboard> => {
     const { data } = await axiosInstance.get<
       ApiResponse<AssetRegistryDashboard>
@@ -19,13 +19,16 @@ export const assetRegistryApi = {
   },
 
   getRecords: async (params?: {
-    asset_type?: string;
+    asset_category?: string;
     search?: string;
     page?: number;
     page_size?: number;
   }): Promise<{ records: AssetRecord[]; count: number }> => {
-    const queryParams = params?.asset_type
-      ? { ...params, asset_type: toBackendAssetType(params.asset_type) }
+    const queryParams = params?.asset_category
+      ? {
+          ...params,
+          asset_category: toBackendAssetType(params.asset_category),
+        }
       : params;
     const { data } = await axiosInstance.get<any>('/asset-management/', {
       params: queryParams,
@@ -53,10 +56,11 @@ export const assetRegistryApi = {
           owner_asset_number: record.owner_asset_number ?? '',
           asset_description:
             record.description ??
-            `${record.asset_make ?? ''} ${record.asset_model ?? ''}`.trim(),
-          asset_type: toBackendAssetType(record.asset_type ?? ''),
-          asset_make: record.asset_make ?? '',
-          asset_model: record.asset_model ?? '',
+            `${record.make ?? record.asset_make ?? ''} ${record.model ?? record.asset_model ?? ''}`.trim(),
+          asset_category: toBackendAssetType(record.asset_category ?? ''),
+          asset_type: String(record.asset_type ?? ''),
+          asset_make: record.make ?? record.asset_make ?? '',
+          asset_model: record.model ?? record.asset_model ?? '',
           year_of_make: record.year_of_make ?? 0,
           condition: record.condition ?? 'new',
           mv_registration_no: record.mv_registration_number ?? '',
@@ -92,6 +96,7 @@ export const assetRegistryApi = {
       owner_id: r.individual_owner ?? r.company_owner ?? 0,
       owner_asset_number: r.owner_asset_number ?? '',
       asset_description: `${r.make ?? ''} ${r.model ?? ''}`.trim(),
+      asset_category: r.asset_category ?? '',
       asset_type: r.asset_type ?? '',
       asset_make: r.make ?? '',
       asset_model: r.model ?? '',

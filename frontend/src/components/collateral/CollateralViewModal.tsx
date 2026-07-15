@@ -74,6 +74,7 @@ export function CollateralViewModal({
                 debtor_id: detail.debtor_id,
                 agreement_number: detail.agreement_number,
                 asset_type: detail.asset_type,
+                asset_category: detail.asset_category,
                 asset_make: detail.asset_make,
                 asset_model: detail.asset_model,
                 asset_year: detail.asset_year,
@@ -122,8 +123,14 @@ export function CollateralViewModal({
                     record.asset_description,
                 ],
                 [
+                  'Asset Category',
+                  assetTypeLabel(
+                    detail?.asset_category ?? record.asset_category,
+                  ),
+                ],
+                [
                   'Asset Type',
-                  assetTypeLabel(detail?.asset_type ?? record.asset_type),
+                  detail?.asset_type || record.asset_type || '—',
                 ],
                 ['Year', detail?.asset_year ?? record.asset_year],
                 [

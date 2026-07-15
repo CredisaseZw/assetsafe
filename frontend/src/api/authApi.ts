@@ -116,6 +116,7 @@ export const authApi = {
     first_name?: string;
     last_name?: string;
     email?: string;
+    position?: string;
   }): Promise<UserProfile> => {
     const { data } = await axiosInstance.patch<UserProfile>(
       '/auth/me/',

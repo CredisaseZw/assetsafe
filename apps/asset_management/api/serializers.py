@@ -11,7 +11,11 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.common.models import BaseAssetType, Currency
+from apps.common.models.models import LookupOption
+from apps.common.utils.lookups import ensure_valid_lookup_value
 from apps.asset_management.models import AssetRegistration
+from rest_framework.exceptions import ValidationError as DRFValidationError
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 _VEHICLE_ONLY_FIELDS: tuple[str, ...] = (
     "mv_registration_number",
@@ -20,6 +24,8 @@ _VEHICLE_ONLY_FIELDS: tuple[str, ...] = (
 )
 _OWNER_TYPE_INDIVIDUAL = "individual"
 _OWNER_TYPE_COMPANY = "company"
+_CUSTODIAN_TYPE_INDIVIDUAL = "individual"
+_CUSTODIAN_TYPE_COMPANY = "company"
 _UNIQUE_ASSET_IDENTIFIER_FIELDS: tuple[tuple[str, str], ...] = (
     ("mv_registration_number", "MV registration number"),
     ("chassis_number", "chassis number"),
@@ -96,6 +102,16 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
         if obj.company_owner:
             return str(obj.company_owner)
         return None
+
+    def validate_asset_category(self, value: str) -> str:
+        try:
+            return ensure_valid_lookup_value(
+                LookupOption.CATEGORY_BASE_ASSET_TYPE,
+                value,
+                field="asset_category",
+            )
+        except DjangoValidationError as exc:
+            raise DRFValidationError(exc.message_dict) from exc
 
     # ------------------------------------------------------------------
     # Field-level validation
@@ -183,6 +199,77 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
         if owner_errors:
             raise serializers.ValidationError(owner_errors)
 
+        # --- 1b. Custody consistency (optional) ---
+        custody_type = attrs.get(
+            "custody_type",
+            getattr(self.instance, "custody_type", "") or "",
+        )
+        if "custody_type" in attrs and attrs["custody_type"] is None:
+            custody_type = ""
+
+        if custody_type:
+            custodian_type: str | None = attrs.get(
+                "custodian_type",
+                getattr(self.instance, "custodian_type", None),
+            )
+            individual_custodian = attrs.get(
+                "individual_custodian",
+                getattr(self.instance, "individual_custodian", None),
+            )
+            company_custodian = attrs.get(
+                "company_custodian",
+                getattr(self.instance, "company_custodian", None),
+            )
+            if (
+                "custodian_type" in attrs
+                and custodian_type == _CUSTODIAN_TYPE_INDIVIDUAL
+                and "company_custodian" not in attrs
+            ):
+                company_custodian = None
+            if (
+                "custodian_type" in attrs
+                and custodian_type == _CUSTODIAN_TYPE_COMPANY
+                and "individual_custodian" not in attrs
+            ):
+                individual_custodian = None
+
+            custody_errors: dict[str, str] = {}
+            if not custodian_type:
+                custody_errors["custodian_type"] = (
+                    "Custodian type is required when custody type is set."
+                )
+            elif custodian_type == _CUSTODIAN_TYPE_INDIVIDUAL:
+                if not individual_custodian:
+                    custody_errors["individual_custodian"] = (
+                        "Individual custodian is required when custodian_type is 'individual'."
+                    )
+                if company_custodian:
+                    custody_errors["company_custodian"] = (
+                        "Company custodian must be empty when custodian_type is 'individual'."
+                    )
+            elif custodian_type == _CUSTODIAN_TYPE_COMPANY:
+                if not company_custodian:
+                    custody_errors["company_custodian"] = (
+                        "Company custodian is required when custodian_type is 'company'."
+                    )
+                if individual_custodian:
+                    custody_errors["individual_custodian"] = (
+                        "Individual custodian must be empty when custodian_type is 'company'."
+                    )
+            if custody_errors:
+                raise serializers.ValidationError(custody_errors)
+        else:
+            # Clear custody relations when no custody type is recorded.
+            attrs["custodian_type"] = ""
+            attrs["individual_custodian"] = None
+            attrs["company_custodian"] = None
+            attrs.setdefault("custodian_address", "")
+            attrs.setdefault("custodian_email", "")
+            attrs.setdefault("custodian_mobile", "")
+            attrs.setdefault("custodian_telephone", "")
+            attrs.setdefault("guarantor_name", "")
+            attrs.setdefault("guarantor_identification", "")
+
         # --- 2. Normalize and validate uniqueness of asset identifiers ---
         for field_name in _IDENTIFIER_TEXT_FIELDS:
             value = attrs.get(field_name)
@@ -252,18 +339,19 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(duplicate_errors)
 
         # --- 3. Vehicle-only field guard ---
-        asset_type: str = attrs.get(
-            "asset_type",
-            getattr(self.instance, "asset_type", None),
+        asset_category: str = attrs.get(
+            "asset_category",
+            getattr(self.instance, "asset_category", None),
         )
-        if asset_type and asset_type != BaseAssetType.VEHICLES:
+        if asset_category and asset_category != BaseAssetType.VEHICLES:
             for field_name in _VEHICLE_ONLY_FIELDS:
                 if attrs.get(field_name):
                     raise serializers.ValidationError(
                         {
                             field_name: (
-                                f"'{field_name}' is only valid when asset_type is 'vehicles'. "
-                                "This field should be left blank for other asset types."
+                                f"'{field_name}' is only valid when asset_category "
+                                "is 'vehicles'. This field should be left blank "
+                                "for other asset categories."
                             )
                         }
                     )
@@ -354,7 +442,7 @@ class AssetRegistrationListSerializer(AssetRegistrationSerializer):
 
     def get_primary_identifier(self, obj: AssetRegistration) -> str:
         """Gets the primary identifier for the asset, which is the MV registration number for vehicles or the serial number for other asset types."""
-        if obj.asset_type == "vehicles":
+        if obj.asset_category == "vehicles":
             return obj.mv_registration_number
         return obj.serial_number
 

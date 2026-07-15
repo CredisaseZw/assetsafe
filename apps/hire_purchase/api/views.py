@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 
-from django.db.models import Count, Q, QuerySet
+from django.db.models import Count, Q, QuerySet, Sum
 from django.utils import timezone
 from rest_framework import filters, status
 from rest_framework.decorators import action
@@ -57,6 +57,7 @@ class HirePurchaseRegistrationViewSet(BaseViewSet):
     ]
 
     filterset_fields: list[str] = [
+        "asset_category",
         "asset_type",
         "financier",
         "purchaser_type",
@@ -79,6 +80,7 @@ class HirePurchaseRegistrationViewSet(BaseViewSet):
             "mv_registration_number",
             "chassis_number",
         ],
+        "financier": ["financier__name"],
     }
     DEFAULT_SEARCH_FIELDS: list[str] = [
         "agreement_number",
@@ -261,14 +263,12 @@ class HirePurchaseRegistrationViewSet(BaseViewSet):
             request.user,
         )
 
-        # Single aggregate call for the two count metrics. `active_agreements`
+        active_filter = Q(agreement_end_date__gte=today, closure_confirmed=False)
+        # Single aggregate call for the headline metrics. `active_agreements`
         # excludes already-closed records so it can never disagree with the
         # main table, which only ever shows open (non-closed) agreements.
         aggregates: dict = qs.aggregate(
-            active_agreements=Count(
-                "id",
-                filter=Q(agreement_end_date__gte=today, closure_confirmed=False),
-            ),
+            active_agreements=Count("id", filter=active_filter),
             pending_closure_confirmation=Count(
                 "id",
                 filter=Q(
@@ -276,7 +276,10 @@ class HirePurchaseRegistrationViewSet(BaseViewSet):
                     closure_confirmed=False,
                 ),
             ),
+            total_active_loan_value=Sum("purchase_amount", filter=active_filter),
         )
+        if aggregates["total_active_loan_value"] is None:
+            aggregates["total_active_loan_value"] = 0
 
         # Distinct-financier count: cannot be folded into the aggregate above
         # without a subquery, so a second lightweight query is used.

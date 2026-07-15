@@ -6,6 +6,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { HirePurchaseForm } from './HirePurchaseForm';
 import type { HirePurchaseRecord } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { assetTypeLabel } from '@/lib/assetTypes';
 import { Button } from '@/components/ui/button';
 import { Edit } from 'lucide-react';
 import { hirePurchaseApi } from '@/api/hirePurchaseApi';
@@ -73,6 +74,7 @@ export function HirePurchaseViewModal({
                 purchaser_id: detail.purchaser_id,
                 agreement_number: detail.agreement_number,
                 asset_type: detail.asset_type,
+                asset_category: detail.asset_category,
                 asset_make: detail.asset_make,
                 asset_model: detail.asset_model,
                 asset_year: detail.asset_year,
@@ -111,7 +113,16 @@ export function HirePurchaseViewModal({
                   `${detail?.asset_make ?? ''} ${detail?.asset_model ?? ''}`.trim() ||
                     record.asset_description,
                 ],
-                ['Asset Type', detail?.asset_type ?? record.asset_type],
+                [
+                  'Asset Category',
+                  assetTypeLabel(
+                    detail?.asset_category ?? record.asset_category,
+                  ),
+                ],
+                [
+                  'Asset Type',
+                  detail?.asset_type || record.asset_type || '—',
+                ],
                 [
                   'Reg/Serial',
                   detail?.reg_serial_number || record.reg_serial_number,

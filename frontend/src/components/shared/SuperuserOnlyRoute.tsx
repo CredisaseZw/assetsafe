@@ -9,7 +9,7 @@ export function SuperuserOnlyRoute({ children }: SuperuserOnlyRouteProps) {
   const isSuperuser = useIsSuperuser();
 
   if (!isSuperuser) {
-    return <Navigate to="/collateral" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;

@@ -9,7 +9,7 @@ export function StaffOnlyRoute({ children }: StaffOnlyRouteProps) {
   const isStaff = useIsStaff();
 
   if (!isStaff) {
-    return <Navigate to="/collateral" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;

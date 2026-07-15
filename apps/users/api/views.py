@@ -13,6 +13,7 @@ from django.contrib.auth import get_user_model
 from django.http import HttpResponse
 from django.db import transaction
 from django.core.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
@@ -47,6 +48,26 @@ User = get_user_model()
 from django.utils import timezone
 
 
+def _friendly_login_message(raw: str) -> str:
+    """Map technical auth failures to clear, user-facing copy."""
+    text = (raw or "").strip()
+    lower = text.lower()
+
+    if "not verified" in lower:
+        return "Account not verified. Please verify your account."
+    if (
+        "no active account" in lower
+        or "given credentials" in lower
+        or "invalid credentials" in lower
+        or "authentication failed" in lower
+        or "unable to log in" in lower
+    ):
+        return "Invalid username or password."
+    if text:
+        return text
+    return "Invalid username or password."
+
+
 class LoginView(APIView):
     """
     Custom login view that handles cookie setting properly.
@@ -77,26 +98,57 @@ class LoginView(APIView):
 
             return response
 
+        except DRFValidationError as e:
+            detail = e.detail
+            # Prefer a plain error string for the frontend login banner.
+            if isinstance(detail, dict):
+                non_field = detail.get("non_field_errors")
+                if isinstance(non_field, (list, tuple)) and non_field:
+                    message = str(non_field[0])
+                else:
+                    first = next(iter(detail.values()), None)
+                    message = (
+                        str(first[0])
+                        if isinstance(first, (list, tuple)) and first
+                        else str(detail)
+                    )
+            elif isinstance(detail, (list, tuple)) and detail:
+                message = str(detail[0])
+            else:
+                message = str(detail)
+
+            message = _friendly_login_message(message)
+            status_code = (
+                status.HTTP_403_FORBIDDEN
+                if "not verified" in message.lower()
+                else status.HTTP_401_UNAUTHORIZED
+            )
+            logger.error("Login error: %s", detail)
+            return Response(
+                {
+                    "error": message,
+                    "detail": message,
+                    "non_field_errors": [message],
+                },
+                status=status_code,
+            )
+
         except Exception as e:
             logger.error(f"Login error: {str(e)}")
-
-            # Handle specific error cases
-            error_message = str(e)
-            if "not verified" in error_message.lower():
-                return Response(
-                    {"error": "Account not verified. Please verify your account."},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-            elif "credentials" in error_message.lower():
-                return Response(
-                    {"error": "Invalid credentials"},
-                    status=status.HTTP_401_UNAUTHORIZED,
-                )
-            else:
-                return Response(
-                    {"error": "Authentication failed"},
-                    status=status.HTTP_401_UNAUTHORIZED,
-                )
+            message = _friendly_login_message(str(e))
+            status_code = (
+                status.HTTP_403_FORBIDDEN
+                if "not verified" in message.lower()
+                else status.HTTP_401_UNAUTHORIZED
+            )
+            return Response(
+                {
+                    "error": message,
+                    "detail": message,
+                    "non_field_errors": [message],
+                },
+                status=status_code,
+            )
 
 
 class LogoutView(APIView):

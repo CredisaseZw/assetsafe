@@ -72,6 +72,7 @@ class AssetRegistrationViewSet(BaseViewSet):
 
     # Explicit allow-list prevents consumers from filtering on arbitrary columns.
     filterset_fields: list[str] = [
+        "asset_category",
         "asset_type",
         "owner_type",
         "condition",
@@ -126,6 +127,9 @@ class AssetRegistrationViewSet(BaseViewSet):
                 "individual_owner",
                 "company_owner",
                 "company_owner__company",
+                "individual_custodian",
+                "company_custodian",
+                "company_custodian__company",
             ).all()
         )
 

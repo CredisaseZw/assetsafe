@@ -1,0 +1,64 @@
+# Schema: asset_category + free-text asset_type.
+# On wipe+makemigrations, recreate from models; RunPython only for existing DBs.
+
+from django.db import migrations, models
+
+
+def copy_asset_type_to_category(apps, schema_editor):
+    AssetRegistration = apps.get_model("asset_management", "AssetRegistration")
+    for row in AssetRegistration.objects.all().iterator():
+        if row.asset_type and not getattr(row, "asset_category", None):
+            row.asset_category = row.asset_type
+            row.asset_type = ""
+            row.save(update_fields=["asset_category", "asset_type"])
+
+
+def reverse_copy(apps, schema_editor):
+    AssetRegistration = apps.get_model("asset_management", "AssetRegistration")
+    for row in AssetRegistration.objects.all().iterator():
+        if row.asset_category and not row.asset_type:
+            row.asset_type = row.asset_category
+            row.save(update_fields=["asset_type"])
+
+
+class Migration(migrations.Migration):
+    dependencies = [
+        ("asset_management", "0005_managed_lookup_options"),
+    ]
+
+    operations = [
+        migrations.AddField(
+            model_name="assetregistration",
+            name="asset_category",
+            field=models.CharField(
+                blank=True,
+                db_index=True,
+                default="",
+                help_text="High-level category from managed base asset types.",
+                max_length=50,
+                verbose_name="Asset Category",
+            ),
+        ),
+        migrations.AlterField(
+            model_name="assetregistration",
+            name="asset_type",
+            field=models.CharField(
+                blank=True,
+                default="",
+                help_text="Free-text subtype describing the asset within its category.",
+                max_length=100,
+                verbose_name="Asset Type",
+            ),
+        ),
+        migrations.RunPython(copy_asset_type_to_category, reverse_copy),
+        migrations.AlterField(
+            model_name="assetregistration",
+            name="asset_category",
+            field=models.CharField(
+                db_index=True,
+                help_text="High-level category from managed base asset types.",
+                max_length=50,
+                verbose_name="Asset Category",
+            ),
+        ),
+    ]

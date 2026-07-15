@@ -31,6 +31,7 @@ import { useAuthStore } from '@/store';
 import { isStaffUser } from '@/lib/registryNav';
 import { cn } from '@/lib/utils';
 import { authApi } from '@/api/authApi';
+import { usersApi } from '@/api/usersApi';
 
 const collateralCoreSchema = z.object({
   data_date: z.string().min(1, 'Required'),
@@ -39,7 +40,8 @@ const collateralCoreSchema = z.object({
     .number({ error: 'Debtor is required' })
     .min(1, 'Debtor is required'),
   agreement_number: z.string().min(1, 'Required'),
-  asset_type: z.string().min(1, 'Select asset type'),
+  asset_category: z.string().min(1, 'Select asset category'),
+  asset_type: z.string().optional().default(''),
   asset_make: z.string().min(1, 'Required'),
   asset_model: z.string().min(1, 'Required'),
   asset_year: z.coerce.number().min(1900).max(2100),
@@ -144,12 +146,14 @@ export function CollateralForm({
   const [staffDataSourcePosition, setStaffDataSourcePosition] = useState('');
   const [staffDataSourceSearchLabel, setStaffDataSourceSearchLabel] =
     useState('');
+  const [positionOverride, setPositionOverride] = useState('');
 
   const clearDataSource = () => {
     setDataSourceUserId(undefined);
     setStaffDataSourceName('');
     setStaffDataSourcePosition('');
     setStaffDataSourceSearchLabel('');
+    setPositionOverride('');
   };
 
   const { register, handleSubmit, control, watch, setError, setValue } =
@@ -162,6 +166,8 @@ export function CollateralForm({
         debtor_type: 'individual',
         data_date: new Date().toISOString().split('T')[0],
         currency: '',
+        asset_category: '',
+        asset_type: '',
         asset_year: new Date().getFullYear(),
         total_paid_to_date: 0,
         instalment_amount: 0,
@@ -184,7 +190,8 @@ export function CollateralForm({
   });
 
   const partyTypeOptions = choices.PartyType ?? [];
-  const assetTypeOptions = choices.CollateralAssetType ?? [];
+  const assetCategoryOptions =
+    choices.CollateralAssetCategory ?? choices.CollateralAssetType ?? [];
   const assetConditionOptions = choices.AssetCondition ?? [];
   const selectedFinancierId = watch('financier_id');
 
@@ -330,8 +337,8 @@ export function CollateralForm({
       (option: { value: string }) => option.value === watchedDebtorType,
     )?.label ?? watchedDebtorType;
 
-  const watchedAssetType = watch('asset_type');
-  const isVehicle = watchedAssetType === 'vehicles';
+  const watchedAssetCategory = watch('asset_category');
+  const isVehicle = watchedAssetCategory === 'vehicles';
   const computedBalance =
     (watch('loan_amount') ?? 0) - (watch('total_paid_to_date') ?? 0);
 
@@ -385,7 +392,35 @@ export function CollateralForm({
     return payload;
   };
 
-  const performSubmit = (data: FormValues) => {
+  const persistBlankDataSourcePosition = async () => {
+    if (isEdit) return;
+    const override = positionOverride.trim();
+    if (!override) return;
+
+    if (isClientUser) {
+      if (!(user?.position ?? '').trim() && user?.id) {
+        await authApi.updateProfile({ position: override });
+        useAuthStore.getState().setUser({
+          ...user,
+          position: override,
+        });
+      }
+      return;
+    }
+
+    if (dataSourceUserId && !staffDataSourcePosition.trim()) {
+      await usersApi.update(dataSourceUserId, { position: override });
+      setStaffDataSourcePosition(override);
+    }
+  };
+
+  const performSubmit = async (data: FormValues) => {
+    try {
+      await persistBlankDataSourcePosition();
+    } catch {
+      toast.error('Could not save data source position');
+      return;
+    }
     submit(buildSubmitPayload(data) as any);
   };
 
@@ -522,9 +557,19 @@ export function CollateralForm({
                 <label className="text-xs font-medium text-slate-700">
                   Position
                 </label>
-                <div className="flex h-8 w-full items-center rounded-sm border border-slate-200 bg-slate-50 px-2.5 text-sm text-slate-800">
-                  {user?.position ?? '—'}
-                </div>
+                {(user?.position ?? '').trim() ? (
+                  <div className="flex h-8 w-full items-center rounded-sm border border-slate-200 bg-slate-50 px-2.5 text-sm text-slate-800">
+                    {user?.position}
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    value={positionOverride}
+                    onChange={(e) => setPositionOverride(e.target.value)}
+                    placeholder="Enter position"
+                    className="mt-0 h-8 w-full rounded-sm border border-slate-300 bg-white px-2.5 text-sm text-slate-900 focus:border-[#0f7d8e] focus:outline-none"
+                  />
+                )}
               </div>
             </div>
           </>
@@ -628,6 +673,7 @@ export function CollateralForm({
                         setStaffDataSourceName(selected?.name ?? '');
                         setStaffDataSourcePosition(selected?.position ?? '');
                         setStaffDataSourceSearchLabel(selected?.name ?? '');
+                        setPositionOverride('');
                       }}
                     />
                   ) : (
@@ -638,10 +684,19 @@ export function CollateralForm({
                   )}
                 </div>
                 <div className="col-span-2">
-                  <ReadOnlyField
-                    label="Position"
-                    value={staffDataSourcePosition}
-                  />
+                  {staffDataSourcePosition.trim() ? (
+                    <ReadOnlyField
+                      label="Position"
+                      value={staffDataSourcePosition}
+                    />
+                  ) : (
+                    <Input
+                      label="Position"
+                      value={positionOverride}
+                      onChange={(e) => setPositionOverride(e.target.value)}
+                      placeholder="Enter position"
+                    />
+                  )}
                 </div>
               </div>
             ) : null}
@@ -753,24 +808,31 @@ export function CollateralForm({
           />
           <div>
             <label className="text-xs font-medium text-slate-600">
-              Asset Type<span className="text-red-500 ml-0.5">*</span>
+              Asset Category<span className="text-red-500 ml-0.5">*</span>
             </label>
             <select
-              {...register('asset_type')}
+              {...register('asset_category')}
               className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
-              disabled={!assetTypeOptions.length}
+              disabled={!assetCategoryOptions.length}
             >
               <option value="">
-                {assetTypeOptions.length ? 'Click to select...' : 'Loading...'}
+                {assetCategoryOptions.length
+                  ? 'Click to select...'
+                  : 'Loading...'}
               </option>
-              {assetTypeOptions.map((t: any) => (
+              {assetCategoryOptions.map((t: any) => (
                 <option key={t.value} value={t.value}>
                   {t.label}
                 </option>
               ))}
             </select>
-            <FieldError message={errors.asset_type?.message} />
+            <FieldError message={errors.asset_category?.message} />
           </div>
+          <Input
+            label="Asset Type"
+            {...register('asset_type')}
+            error={errors.asset_type?.message}
+          />
           <Input
             label="Make"
             {...register('asset_make')}

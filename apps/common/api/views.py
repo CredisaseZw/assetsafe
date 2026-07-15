@@ -3,8 +3,9 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.exceptions import ValidationError
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from apps.common.models import (
     Country,
@@ -12,10 +13,9 @@ from apps.common.models import (
     City,
     Suburb,
     Currency,
-    PartyType,
-    BaseAssetType,
     CollateralAssetType,
-    AssetCondition,
+    CustodyType,
+    LookupOption,
 )
 from apps.individuals.models import Individual
 from apps.common.api.serializers import (
@@ -26,8 +26,10 @@ from apps.common.api.serializers import (
     SuburbSerializer,
     SuburbViewSerializer,
 )
+from apps.common.api.lookup_serializers import LookupOptionSerializer
 from rest_framework.renderers import JSONRenderer
 from apps.common.utils.caching import CacheService
+from apps.common.utils.lookups import list_lookup_choices
 import logging
 
 logger = logging.getLogger("locations")
@@ -362,39 +364,154 @@ class CurrencyViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = None
 
 
+class LookupOptionViewSet(viewsets.ModelViewSet):
+    """
+    Manage PartyType / BaseAssetType / AssetCondition options.
+
+    - List/retrieve: any authenticated user
+    - Create/delete: staff only
+    - System-seeded rows cannot be deleted
+    - In-use values cannot be deleted
+    """
+
+    serializer_class = LookupOptionSerializer
+    pagination_class = None
+    http_method_names = ["get", "post", "delete", "head", "options"]
+
+    def get_permissions(self):
+        if self.action in ("create", "destroy"):
+            return [IsAuthenticated(), IsAdminUser()]
+        return [IsAuthenticated()]
+
+    def get_queryset(self):
+        qs = LookupOption.objects.all().order_by("category", "sort_order", "label")
+        category = self.request.query_params.get("category")
+        if category:
+            qs = qs.filter(category=category)
+        active_only = self.request.query_params.get("active_only", "true").lower()
+        if active_only in ("1", "true", "yes"):
+            qs = qs.filter(is_active=True)
+        return qs
+
+    def perform_destroy(self, instance: LookupOption) -> None:
+        if instance.is_system:
+            raise ValidationError(
+                {"detail": "System lookup options cannot be deleted."}
+            )
+        if self._option_in_use(instance):
+            raise ValidationError(
+                {
+                    "detail": (
+                        f"Cannot delete '{instance.value}' because it is still "
+                        "referenced by one or more records."
+                    )
+                }
+            )
+        instance.delete()
+
+    @staticmethod
+    def _option_in_use(option: LookupOption) -> bool:
+        from apps.asset_management.models import AssetRegistration
+        from apps.collateral.models.models import CollateralRegistration
+        from apps.hire_purchase.models.models import HirePurchaseRegistration
+
+        value = option.value
+        if option.category == LookupOption.CATEGORY_PARTY_TYPE:
+            return (
+                AssetRegistration.objects.filter(
+                    Q(owner_type=value) | Q(custodian_type=value)
+                ).exists()
+                or CollateralRegistration.objects.filter(debtor_type=value).exists()
+                or HirePurchaseRegistration.objects.filter(
+                    purchaser_type=value
+                ).exists()
+            )
+        if option.category == LookupOption.CATEGORY_BASE_ASSET_TYPE:
+            return (
+                AssetRegistration.objects.filter(asset_category=value).exists()
+                or HirePurchaseRegistration.objects.filter(
+                    asset_category=value
+                ).exists()
+            )
+        if option.category == LookupOption.CATEGORY_COLLATERAL_ASSET_CATEGORY:
+            return CollateralRegistration.objects.filter(
+                asset_category=value
+            ).exists()
+        if option.category == LookupOption.CATEGORY_ASSET_CONDITION:
+            return (
+                AssetRegistration.objects.filter(condition=value).exists()
+                or HirePurchaseRegistration.objects.filter(condition=value).exists()
+                or CollateralRegistration.objects.filter(condition=value).exists()
+            )
+        return False
+
+
 class CommonChoicesView(APIView):
     """
     Returns available lookup choices for enumeration fields like
     PartyType, BaseAssetType, CollateralAssetType, AssetCondition.
 
+    PartyType, BaseAssetType, and AssetCondition are served from
+    ``LookupOption`` (manageable via /api/common/managed-choices/).
+
     Query parameters:
-    ?types=PartyTypeis(comma separated list to only return requested types)
+    ?types=PartyType (comma separated list to only return requested types)
     """
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
         all_choices = {
-            "PartyType": [
-                {"value": choice.value, "label": choice.label} for choice in PartyType
-            ],
-            "BaseAssetType": [
+            "PartyType": list_lookup_choices(LookupOption.CATEGORY_PARTY_TYPE),
+            "BaseAssetType": list_lookup_choices(
+                LookupOption.CATEGORY_BASE_ASSET_TYPE
+            ),
+            "CollateralAssetCategory": list_lookup_choices(
+                LookupOption.CATEGORY_COLLATERAL_ASSET_CATEGORY
+            ),
+            # Alias for older clients still requesting CollateralAssetType.
+            "CollateralAssetType": list_lookup_choices(
+                LookupOption.CATEGORY_COLLATERAL_ASSET_CATEGORY
+            ),
+            "AssetCondition": list_lookup_choices(
+                LookupOption.CATEGORY_ASSET_CONDITION
+            ),
+            "CustodyType": [
                 {"value": choice.value, "label": choice.label}
-                for choice in BaseAssetType
-            ],
-            "CollateralAssetType": [
-                {"value": choice.value, "label": choice.label}
-                for choice in CollateralAssetType
-            ],
-            "AssetCondition": [
-                {"value": choice.value, "label": choice.label}
-                for choice in AssetCondition
+                for choice in CustodyType
             ],
             "IdentificationType": [
                 {"value": value, "label": label}
                 for value, label in Individual.IDENTIFICATION_TYPES
             ],
         }
+
+        # Fallback to TextChoices if lookup table has not been seeded yet.
+        if not all_choices["PartyType"]:
+            from apps.common.models import PartyType
+
+            all_choices["PartyType"] = [
+                {"value": c.value, "label": c.label} for c in PartyType
+            ]
+        if not all_choices["BaseAssetType"]:
+            from apps.common.models import BaseAssetType
+
+            all_choices["BaseAssetType"] = [
+                {"value": c.value, "label": c.label} for c in BaseAssetType
+            ]
+        if not all_choices["CollateralAssetCategory"]:
+            all_choices["CollateralAssetCategory"] = [
+                {"value": c.value, "label": c.label} for c in CollateralAssetType
+            ]
+            all_choices["CollateralAssetType"] = all_choices[
+                "CollateralAssetCategory"
+            ]
+        if not all_choices["AssetCondition"]:
+            from apps.common.models import AssetCondition
+
+            all_choices["AssetCondition"] = [
+                {"value": c.value, "label": c.label} for c in AssetCondition
+            ]
 
         requested_types = request.query_params.get("types")
         if requested_types:

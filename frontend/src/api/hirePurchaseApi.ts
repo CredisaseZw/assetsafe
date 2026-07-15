@@ -33,6 +33,7 @@ function mapHirePurchaseRecord(
     ),
     asset_make: String(record.make ?? record.asset_make ?? ''),
     asset_model: String(record.model ?? record.asset_model ?? ''),
+    asset_category: String(record.asset_category ?? ''),
     asset_type: String(record.asset_type ?? ''),
     asset_year: Number(record.year_of_make ?? record.asset_year ?? 0),
     asset_condition:

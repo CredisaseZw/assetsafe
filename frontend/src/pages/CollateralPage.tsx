@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   ArrowDown,
@@ -10,8 +11,7 @@ import {
   Plus,
   Search,
 } from 'lucide-react';
-import { collateralApi } from '@/api/collateralApi';
-import { InlineStat } from '@/components/shared/InlineStat';
+import { collateralApi } from '@/api/collateralApi';import { InlineStat } from '@/components/shared/InlineStat';
 import { TableSkeleton } from '@/components/shared/TableSkeleton';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Button } from '@/components/ui/button';
@@ -73,6 +73,7 @@ function isPendingDischarge(rec: CollateralRecord): boolean {
 
 export default function CollateralPage() {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const authReady = useAuthStore((s) => s.authReady);
   const [searchField, setSearchField] =
     useState<CollateralSearchField>('agreement_number');
@@ -88,6 +89,15 @@ export default function CollateralPage() {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [viewRecord, setViewRecord] = useState<CollateralRecord | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get('add') === '1') {
+      setAddOpen(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('add');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const { data: statsData } = useQuery({
     queryKey: ['collateral-dashboard'],

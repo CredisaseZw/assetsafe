@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   ArrowDown,
@@ -19,7 +20,7 @@ import { Modal } from '@/components/shared/Modal';
 import { HirePurchaseForm } from '@/components/hire-purchase/HirePurchaseForm';
 import { HirePurchaseViewModal } from '@/components/hire-purchase/HirePurchaseViewModal';
 import { NumberedPaginationFooter } from '@/components/shared/NumberedPaginationFooter';
-import { cn, formatCurrency, formatDate } from '@/lib/utils';
+import { cn, formatCurrency, formatDate, formatDollarAmount } from '@/lib/utils';
 import { invalidateRegistryQueries } from '@/lib/registryCache';
 import { registryQueryOptions } from '@/lib/registryQueryOptions';
 import { useAuthStore } from '@/store';
@@ -36,7 +37,8 @@ type HirePurchaseSortOption =
 type HirePurchaseSearchField =
   | 'agreement_number'
   | 'purchaser'
-  | 'reg_serial_number';
+  | 'reg_serial_number'
+  | 'financier';
 
 const SEARCH_FIELD_OPTIONS: {
   value: HirePurchaseSearchField;
@@ -45,12 +47,14 @@ const SEARCH_FIELD_OPTIONS: {
   { value: 'agreement_number', label: 'Agreement Number' },
   { value: 'purchaser', label: 'Purchaser Name' },
   { value: 'reg_serial_number', label: 'Reg/Serial Number' },
+  { value: 'financier', label: 'Financier' },
 ];
 
 const SEARCH_FIELD_PLACEHOLDERS: Record<HirePurchaseSearchField, string> = {
   agreement_number: 'Search by agreement number...',
   purchaser: 'Search by purchaser name...',
   reg_serial_number: 'Search by reg/serial number...',
+  financier: 'Search by financier name...',
 };
 
 /** Agreement end date has passed (matches backend pending-closure logic). */
@@ -69,6 +73,7 @@ function isExpired(rec: HirePurchaseRecord): boolean {
 
 export default function HirePurchasePage() {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const authReady = useAuthStore((s) => s.authReady);
   const [searchField, setSearchField] =
     useState<HirePurchaseSearchField>('agreement_number');
@@ -84,6 +89,15 @@ export default function HirePurchasePage() {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [viewRecord, setViewRecord] = useState<HirePurchaseRecord | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get('add') === '1') {
+      setAddOpen(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('add');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const { data: statsData } = useQuery({
     queryKey: ['hp-dashboard'],
@@ -230,6 +244,10 @@ export default function HirePurchasePage() {
           <InlineStat
             label="Pending Closure"
             value={statsData?.pending_closure_confirmation ?? 0}
+          />
+          <InlineStat
+            label="Active Loan Value"
+            value={formatDollarAmount(statsData?.total_active_loan_value ?? 0)}
           />
         </div>
 

@@ -47,16 +47,37 @@ export function mapBranchSearchResult(
   item: Record<string, unknown>,
 ): SearchOption {
   const company = item.company as Record<string, unknown> | undefined;
-  const branchName = String(item.branch_name ?? '');
+  const branchName = String(item.branch_name ?? '').trim();
   const companyName = String(
     company?.trading_name ?? company?.registration_name ?? '',
-  );
+  ).trim();
+  const regNo = String(company?.registration_number ?? '').trim();
+  const isHq = item.is_headquarters === true;
+
+  const branchIsDistinct =
+    Boolean(branchName) &&
+    Boolean(companyName) &&
+    !isHq &&
+    branchName.toLowerCase() !== companyName.toLowerCase() &&
+    branchName.toLowerCase() !==
+      String(company?.registration_name ?? '')
+        .trim()
+        .toLowerCase() &&
+    branchName.toLowerCase() !==
+      String(company?.trading_name ?? '')
+        .trim()
+        .toLowerCase();
+
+  const name = branchIsDistinct
+    ? `${companyName} — ${branchName}`
+    : companyName || branchName || `Branch #${item.id}`;
 
   return {
     id: Number(item.id),
-    name: branchName || companyName || `Branch #${item.id}`,
-    subtitle:
-      String(company?.registration_number ?? '') || companyName || undefined,
+    // Match Individual list labels: "Name (ID/Reg)".
+    // Reg lives in `name` only (not also as subtitle) to avoid double display.
+    name: regNo ? `${name} (${regNo})` : name,
+    subtitle: undefined,
   };
 }
 

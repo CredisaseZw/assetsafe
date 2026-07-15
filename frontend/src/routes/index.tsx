@@ -8,6 +8,10 @@ import LoginPage from '@/pages/LoginPage';
 import ForgotPasswordPage from '@/pages/ForgotPasswordPage';
 import ForgotPasswordSentPage from '@/pages/ForgotPasswordSentPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
+import DashboardPage from '@/pages/DashboardPage';
+import EnquiryTypePage from '@/pages/EnquiryTypePage';
+import EnquiryExternalPage from '@/pages/EnquiryExternalPage';
+import AssetEnquiryPage from '@/pages/AssetEnquiryPage';
 import CollateralPage from '@/pages/CollateralPage';
 import HirePurchasePage from '@/pages/HirePurchasePage';
 import AssetRegistryPage from '@/pages/AssetRegistryPage';
@@ -36,7 +40,7 @@ export const router = createBrowserRouter([
 
   {
     path: '/',
-    element: <Navigate to="/collateral" replace />,
+    element: <Navigate to="/dashboard" replace />,
   },
 
   {
@@ -48,7 +52,12 @@ export const router = createBrowserRouter([
     ),
     errorElement: <RouteError />,
     children: [
-      { index: true, element: <Navigate to="collateral" replace /> },
+      { index: true, element: <Navigate to="dashboard" replace /> },
+      { path: 'dashboard', element: <DashboardPage /> },
+      { path: 'enquiries/assets/type', element: <EnquiryTypePage /> },
+      { path: 'enquiries/assets/external', element: <EnquiryExternalPage /> },
+      { path: 'enquiries/assets/search', element: <AssetEnquiryPage /> },
+      { path: 'enquiries/assets', element: <Navigate to="/enquiries/assets/type" replace /> },
       { path: 'collateral', element: <CollateralPage /> },
       { path: 'hire-purchase', element: <HirePurchasePage /> },
       {

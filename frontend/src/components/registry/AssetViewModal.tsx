@@ -48,6 +48,7 @@ export function AssetViewModal({
               owner_type: detail.owner_type,
               owner_id: detail.owner_id,
               owner_asset_number: detail.owner_asset_number,
+              asset_category: detail.asset_category,
               asset_type: detail.asset_type,
               asset_make: detail.asset_make,
               asset_model: detail.asset_model,
@@ -83,8 +84,14 @@ export function AssetViewModal({
                   record.asset_description,
               ],
               [
+                'Asset Category',
+                assetTypeLabel(
+                  detail?.asset_category ?? record.asset_category,
+                ),
+              ],
+              [
                 'Asset Type',
-                assetTypeLabel(detail?.asset_type ?? record.asset_type),
+                detail?.asset_type || record.asset_type || '—',
               ],
               ['Year', detail?.year_of_make ?? record.year_of_make],
               ['Condition', detail?.condition ?? record.condition],

@@ -11,6 +11,7 @@ import { clientsApi } from '@/api/clientsApi';
 import { Modal } from '@/components/shared/Modal';
 import { IndividualCreateForm } from '@/components/individuals/IndividualCreateForm';
 import { CompanyCreateForm } from '@/components/companies/CompanyCreateForm';
+import { ClientCreateForm } from '@/components/clients/ClientCreateForm';
 import { Input } from '@/components/ui/input';
 import { DateInput } from '@/components/ui/DateInput';
 import AutocompleteInput from '@/components/shared/AutocompleteInput';
@@ -26,6 +27,7 @@ import { useAuthStore } from '@/store';
 import { isStaffUser } from '@/lib/registryNav';
 import { cn } from '@/lib/utils';
 import { authApi } from '@/api/authApi';
+import { usersApi } from '@/api/usersApi';
 
 const hpCoreSchema = z.object({
   data_date: z.string().min(1, 'Required'),
@@ -34,7 +36,8 @@ const hpCoreSchema = z.object({
     .number({ error: 'Purchaser is required' })
     .min(1, 'Purchaser is required'),
   agreement_number: z.string().min(1, 'Required'),
-  asset_type: z.string().min(1, 'Select asset type'),
+  asset_category: z.string().min(1, 'Select asset category'),
+  asset_type: z.string().optional().default(''),
   asset_make: z.string().min(1, 'Required'),
   asset_model: z.string().optional(),
   asset_year: z.coerce.number().min(1900).max(2100),
@@ -121,6 +124,7 @@ export function HirePurchaseForm({
 
   const [addIndividualOpen, setAddIndividualOpen] = useState(false);
   const [addCompanyOpen, setAddCompanyOpen] = useState(false);
+  const [addClientOpen, setAddClientOpen] = useState(false);
   const [financierLabel, setFinancierLabel] = useState(
     financierDisplayLabel ?? '',
   );
@@ -139,12 +143,14 @@ export function HirePurchaseForm({
   const [staffDataSourcePosition, setStaffDataSourcePosition] = useState('');
   const [staffDataSourceSearchLabel, setStaffDataSourceSearchLabel] =
     useState('');
+  const [positionOverride, setPositionOverride] = useState('');
 
   const clearDataSource = () => {
     setDataSourceUserId(undefined);
     setStaffDataSourceName('');
     setStaffDataSourcePosition('');
     setStaffDataSourceSearchLabel('');
+    setPositionOverride('');
   };
 
   const { register, control, handleSubmit, watch, reset, setValue, setError } =
@@ -157,6 +163,8 @@ export function HirePurchaseForm({
         purchaser_type: 'individual',
         data_date: new Date().toISOString().split('T')[0],
         currency: '',
+        asset_category: '',
+        asset_type: '',
         asset_year: new Date().getFullYear(),
         asset_condition: 'new',
         total_paid_to_date: 0,
@@ -179,7 +187,7 @@ export function HirePurchaseForm({
   });
 
   const partyTypeOptions = choices.PartyType ?? [];
-  const assetTypeOptions = choices.BaseAssetType ?? [];
+  const assetCategoryOptions = choices.BaseAssetType ?? [];
   const assetConditionOptions = choices.AssetCondition ?? [];
   const currentPurchaserType = watch('purchaser_type');
   const selectedFinancierId = watch('financier_id');
@@ -323,8 +331,8 @@ export function HirePurchaseForm({
     }
   }, [financierDisplayLabel]);
 
-  const watchAssetType = watch('asset_type');
-  const isVehicle = watchAssetType === 'vehicles';
+  const watchAssetCategory = watch('asset_category');
+  const isVehicle = watchAssetCategory === 'vehicles';
   const computedBalance =
     (watch('purchase_amount') ?? 0) - (watch('total_paid_to_date') ?? 0);
 
@@ -375,10 +383,38 @@ export function HirePurchaseForm({
     return withBalance;
   };
 
-  const performSubmit = (
+  const persistBlankDataSourcePosition = async () => {
+    if (isEdit) return;
+    const override = positionOverride.trim();
+    if (!override) return;
+
+    if (isClientUser) {
+      if (!(user?.position ?? '').trim() && user?.id) {
+        await authApi.updateProfile({ position: override });
+        useAuthStore.getState().setUser({
+          ...user,
+          position: override,
+        });
+      }
+      return;
+    }
+
+    if (dataSourceUserId && !staffDataSourcePosition.trim()) {
+      await usersApi.update(dataSourceUserId, { position: override });
+      setStaffDataSourcePosition(override);
+    }
+  };
+
+  const performSubmit = async (
     data: FormValues,
     options?: Parameters<typeof submit>[1],
   ) => {
+    try {
+      await persistBlankDataSourcePosition();
+    } catch {
+      toast.error('Could not save data source position');
+      return;
+    }
     submit(buildSubmitPayload(data) as any, options);
   };
 
@@ -448,29 +484,6 @@ export function HirePurchaseForm({
   return (
     <>
       <form onSubmit={onFormSubmit} className="bg-white" noValidate>
-        {!isEdit && (
-          <div className="flex gap-2 px-4 pt-4 pb-1">
-            <Button
-              type="button"
-              size="sm"
-              variant="primary"
-              leftIcon={<UserPlus className="h-3 w-3" />}
-              onClick={() => setAddIndividualOpen(true)}
-            >
-              + Add Individual
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              leftIcon={<Building className="h-3 w-3" />}
-              onClick={() => setAddCompanyOpen(true)}
-            >
-              + Add Company
-            </Button>
-          </div>
-        )}
-
         {/* ── Financier Section ── */}
         <FormSectionHeader title="Financier" variant="red" />
         {isEdit ? (
@@ -556,7 +569,16 @@ export function HirePurchaseForm({
                 />
               </div>
               <div className="col-span-2">
-                <ReadOnlyField label="Position" value={user?.position ?? ''} />
+                {(user?.position ?? '').trim() ? (
+                  <ReadOnlyField label="Position" value={user?.position ?? ''} />
+                ) : (
+                  <Input
+                    label="Position"
+                    value={positionOverride}
+                    onChange={(e) => setPositionOverride(e.target.value)}
+                    placeholder="Enter position"
+                  />
+                )}
               </div>
             </div>
           </>
@@ -662,6 +684,7 @@ export function HirePurchaseForm({
                         setStaffDataSourceName(selected?.name ?? '');
                         setStaffDataSourcePosition(selected?.position ?? '');
                         setStaffDataSourceSearchLabel(selected?.name ?? '');
+                        setPositionOverride('');
                       }}
                     />
                   ) : (
@@ -672,97 +695,126 @@ export function HirePurchaseForm({
                   )}
                 </div>
                 <div className="col-span-2">
-                  <ReadOnlyField
-                    label="Position"
-                    value={staffDataSourcePosition}
-                  />
+                  {staffDataSourcePosition.trim() ? (
+                    <ReadOnlyField
+                      label="Position"
+                      value={staffDataSourcePosition}
+                    />
+                  ) : (
+                    <Input
+                      label="Position"
+                      value={positionOverride}
+                      onChange={(e) => setPositionOverride(e.target.value)}
+                      placeholder="Enter position"
+                    />
+                  )}
                 </div>
               </div>
             ) : null}
+            {isStaff && (
+              <div className="flex gap-2 px-4 pb-4">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  leftIcon={<UserPlus className="h-3 w-3" />}
+                  onClick={() => setAddClientOpen(true)}
+                >
+                  + Add Client
+                </Button>
+              </div>
+            )}
           </>
         )}
 
         {/* ── Lessee / Purchaser Section ── */}
         <FormSectionHeader title="Lessee" variant="teal" />
-        <div className="p-4 space-y-3">
-          {isEdit ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {!isEdit && (
+          <div className="flex gap-2 px-4 pt-2 pb-1">
+            <Button
+              type="button"
+              size="sm"
+              variant="primary"
+              leftIcon={<UserPlus className="h-3 w-3" />}
+              onClick={() => setAddIndividualOpen(true)}
+            >
+              + Add Individual
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              leftIcon={<Building className="h-3 w-3" />}
+              onClick={() => setAddCompanyOpen(true)}
+            >
+              + Add Company
+            </Button>
+          </div>
+        )}
+        {isEdit ? (
+          <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
+            <ReadOnlyField label="Purchaser Type" value={purchaserTypeLabel} />
+            <div className="col-span-3">
               <ReadOnlyField
-                label="Purchaser Type"
-                value={purchaserTypeLabel}
+                label="Purchaser"
+                value={purchaserLabel || purchaserDisplayLabel || ''}
               />
-              <div className="col-span-3">
-                <ReadOnlyField
-                  label="Purchaser"
-                  value={purchaserLabel || purchaserDisplayLabel || ''}
-                />
-              </div>
             </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <div>
-                  <label className="text-xs font-medium text-slate-600">
-                    Purchaser Type
-                  </label>
-                  <select
-                    {...register('purchaser_type')}
-                    className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
-                    disabled={!partyTypeOptions.length}
-                  >
-                    <option value="">
-                      {partyTypeOptions.length
-                        ? 'Select type...'
-                        : 'Loading types...'}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
+            <div>
+              <label className="text-xs font-medium text-slate-600">
+                Purchaser Type
+              </label>
+              <select
+                {...register('purchaser_type')}
+                className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
+                disabled={!partyTypeOptions.length}
+              >
+                <option value="">
+                  {partyTypeOptions.length
+                    ? 'Select type...'
+                    : 'Loading types...'}
+                </option>
+                {partyTypeOptions.map(
+                  (option: { value: string; label: string }) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
                     </option>
-                    {partyTypeOptions.map(
-                      (option: { value: string; label: string }) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ),
-                    )}
-                  </select>
-                </div>
-              </div>
-
-              <div className="rounded border border-slate-200 bg-slate-50 p-3">
-                <p className="mb-2 text-xs font-semibold text-slate-600 uppercase">
-                  Search:{' '}
-                  {watch('purchaser_type') === 'individual'
-                    ? 'Individual'
-                    : 'Company'}
-                </p>
-                <div className="flex gap-2">
-                  <Controller
-                    name="purchaser_id"
-                    control={control}
-                    render={({ field }) => (
-                      <AutocompleteInput
-                        placeholder={
-                          watch('purchaser_type') === 'individual'
-                            ? 'Search by Name / National ID'
-                            : 'Search by Name / Reg Number'
-                        }
-                        queryKey={`hp-purchaser-${watch('purchaser_type')}`}
-                        displayLabel={purchaserLabel}
-                        fetchFn={(q) =>
-                          watch('purchaser_type') === 'company'
-                            ? companiesApi.searchBranches(q)
-                            : individualsApi.searchIndividuals(q)
-                        }
-                        value={field.value}
-                        onBlur={field.onBlur}
-                        error={errors.purchaser_id?.message}
-                        onChange={(v) => field.onChange(Number(v))}
-                      />
-                    )}
+                  ),
+                )}
+              </select>
+            </div>
+            <div className="col-span-3">
+              <Controller
+                name="purchaser_id"
+                control={control}
+                render={({ field }) => (
+                  <AutocompleteInput
+                    label="Name / ID / Reg. No."
+                    placeholder={
+                      watch('purchaser_type') === 'individual'
+                        ? 'Search by Name / National ID'
+                        : 'Search by Name / Reg Number'
+                    }
+                    queryKey={`hp-purchaser-${watch('purchaser_type')}`}
+                    displayLabel={purchaserLabel}
+                    fetchFn={(q) =>
+                      watch('purchaser_type') === 'company'
+                        ? companiesApi.searchBranches(q)
+                        : individualsApi.searchIndividuals(q)
+                    }
+                    value={field.value}
+                    onBlur={field.onBlur}
+                    error={errors.purchaser_id?.message}
+                    onChange={(v) => field.onChange(Number(v))}
                   />
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+                )}
+              />
+            </div>
+          </div>
+        )}
 
         {/* ── HP Details ── */}
         <FormSectionHeader title="Hire Purchase Details" variant="dark" />
@@ -775,24 +827,33 @@ export function HirePurchaseForm({
           />
           <div>
             <label className="text-xs font-medium text-slate-600">
-              Asset Type
+              Asset Category<span className="text-red-500 ml-0.5">*</span>
             </label>
             <select
-              {...register('asset_type')}
+              {...register('asset_category')}
               className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
-              disabled={!assetTypeOptions.length}
+              disabled={!assetCategoryOptions.length}
             >
               <option value="">
-                {assetTypeOptions.length ? 'Click to select...' : 'Loading...'}
+                {assetCategoryOptions.length
+                  ? 'Click to select...'
+                  : 'Loading...'}
               </option>
-              {assetTypeOptions.map((t: { value: string; label: string }) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
+              {assetCategoryOptions.map(
+                (t: { value: string; label: string }) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ),
+              )}
             </select>
-            <FieldError message={errors.asset_type?.message} />
+            <FieldError message={errors.asset_category?.message} />
           </div>
+          <Input
+            label="Asset Type"
+            {...register('asset_type')}
+            error={errors.asset_type?.message}
+          />
           <Input
             label="Make"
             {...register('asset_make')}
@@ -956,6 +1017,23 @@ export function HirePurchaseForm({
           )}
         </div>
       </form>
+
+      <Modal
+        open={addClientOpen}
+        onClose={() => setAddClientOpen(false)}
+        title="Add Client"
+        size="md"
+      >
+        <ClientCreateForm
+          onCancel={() => setAddClientOpen(false)}
+          initialEntityType={financierClientType}
+          onSuccess={({ id, name }) => {
+            setValue('financier_id', id, { shouldValidate: true });
+            setFinancierLabel(name);
+            setAddClientOpen(false);
+          }}
+        />
+      </Modal>
 
       <Modal
         open={addIndividualOpen}

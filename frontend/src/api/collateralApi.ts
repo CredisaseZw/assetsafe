@@ -26,6 +26,7 @@ function mapCollateralRecord(
     asset_description: String(
       record.description ?? `${record.make ?? ''} ${record.model ?? ''}`.trim(),
     ),
+    asset_category: String(record.asset_category ?? ''),
     asset_type: String(record.asset_type ?? ''),
     asset_make: String(record.make ?? ''),
     asset_model: String(record.model ?? ''),

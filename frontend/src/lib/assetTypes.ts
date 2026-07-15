@@ -9,6 +9,8 @@ const LEGACY_LABEL_TO_VALUE: Record<string, string> = {
   Shares: 'shares',
   Inventory: 'inventory',
   'Accounts Receivable': 'accounts_receivable',
+  Mobiles: 'mobiles',
+  Consoles: 'consoles',
 };
 
 const VALUE_TO_LABEL: Record<string, string> = {
@@ -22,6 +24,8 @@ const VALUE_TO_LABEL: Record<string, string> = {
   shares: 'Shares',
   inventory: 'Inventory',
   accounts_receivable: 'Accounts Receivable',
+  mobiles: 'Mobiles',
+  consoles: 'Consoles',
 };
 
 export function toBackendAssetType(value: string): string {

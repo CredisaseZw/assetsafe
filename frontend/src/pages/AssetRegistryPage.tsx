@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   ArrowDown,
@@ -30,6 +31,7 @@ type AssetSortOption = 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc';
 
 export default function AssetRegistryPage() {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [filterAssetType, setFilterAssetType] = useState('');
   const [searchText, setSearchText] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
@@ -41,18 +43,27 @@ export default function AssetRegistryPage() {
   const [viewRecord, setViewRecord] = useState<AssetRecord | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (searchParams.get('add') === '1') {
+      setAddOpen(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('add');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   const { data: choices = {} } = useQuery({
     queryKey: ['common-choices'],
     queryFn: commonApi.getChoices,
     ...queryOptions.static,
   });
-  const assetTypeOptions = choices.BaseAssetType ?? [];
+  const assetCategoryOptions = choices.BaseAssetType ?? [];
 
   const { data: statsData } = useQuery({
     queryKey: ['registry-dashboard', filterAssetType],
     queryFn: () =>
       assetRegistryApi.getDashboard(
-        filterAssetType ? { asset_type: filterAssetType } : undefined,
+        filterAssetType ? { asset_category: filterAssetType } : undefined,
       ),
   });
 
@@ -60,7 +71,7 @@ export default function AssetRegistryPage() {
     queryKey: ['registry-records', filterAssetType, appliedSearch, currentPage],
     queryFn: () =>
       assetRegistryApi.getRecords({
-        ...(filterAssetType ? { asset_type: filterAssetType } : {}),
+        ...(filterAssetType ? { asset_category: filterAssetType } : {}),
         ...(appliedSearch ? { search: appliedSearch } : {}),
         page: currentPage,
         page_size: PAGE_SIZE,
@@ -177,8 +188,8 @@ export default function AssetRegistryPage() {
               }}
               className="h-7 min-w-[120px] rounded-none border border-black bg-white px-2 text-[12px]"
             >
-              <option value="">All types</option>
-              {assetTypeOptions.map((t: any) => (
+              <option value="">All categories</option>
+              {assetCategoryOptions.map((t: any) => (
                 <option key={t.value} value={t.value}>
                   {t.label}
                 </option>
