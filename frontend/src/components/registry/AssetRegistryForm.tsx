@@ -29,7 +29,7 @@ const schema = z
       .min(1, 'Owner is required'),
     owner_asset_number: z.string().optional(),
     asset_category: z.string().min(1, 'Select asset category'),
-    asset_type: z.string().optional().default(''),
+    asset_type: z.string().min(1, 'Asset type is required'),
     asset_make: z.string().min(1, 'Required'),
     asset_model: z.string().min(1, 'Required'),
     year_of_make: z.coerce.number().min(1900).max(2100),
@@ -310,6 +310,7 @@ export function AssetRegistryForm({
             label="Asset Type"
             {...register('asset_type')}
             error={errors.asset_type?.message}
+            required
           />
           <Input
             label="Make"

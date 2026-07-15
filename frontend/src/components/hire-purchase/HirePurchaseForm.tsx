@@ -37,7 +37,7 @@ const hpCoreSchema = z.object({
     .min(1, 'Purchaser is required'),
   agreement_number: z.string().min(1, 'Required'),
   asset_category: z.string().min(1, 'Select asset category'),
-  asset_type: z.string().optional().default(''),
+  asset_type: z.string().min(1, 'Asset type is required'),
   asset_make: z.string().min(1, 'Required'),
   asset_model: z.string().optional(),
   asset_year: z.coerce.number().min(1900).max(2100),
@@ -506,7 +506,6 @@ export function HirePurchaseForm({
                     onBlur={field.onBlur}
                     error={fieldState.error?.message}
                     required
-                    disabled
                   />
                 )}
               />
@@ -556,7 +555,6 @@ export function HirePurchaseForm({
                     onBlur={field.onBlur}
                     error={fieldState.error?.message}
                     required
-                    disabled
                   />
                 )}
               />
@@ -646,7 +644,6 @@ export function HirePurchaseForm({
                     onBlur={field.onBlur}
                     error={fieldState.error?.message}
                     required
-                    disabled
                   />
                 )}
               />
@@ -853,6 +850,7 @@ export function HirePurchaseForm({
             label="Asset Type"
             {...register('asset_type')}
             error={errors.asset_type?.message}
+            required
           />
           <Input
             label="Make"
