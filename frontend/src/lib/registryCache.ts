@@ -12,6 +12,7 @@ export const registryQueryKeys = {
 export function invalidateRegistryQueries(
   queryClient: QueryClient,
   scope: 'asset' | 'collateral' | 'hp',
+  id?: number,
 ) {
   const keys =
     scope === 'asset'
@@ -25,5 +26,19 @@ export function invalidateRegistryQueries(
 
   for (const queryKey of keys) {
     void queryClient.invalidateQueries({ queryKey, refetchType: 'active' });
+  }
+
+  // If an ID is provided, also invalidate the detail query for that record
+  if (id) {
+    const detailKey =
+      scope === 'collateral'
+        ? 'collateral-detail'
+        : scope === 'hp'
+          ? 'hire-purchase-detail'
+          : 'asset-detail';
+    void queryClient.invalidateQueries({
+      queryKey: [detailKey, id],
+      refetchType: 'active',
+    });
   }
 }

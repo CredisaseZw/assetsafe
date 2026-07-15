@@ -14,7 +14,7 @@ import { invalidateRegistryQueries } from '@/lib/registryCache';
 interface HirePurchaseViewModalProps {
   record: HirePurchaseRecord;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (id?: number) => void;
 }
 
 export function HirePurchaseViewModal({
@@ -39,9 +39,9 @@ export function HirePurchaseViewModal({
       queryClient.invalidateQueries({
         queryKey: ['hire-purchase-detail', record.id],
       });
-      invalidateRegistryQueries(queryClient, 'hp');
+      invalidateRegistryQueries(queryClient, 'hp', record.id);
       setConfirmingClosure(false);
-      onSaved();
+      onSaved(record.id);
     },
     onError: (err: any) => {
       toast.error(err?.response?.data?.message ?? 'Failed to confirm closure');
@@ -89,14 +89,14 @@ export function HirePurchaseViewModal({
                 start_date: detail.start_date,
                 end_date: detail.end_date,
               }}
-              onSuccess={onSaved}
+              onSuccess={() => onSaved(record.id)}
               onCancel={() => setEditMode(false)}
               onCloseRecord={() => setConfirmingClosure(true)}
               closurePending={isConfirming}
             />
           ) : (
             <div className="flex items-center justify-center p-10 text-sm text-slate-400">
-              Loading…
+              Loading...
             </div>
           )
         ) : (

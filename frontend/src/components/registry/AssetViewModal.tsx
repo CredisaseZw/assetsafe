@@ -68,7 +68,7 @@ export function AssetViewModal({
           />
         ) : (
           <div className="flex items-center justify-center p-10 text-sm text-slate-400">
-            Loading…
+            Loading...
           </div>
         )
       ) : (

@@ -34,13 +34,17 @@ const PAGE_SIZE = 20;
 
 type CollateralSortOption = 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc';
 
-type CollateralSearchField = 'agreement_number' | 'debtor' | 'reg_serial_number';
+type CollateralSearchField =
+  | 'agreement_number'
+  | 'debtor'
+  | 'reg_serial_number';
 
-const SEARCH_FIELD_OPTIONS: { value: CollateralSearchField; label: string }[] = [
-  { value: 'agreement_number', label: 'Agreement Number' },
-  { value: 'debtor', label: 'Debtor' },
-  { value: 'reg_serial_number', label: 'Reg/Serial Number' },
-];
+const SEARCH_FIELD_OPTIONS: { value: CollateralSearchField; label: string }[] =
+  [
+    { value: 'agreement_number', label: 'Agreement Number' },
+    { value: 'debtor', label: 'Debtor' },
+    { value: 'reg_serial_number', label: 'Reg/Serial Number' },
+  ];
 
 const SEARCH_FIELD_PLACEHOLDERS: Record<CollateralSearchField, string> = {
   agreement_number: 'Search by agreement number...',
@@ -124,7 +128,7 @@ export default function CollateralPage() {
     setCurrentPage(1);
   };
 
-  const refreshList = (clearFilters = false) => {
+  const refreshList = (clearFilters = false, id?: number) => {
     if (clearFilters) {
       setSearchValue('');
       setAppliedSearch('');
@@ -132,7 +136,7 @@ export default function CollateralPage() {
       setAppliedSearchField('agreement_number');
     }
     setCurrentPage(1);
-    invalidateRegistryQueries(queryClient, 'collateral');
+    invalidateRegistryQueries(queryClient, 'collateral', id);
   };
 
   const handleViewRecord = (rec: CollateralRecord) => {
@@ -334,7 +338,7 @@ export default function CollateralPage() {
                       )}
                     </button>
                   </th>
-                  <th className="px-2 py-2 font-bold">Agreement No.</th>
+                  <th className="px-2 py-2 font-bold">Financier</th>
                   <th className="px-2 py-2 font-bold">
                     <button
                       type="button"
@@ -391,7 +395,7 @@ export default function CollateralPage() {
                         {formatDate(rec.lodge_date)}
                       </td>
                       <td className="border-r border-[#8f8f8f] px-2 py-2">
-                        {rec.agreement_number}
+                        {rec.financier_name}
                       </td>
                       <td className="border-r border-[#8f8f8f] px-2 py-2">
                         {rec.debtor_name}
@@ -506,9 +510,9 @@ export default function CollateralPage() {
         <CollateralViewModal
           record={viewRecord}
           onClose={() => setViewRecord(null)}
-          onSaved={() => {
+          onSaved={(id) => {
             setViewRecord(null);
-            refreshList(false);
+            refreshList(false, id);
           }}
         />
       )}

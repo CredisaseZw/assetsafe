@@ -55,7 +55,7 @@ export default function LoginPage() {
         { username: values.username, password: values.password },
         fromPath,
       );
-      toast.success(`Welcome back! ${values.username}`);
+      toast.success('Welcome back!');
     } catch (err: any) {
       const msg =
         err?.response?.data?.detail ??

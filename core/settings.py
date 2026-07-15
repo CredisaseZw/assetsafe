@@ -326,6 +326,11 @@ USE_I18N = True
 
 USE_TZ = True
 
+AUTHENTICATION_BACKENDS = [
+    "apps.users.utils.auth_backends.EmailOrUsernameBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
 AUTH_USER_MODEL = "users.CustomUser"
 
 # Static files (CSS, JavaScript, Images)

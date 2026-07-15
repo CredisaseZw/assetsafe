@@ -33,9 +33,15 @@ type HirePurchaseSortOption =
   | 'name-asc'
   | 'name-desc';
 
-type HirePurchaseSearchField = 'agreement_number' | 'purchaser' | 'reg_serial_number';
+type HirePurchaseSearchField =
+  | 'agreement_number'
+  | 'purchaser'
+  | 'reg_serial_number';
 
-const SEARCH_FIELD_OPTIONS: { value: HirePurchaseSearchField; label: string }[] = [
+const SEARCH_FIELD_OPTIONS: {
+  value: HirePurchaseSearchField;
+  label: string;
+}[] = [
   { value: 'agreement_number', label: 'Agreement Number' },
   { value: 'purchaser', label: 'Purchaser Name' },
   { value: 'reg_serial_number', label: 'Reg/Serial Number' },
@@ -121,7 +127,7 @@ export default function HirePurchasePage() {
     setCurrentPage(1);
   };
 
-  const refreshList = (clearFilters = false) => {
+  const refreshList = (clearFilters = false, id?: number) => {
     if (clearFilters) {
       setSearchValue('');
       setAppliedSearch('');
@@ -129,7 +135,7 @@ export default function HirePurchasePage() {
       setAppliedSearchField('agreement_number');
     }
     setCurrentPage(1);
-    invalidateRegistryQueries(queryClient, 'hp');
+    invalidateRegistryQueries(queryClient, 'hp', id);
   };
 
   const totalRecords = recordsData?.count ?? 0;
@@ -342,7 +348,7 @@ export default function HirePurchasePage() {
                       )}
                     </button>
                   </th>
-                  <th className="px-2 py-2 font-bold">Agreement</th>
+                  <th className="px-2 py-2 font-bold">Financier</th>
                   <th className="px-2 py-2 font-bold">
                     <button
                       type="button"
@@ -391,7 +397,7 @@ export default function HirePurchasePage() {
                         {formatDate(rec.lodge_date)}
                       </td>
                       <td className="border-r border-[#8f8f8f] px-2 py-2 font-medium text-[#196A86]">
-                        {rec.agreement_number}
+                        {rec.financier_name}
                       </td>
                       <td className="border-r border-[#8f8f8f] px-2 py-2">
                         {rec.purchaser_name}
@@ -506,9 +512,9 @@ export default function HirePurchasePage() {
         <HirePurchaseViewModal
           record={viewRecord}
           onClose={() => setViewRecord(null)}
-          onSaved={() => {
+          onSaved={(id) => {
             setViewRecord(null);
-            refreshList(false);
+            refreshList(false, id);
           }}
         />
       )}

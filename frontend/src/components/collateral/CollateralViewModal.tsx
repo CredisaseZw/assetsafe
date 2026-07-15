@@ -14,7 +14,7 @@ import { collateralApi } from '@/api/collateralApi';
 interface CollateralViewModalProps {
   record: CollateralRecord;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (id?: number) => void;
 }
 
 export function CollateralViewModal({
@@ -40,9 +40,9 @@ export function CollateralViewModal({
         queryKey: ['collateral-detail', record.id],
       });
       queryClient.invalidateQueries({ queryKey: ['collateral-dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['collateral'] });
+      queryClient.invalidateQueries({ queryKey: ['collateral-records'] });
       setConfirmingDischarge(false);
-      onSaved();
+      onSaved(record.id);
     },
     onError: (err: any) => {
       toast.error(err?.response?.data?.message ?? 'Failed to discharge record');
@@ -90,14 +90,14 @@ export function CollateralViewModal({
                 start_date: detail.start_date,
                 end_date: detail.end_date,
               }}
-              onSuccess={onSaved}
+              onSuccess={() => onSaved(record.id)}
               onCancel={() => setEditMode(false)}
               onDischarge={() => setConfirmingDischarge(true)}
               dischargePending={isDischarging}
             />
           ) : (
             <div className="flex items-center justify-center p-10 text-sm text-slate-400">
-              Loading…
+              Loading...
             </div>
           )
         ) : (
