@@ -6,12 +6,14 @@ from apps.common.api.views import (
     SuburbViewSet,
     CurrencyViewSet,
     CommonChoicesView,
+    LookupOptionViewSet,
 )
 
 router = DefaultRouter()
 router.register(r"locations", LocationViewSet, basename="location")
 router.register(r"suburbs", SuburbViewSet, basename="suburb")
 router.register(r"currencies", CurrencyViewSet, basename="currency")
+router.register(r"managed-choices", LookupOptionViewSet, basename="managed-choice")
 
 urlpatterns = [
     path(

@@ -6,7 +6,8 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { LogOut, UserCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { KeyRound, LogOut, Settings, UserCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store';
 import {
@@ -121,6 +122,24 @@ export function SidebarUserMenu() {
                 </p>
               ) : null}
             </div>
+            <Link
+              to="/settings"
+              role="menuitem"
+              className="flex w-full cursor-pointer items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-100"
+              onClick={() => setOpen(false)}
+            >
+              <Settings className="h-4 w-4" />
+              Account settings
+            </Link>
+            <Link
+              to="/settings?tab=security"
+              role="menuitem"
+              className="flex w-full cursor-pointer items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-100"
+              onClick={() => setOpen(false)}
+            >
+              <KeyRound className="h-4 w-4" />
+              Change password
+            </Link>
             <button
               type="button"
               role="menuitem"

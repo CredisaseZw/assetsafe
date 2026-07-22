@@ -32,12 +32,16 @@ class BaseAssetType(models.TextChoices):
     BUILDING = "building", _("Building")
     FURNITURE = "furniture", _("Furniture")
     SHARES = "shares", _("Shares")
+    MOBILES = "mobiles", _("Mobiles")
+    CONSOLES = "consoles", _("Consoles")
 
 
 class CollateralAssetType(models.TextChoices):
     """
-    Asset categories available in the Collateral Registry.
-    Extends the base set with two financing-specific categories.
+    Historic enum for collateral asset categories.
+
+    Live dropdowns are served from ``LookupOption`` rows with
+    category ``CollateralAssetCategory`` (seeded from this enum).
     """
 
     COMPUTERS = "computers", _("Computers")
@@ -50,6 +54,8 @@ class CollateralAssetType(models.TextChoices):
     SHARES = "shares", _("Shares")
     INVENTORY = "inventory", _("Inventory")
     ACCOUNTS_RECEIVABLE = "accounts_receivable", _("Accounts Receivable")
+    MOBILES = "mobiles", _("Mobiles")
+    CONSOLES = "consoles", _("Consoles")
 
 
 class AssetCondition(models.TextChoices):
@@ -59,6 +65,77 @@ class AssetCondition(models.TextChoices):
     SECOND_HAND = "second_hand", _("Second Hand")
     RECONDITIONED = "reconditioned", _("Reconditioned")
     NON_FUNCTIONING = "non_functioning", _("Non Functioning")
+
+
+class CustodyType(models.TextChoices):
+    """How an asset is held by a non-owner custodian (Asset Registry)."""
+
+    RENTAL = "rental", _("Rental")
+    ESCROW = "escrow", _("Escrow")
+    CONSIGNMENT = "consignment", _("Consignment")
+    TRUST = "trust", _("Trust")
+    ARRANGEMENT = "arrangement", _("Arrangement")
+    EMPLOYEE = "employee", _("Employee")
+
+
+class LookupOption(models.Model):
+    """
+    DB-backed choice lists for PartyType, BaseAssetType, AssetCondition,
+    and CollateralAssetCategory.
+
+    System rows (``is_system=True``) mirror TextChoices enums and are kept in
+    sync by ``apps.common.utils.seed_lookups.seed_system_lookup_options``
+    (``post_migrate`` + ``manage.py seed_lookups``). Staff may create and
+    delete custom non-system rows.
+    """
+
+    CATEGORY_PARTY_TYPE = "PartyType"
+    CATEGORY_BASE_ASSET_TYPE = "BaseAssetType"
+    CATEGORY_ASSET_CONDITION = "AssetCondition"
+    CATEGORY_COLLATERAL_ASSET_CATEGORY = "CollateralAssetCategory"
+    CATEGORY_CHOICES = (
+        (CATEGORY_PARTY_TYPE, _("Party Type")),
+        (CATEGORY_BASE_ASSET_TYPE, _("Base Asset Type")),
+        (CATEGORY_ASSET_CONDITION, _("Asset Condition")),
+        (CATEGORY_COLLATERAL_ASSET_CATEGORY, _("Collateral Asset Category")),
+    )
+
+    category = models.CharField(
+        max_length=50,
+        choices=CATEGORY_CHOICES,
+        db_index=True,
+    )
+    value = models.CharField(max_length=50)
+    label = models.CharField(max_length=100)
+    is_system = models.BooleanField(
+        default=False,
+        help_text=_("System rows are seeded from built-in enums and cannot be deleted."),
+    )
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        app_label = "common"
+        ordering = ["category", "sort_order", "label"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["category", "value"],
+                name="uniq_lookup_option_category_value",
+            )
+        ]
+        verbose_name = _("Lookup Option")
+        verbose_name_plural = _("Lookup Options")
+
+    def __str__(self) -> str:
+        return f"{self.category}:{self.value}"
+
+    def clean(self):
+        self.value = (self.value or "").strip().lower().replace(" ", "_")
+        self.label = (self.label or "").strip()
+        if not self.value:
+            raise ValidationError({"value": _("Value is required.")})
+        if not self.label:
+            raise ValidationError({"label": _("Label is required.")})
 
 
 class Currency(models.Model):

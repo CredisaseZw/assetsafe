@@ -17,7 +17,10 @@ from apps.collateral.models.models import (
     DEBTOR_TYPE_INDIVIDUAL,
 )
 from apps.common.models import Currency
-
+from apps.common.models.models import LookupOption
+from apps.common.utils.lookups import ensure_valid_lookup_value
+from rest_framework.exceptions import ValidationError as DRFValidationError
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 # ---------------------------------------------------------------------------
 # Collateral Registry serializers
@@ -53,6 +56,7 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
             "individual_debtor",
             "company_debtor",
             "agreement_number",
+            "asset_category",
             "asset_type",
             "make",
             "model",
@@ -112,6 +116,16 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
 
     def get_debtor_display(self, obj: CollateralRegistration) -> str:
         return obj.debtor_display
+
+    def validate_asset_category(self, value: str) -> str:
+        try:
+            return ensure_valid_lookup_value(
+                LookupOption.CATEGORY_COLLATERAL_ASSET_CATEGORY,
+                value,
+                field="asset_category",
+            )
+        except DjangoValidationError as exc:
+            raise DRFValidationError(exc.message_dict) from exc
 
     def get_data_source_display(self, obj: CollateralRegistration) -> str:
         if obj.created_by is None:
@@ -403,9 +417,8 @@ class CollateralRegistrationSerializer(serializers.ModelSerializer):
                 ) from exc
 
             financier = validated_data.get("financier")
-            if (
-                not financier
-                or data_source_user.client_id != getattr(financier, "pk", financier)
+            if not financier or data_source_user.client_id != getattr(
+                financier, "pk", financier
             ):
                 raise serializers.ValidationError(
                     {
@@ -547,6 +560,6 @@ class CollateralRegistrationListSerializer(CollateralRegistrationSerializer):
 
     def get_primary_identifier(self, obj: CollateralRegistration) -> str:
         """Gets the primary identifier for the asset, which is the MV registration number for vehicles or the serial number for other asset types."""
-        if obj.asset_type == "vehicles":
+        if obj.asset_category == "vehicles":
             return obj.asset_registration_number
         return obj.serial_number

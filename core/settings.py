@@ -119,6 +119,7 @@ INSTALLED_APPS = [
     "apps.asset_management",
     "apps.hire_purchase",
     "apps.collateral",
+    "apps.enquiries",
     "apps.users",
     "apps.individuals",
     "apps.companies",
@@ -325,6 +326,11 @@ TIME_ZONE = "Africa/Harare"
 USE_I18N = True
 
 USE_TZ = True
+
+AUTHENTICATION_BACKENDS = [
+    "apps.users.utils.auth_backends.EmailOrUsernameBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
 
 AUTH_USER_MODEL = "users.CustomUser"
 

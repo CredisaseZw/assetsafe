@@ -12,6 +12,7 @@ from apps.common.models.models import (
     Suburb,
     Address,
     Currency,
+    LookupOption,
 )
 
 
@@ -119,3 +120,18 @@ class NoteAdmin(admin.ModelAdmin):
 class CurrencyAdmin(admin.ModelAdmin):
     list_display = ("code", "name", "symbol")
     search_fields = ("code", "name")
+
+
+@admin.register(LookupOption)
+class LookupOptionAdmin(admin.ModelAdmin):
+    list_display = (
+        "category",
+        "value",
+        "label",
+        "is_system",
+        "is_active",
+        "sort_order",
+    )
+    list_filter = ("category", "is_system", "is_active")
+    search_fields = ("value", "label")
+    ordering = ("category", "sort_order", "label")

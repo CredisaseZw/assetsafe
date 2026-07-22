@@ -15,7 +15,7 @@ class HirePurchaseRegistrationAdmin(admin.ModelAdmin):
         "lodge_date",
     )
     list_filter = (
-        "asset_type",
+        "asset_category",
         "closure_confirmed",
         "agreement_start_date",
         "agreement_end_date",
@@ -71,6 +71,7 @@ class HirePurchaseRegistrationAdmin(admin.ModelAdmin):
             "Asset Details",
             {
                 "fields": (
+                    "asset_category",
                     "asset_type",
                     "make",
                     "model",

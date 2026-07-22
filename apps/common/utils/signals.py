@@ -1,5 +1,5 @@
 # apps/common/signals.py
-from django.db.models.signals import post_save, post_delete, m2m_changed
+from django.db.models.signals import post_save, post_delete, m2m_changed, post_migrate
 from django.dispatch import receiver
 from django.contrib.contenttypes.models import ContentType
 from apps.common.utils.caching import CacheService
@@ -16,6 +16,26 @@ import logging
 # from apps.subscriptions.models.models import Services, Subscription, SubscriptionPeriod
 
 logger = logging.getLogger("cache")
+
+
+@receiver(post_migrate)
+def seed_lookup_options_after_migrate(sender, app_config, **kwargs):
+    """
+    Keep LookupOption system rows in sync after migrations.
+
+    Safe across wipe+makemigrations rebuilds: schema comes from models;
+    choice data is ensured here (not only via hand-written data migrations).
+    """
+    if app_config.name != "apps.common":
+        return
+    try:
+        from apps.common.utils.seed_lookups import seed_system_lookup_options
+
+        seed_system_lookup_options()
+    except Exception:
+        # Table may not exist yet mid-migrate on older graphs; ignore and
+        # rely on a later common migrate / management command.
+        logger.exception("Could not seed LookupOption system rows after migrate")
 
 MONITORED_MODELS = (
     Company,

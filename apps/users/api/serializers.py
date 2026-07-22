@@ -136,7 +136,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         if self.user is None or not self.user.is_active:
             raise serializers.ValidationError(
-                _("No active account found with the given credentials"),
+                _("Invalid username or password."),
                 code="authorization",
             )
 
@@ -229,7 +229,7 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["first_name", "last_name", "email"]
+        fields = ["first_name", "last_name", "email", "position"]
 
     def validate_email(self, value):
         value = value.strip().lower()
@@ -237,6 +237,15 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         if qs.exists():
             raise serializers.ValidationError("This email is already in use.")
         return value
+
+    def validate_position(self, value):
+        current = (getattr(self.instance, "position", None) or "").strip()
+        incoming = (value or "").strip()
+        if current and incoming != current:
+            raise serializers.ValidationError(
+                "Position can only be set when it is currently blank."
+            )
+        return incoming
 
 
 class PasswordChangeSerializer(serializers.Serializer):

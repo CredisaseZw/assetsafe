@@ -11,9 +11,6 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.common.models import (
-    PartyType,
-    BaseAssetType,
-    AssetCondition,
     Currency,
 )
 from apps.clients.models import Client
@@ -51,7 +48,6 @@ class HirePurchaseRegistration(BaseModelWithUser):
     # ---- Purchaser ----
     purchaser_type = models.CharField(
         max_length=20,
-        choices=PartyType.choices,
         db_index=True,
         verbose_name=_("Purchaser Type"),
     )
@@ -82,11 +78,18 @@ class HirePurchaseRegistration(BaseModelWithUser):
         verbose_name=_("Agreement Number"),
         help_text=_("The financier's own agreement reference number."),
     )
-    asset_type = models.CharField(
-        max_length=30,
-        choices=BaseAssetType.choices,
+    asset_category = models.CharField(
+        max_length=50,
         db_index=True,
+        verbose_name=_("Asset Category"),
+        help_text=_("High-level category from managed base asset types."),
+    )
+    asset_type = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
         verbose_name=_("Asset Type"),
+        help_text=_("Free-text subtype describing the asset within its category."),
     )
     make = models.CharField(max_length=100, blank=True, verbose_name=_("Make"))
     model = models.CharField(max_length=100, blank=True, verbose_name=_("Model"))
@@ -97,7 +100,6 @@ class HirePurchaseRegistration(BaseModelWithUser):
     )
     condition = models.CharField(
         max_length=20,
-        choices=AssetCondition.choices,
         blank=True,
         verbose_name=_("Condition"),
     )

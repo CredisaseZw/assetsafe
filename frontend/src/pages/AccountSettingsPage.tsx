@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
+import { useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { zodResolver } from '@/lib/zodResolver';
 import { toast } from 'sonner';
@@ -30,11 +31,32 @@ const passwordSchema = z
 
 type ProfileForm = z.infer<typeof profileSchema>;
 type PasswordForm = z.infer<typeof passwordSchema>;
+type SettingsTab = 'profile' | 'security';
+
+function tabFromSearch(raw: string | null): SettingsTab {
+  return raw === 'security' ? 'security' : 'profile';
+}
 
 export default function AccountSettingsPage() {
   const queryClient = useQueryClient();
   const setUser = useAuthStore((s) => s.setUser);
-  const [tab, setTab] = useState<'profile' | 'security'>('profile');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [tab, setTab] = useState<SettingsTab>(() =>
+    tabFromSearch(searchParams.get('tab')),
+  );
+
+  useEffect(() => {
+    setTab(tabFromSearch(searchParams.get('tab')));
+  }, [searchParams]);
+
+  const selectTab = (next: SettingsTab) => {
+    setTab(next);
+    if (next === 'security') {
+      setSearchParams({ tab: 'security' });
+    } else {
+      setSearchParams({});
+    }
+  };
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ['user-profile'],
@@ -114,7 +136,7 @@ export default function AccountSettingsPage() {
           <button
             key={key}
             type="button"
-            onClick={() => setTab(key)}
+            onClick={() => selectTab(key)}
             className={cn(
               'border-b-2 px-4 py-2 text-sm font-semibold capitalize',
               tab === key

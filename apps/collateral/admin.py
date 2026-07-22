@@ -15,7 +15,7 @@ class CollateralRegistrationAdmin(admin.ModelAdmin):
         "lodge_date",
     )
     list_filter = (
-        "asset_type",
+        "asset_category",
         "financier",
         "debtor_type",
         "individual_debtor",
@@ -88,6 +88,7 @@ class CollateralRegistrationAdmin(admin.ModelAdmin):
             "Asset Details",
             {
                 "fields": (
+                    "asset_category",
                     "asset_type",
                     "make",
                     "model",

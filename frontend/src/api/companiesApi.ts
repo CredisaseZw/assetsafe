@@ -45,11 +45,11 @@ export const companiesApi = {
     );
     const body = (data as { data?: Record<string, unknown> })?.data ?? data;
     const record = body as Record<string, unknown>;
+    // Create returns the HQ branch (CompanyBranchDetailSerializer).
+    const mapped = mapBranchSearchResult(record);
     return {
-      id: Number(record.id),
-      name: String(
-        record.trading_name ?? record.registration_name ?? 'Company',
-      ),
+      id: mapped.id || Number(record.id),
+      name: mapped.name,
     };
   },
 };

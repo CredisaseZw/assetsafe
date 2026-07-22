@@ -6,6 +6,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { HirePurchaseForm } from './HirePurchaseForm';
 import type { HirePurchaseRecord } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { assetTypeLabel } from '@/lib/assetTypes';
 import { Button } from '@/components/ui/button';
 import { Edit } from 'lucide-react';
 import { hirePurchaseApi } from '@/api/hirePurchaseApi';
@@ -14,7 +15,7 @@ import { invalidateRegistryQueries } from '@/lib/registryCache';
 interface HirePurchaseViewModalProps {
   record: HirePurchaseRecord;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (id?: number) => void;
 }
 
 export function HirePurchaseViewModal({
@@ -39,9 +40,9 @@ export function HirePurchaseViewModal({
       queryClient.invalidateQueries({
         queryKey: ['hire-purchase-detail', record.id],
       });
-      invalidateRegistryQueries(queryClient, 'hp');
+      invalidateRegistryQueries(queryClient, 'hp', record.id);
       setConfirmingClosure(false);
-      onSaved();
+      onSaved(record.id);
     },
     onError: (err: any) => {
       toast.error(err?.response?.data?.message ?? 'Failed to confirm closure');
@@ -73,6 +74,7 @@ export function HirePurchaseViewModal({
                 purchaser_id: detail.purchaser_id,
                 agreement_number: detail.agreement_number,
                 asset_type: detail.asset_type,
+                asset_category: detail.asset_category,
                 asset_make: detail.asset_make,
                 asset_model: detail.asset_model,
                 asset_year: detail.asset_year,
@@ -89,14 +91,14 @@ export function HirePurchaseViewModal({
                 start_date: detail.start_date,
                 end_date: detail.end_date,
               }}
-              onSuccess={onSaved}
+              onSuccess={() => onSaved(record.id)}
               onCancel={() => setEditMode(false)}
               onCloseRecord={() => setConfirmingClosure(true)}
               closurePending={isConfirming}
             />
           ) : (
             <div className="flex items-center justify-center p-10 text-sm text-slate-400">
-              Loading…
+              Loading...
             </div>
           )
         ) : (
@@ -111,7 +113,13 @@ export function HirePurchaseViewModal({
                   `${detail?.asset_make ?? ''} ${detail?.asset_model ?? ''}`.trim() ||
                     record.asset_description,
                 ],
-                ['Asset Type', detail?.asset_type ?? record.asset_type],
+                [
+                  'Asset Category',
+                  assetTypeLabel(
+                    detail?.asset_category ?? record.asset_category,
+                  ),
+                ],
+                ['Asset Type', detail?.asset_type || record.asset_type || '—'],
                 [
                   'Reg/Serial',
                   detail?.reg_serial_number || record.reg_serial_number,

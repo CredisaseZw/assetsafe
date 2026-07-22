@@ -10,9 +10,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.common.models import (
-    PartyType,
-    BaseAssetType,
-    AssetCondition,
+    CustodyType,
     Currency,
 )
 from apps.common.models.base_models import BaseModelWithUser
@@ -34,7 +32,7 @@ class AssetRegistration(BaseModelWithUser):
     Vehicle-only fields
     -------------------
     ``mv_registration_number``, ``chassis_number``, and ``engine_number`` are
-    only meaningful when ``asset_type == 'vehicles'``.  They are kept ``blank``
+    only meaningful when ``asset_category == 'vehicles'``.  They are kept ``blank``
     at the model level; the serializer enforces the conditional requirement.
     """
 
@@ -48,7 +46,6 @@ class AssetRegistration(BaseModelWithUser):
     )
     owner_type = models.CharField(
         max_length=20,
-        choices=PartyType.choices,
         db_index=True,
         verbose_name=_("Owner Type"),
     )
@@ -72,11 +69,18 @@ class AssetRegistration(BaseModelWithUser):
         verbose_name=_("Owner Asset Number"),
         help_text=_("Company's own internal code for this asset, if applicable."),
     )
-    asset_type = models.CharField(
-        max_length=30,
-        choices=BaseAssetType.choices,
+    asset_category = models.CharField(
+        max_length=50,
         db_index=True,
+        verbose_name=_("Asset Category"),
+        help_text=_("High-level category from managed base asset types."),
+    )
+    asset_type = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
         verbose_name=_("Asset Type"),
+        help_text=_("Free-text subtype describing the asset within its category."),
     )
     make = models.CharField(max_length=100, blank=True, verbose_name=_("Make"))
     model = models.CharField(max_length=100, blank=True, verbose_name=_("Model"))
@@ -87,7 +91,6 @@ class AssetRegistration(BaseModelWithUser):
     )
     condition = models.CharField(
         max_length=20,
-        choices=AssetCondition.choices,
         blank=True,
         verbose_name=_("Condition"),
     )
@@ -99,7 +102,7 @@ class AssetRegistration(BaseModelWithUser):
         db_index=True,
         verbose_name=_("MV Registration Number"),
         help_text=_(
-            "Number plate. Required when asset_type is 'vehicles'; grey out otherwise."
+            "Number plate. Required when asset_category is 'vehicles'; grey out otherwise."
         ),
     )
     chassis_number = models.CharField(
@@ -141,6 +144,53 @@ class AssetRegistration(BaseModelWithUser):
             "Physical address where the asset is normally kept. "
             "For moveable assets, use the owner's address."
         ),
+    )
+
+    # ---- Custody (optional encumbrance while asset is registered) ----
+    custodian_type = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name=_("Custodian Type"),
+    )
+    individual_custodian = models.ForeignKey(
+        Individual,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="custodied_assets",
+        verbose_name=_("Individual Custodian"),
+    )
+    company_custodian = models.ForeignKey(
+        CompanyBranch,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="custodied_assets",
+        verbose_name=_("Company Custodian"),
+    )
+    custody_type = models.CharField(
+        max_length=20,
+        choices=CustodyType.choices,
+        blank=True,
+        db_index=True,
+        verbose_name=_("Custody Type"),
+        help_text=_(
+            "When set, the asset is encumbered under custody (rule 1404.1.2)."
+        ),
+    )
+    custodian_address = models.TextField(blank=True, verbose_name=_("Custodian Address"))
+    custodian_email = models.EmailField(blank=True, verbose_name=_("Custodian Email"))
+    custodian_mobile = models.CharField(
+        max_length=30, blank=True, verbose_name=_("Custodian Mobile")
+    )
+    custodian_telephone = models.CharField(
+        max_length=30, blank=True, verbose_name=_("Custodian Telephone")
+    )
+    guarantor_name = models.CharField(
+        max_length=255, blank=True, verbose_name=_("Guarantor")
+    )
+    guarantor_identification = models.CharField(
+        max_length=100, blank=True, verbose_name=_("Guarantor ID")
     )
 
     # ---- Subscription window ----
@@ -191,6 +241,10 @@ class AssetRegistration(BaseModelWithUser):
         """Returns ``True`` when today falls within the subscription window."""
         today = timezone.now().date()
         return self.subscription_start_date <= today <= self.subscription_end_date
+
+    def is_under_custody(self) -> bool:
+        """Returns ``True`` when a custody type is recorded for this asset."""
+        return bool(self.custody_type)
 
     # ------------------------------------------------------------------
     # Save / registration-number generation

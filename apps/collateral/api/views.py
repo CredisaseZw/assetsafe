@@ -64,6 +64,7 @@ class CollateralRegistrationViewSet(BaseViewSet):
     ]
 
     filterset_fields: list[str] = [
+        "asset_category",
         "asset_type",
         "financier",
         "individual_debtor",

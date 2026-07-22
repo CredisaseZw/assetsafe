@@ -21,27 +21,63 @@ import { FieldError } from '@/components/shared/FieldError';
 import { commonApi } from '@/api/commonApi';
 import { queryOptions } from '@/api/queryOptions';
 
-const schema = z.object({
-  owner_type: z.string().min(1, 'Owner Type is required'),
-  owner_id: z
-    .number({ error: 'Owner is required' })
-    .min(1, 'Owner is required'),
-  owner_asset_number: z.string().optional(),
-  asset_type: z.string().min(1, 'Select asset type'),
-  asset_make: z.string().min(1, 'Required'),
-  asset_model: z.string().min(1, 'Required'),
-  year_of_make: z.coerce.number().min(1900).max(2100),
-  condition: z.string().min(1, 'Select condition'),
-  mv_registration_no: z.string().optional(),
-  chassis_number: z.string().optional(),
-  engine_number: z.string().optional(),
-  serial_number: z.string().optional(),
-  currency: z.string().min(1, 'Currency is required'),
-  estimated_value: z.coerce.number().min(0),
-  location_address: z.string().min(1, 'Required'),
-  subscription_start_date: z.string().min(1, 'Required'),
-  subscription_end_date: z.string().min(1, 'Required'),
-});
+const schema = z
+  .object({
+    owner_type: z.string().min(1, 'Owner Type is required'),
+    owner_id: z
+      .number({ error: 'Owner is required' })
+      .min(1, 'Owner is required'),
+    owner_asset_number: z.string().optional(),
+    asset_category: z.string().min(1, 'Select asset category'),
+    asset_type: z.string().min(1, 'Asset type is required'),
+    asset_make: z.string().min(1, 'Required'),
+    asset_model: z.string().min(1, 'Required'),
+    year_of_make: z.coerce.number().min(1900).max(2100),
+    condition: z.string().min(1, 'Select condition'),
+    mv_registration_no: z.string().optional(),
+    chassis_number: z.string().optional(),
+    engine_number: z.string().optional(),
+    serial_number: z.string().optional(),
+    currency: z.string().min(1, 'Currency is required'),
+    estimated_value: z.coerce.number().min(0),
+    location_address: z.string().min(1, 'Required'),
+    subscription_start_date: z.string().min(1, 'Required'),
+    subscription_end_date: z.string().min(1, 'Required'),
+    under_custody: z.boolean().optional(),
+    custodian_type: z.string().optional(),
+    custodian_id: z.number().optional(),
+    custody_type: z.string().optional(),
+    custodian_address: z.string().optional(),
+    custodian_email: z.string().optional(),
+    custodian_mobile: z.string().optional(),
+    custodian_telephone: z.string().optional(),
+    guarantor_name: z.string().optional(),
+    guarantor_identification: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.under_custody) return;
+    if (!data.custodian_type) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Custodian type is required',
+        path: ['custodian_type'],
+      });
+    }
+    if (!data.custodian_id) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Custodian is required',
+        path: ['custodian_id'],
+      });
+    }
+    if (!data.custody_type) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Custody type is required',
+        path: ['custody_type'],
+      });
+    }
+  });
 
 type FormValues = z.infer<typeof schema>;
 
@@ -64,6 +100,10 @@ export function AssetRegistryForm({
 }: AssetRegistryFormProps) {
   const [addIndividualOpen, setAddIndividualOpen] = useState(false);
   const [addCompanyOpen, setAddCompanyOpen] = useState(false);
+  const [addCustodianIndividualOpen, setAddCustodianIndividualOpen] =
+    useState(false);
+  const [addCustodianCompanyOpen, setAddCustodianCompanyOpen] = useState(false);
+  const [addGuarantorOpen, setAddGuarantorOpen] = useState(false);
 
   const { register, control, handleSubmit, watch, setValue, setError } =
     useForm<FormValues>({
@@ -74,8 +114,12 @@ export function AssetRegistryForm({
       defaultValues: {
         owner_type: 'company',
         currency: '',
+        asset_category: '',
+        asset_type: '',
         year_of_make: new Date().getFullYear(),
         condition: 'new',
+        under_custody: false,
+        custodian_type: 'company',
         ...initial,
       },
     });
@@ -93,9 +137,12 @@ export function AssetRegistryForm({
   });
 
   const partyTypeOptions = choices.PartyType ?? [];
-  const assetTypeOptions = choices.BaseAssetType ?? [];
+  const assetCategoryOptions = choices.BaseAssetType ?? [];
   const assetConditionOptions = choices.AssetCondition ?? [];
+  const custodyTypeOptions = choices.CustodyType ?? [];
   const currentOwnerType = watch('owner_type');
+  const underCustody = watch('under_custody');
+  const currentCustodianType = watch('custodian_type');
 
   useEffect(() => {
     if (!watch('currency') && currencies.length > 0) {
@@ -120,14 +167,21 @@ export function AssetRegistryForm({
     }
   }, [partyTypeOptions, setValue, currentOwnerType]);
 
-  const watchAssetType = watch('asset_type');
-  const isVehicle = watchAssetType === 'vehicles';
+  const watchAssetCategory = watch('asset_category');
+  const isVehicle = watchAssetCategory === 'vehicles';
 
   const { mutate: submit, isPending } = useMutation({
-    mutationFn: (data: FormValues) =>
-      isEdit && recordId
-        ? assetRegistryApi.updateRecord(recordId, data as any)
-        : assetRegistryApi.createRecord(data as any),
+    mutationFn: (data: FormValues) => {
+      const payload = {
+        ...data,
+        custody_type: data.under_custody ? data.custody_type : '',
+        custodian_type: data.under_custody ? data.custodian_type : '',
+        custodian_id: data.under_custody ? data.custodian_id : undefined,
+      };
+      return isEdit && recordId
+        ? assetRegistryApi.updateRecord(recordId, payload as any)
+        : assetRegistryApi.createRecord(payload as any);
+    },
     onSuccess,
     onError: (err: unknown) => {
       if (!applyApiValidationErrors(setError, err)) {
@@ -152,27 +206,29 @@ export function AssetRegistryForm({
         className="bg-white"
         noValidate
       >
-        <div className="flex gap-2 px-4 pt-4 pb-1">
-          <Button
-            type="button"
-            size="sm"
-            variant="primary"
-            leftIcon={<UserPlus className="h-3 w-3" />}
-            onClick={() => setAddIndividualOpen(true)}
-          >
-            + Add Individual
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            leftIcon={<Building className="h-3 w-3" />}
-            onClick={() => setAddCompanyOpen(true)}
-          >
-            + Add Company
-          </Button>
-        </div>
         <FormSectionHeader title="Owner Details" variant="teal" />
+        {!isEdit && (
+          <div className="flex gap-2 px-4 pt-2 pb-1">
+            <Button
+              type="button"
+              size="sm"
+              variant="primary"
+              leftIcon={<UserPlus className="h-3 w-3" />}
+              onClick={() => setAddIndividualOpen(true)}
+            >
+              + Add Individual
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              leftIcon={<Building className="h-3 w-3" />}
+              onClick={() => setAddCompanyOpen(true)}
+            >
+              + Add Company
+            </Button>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
           <div>
             <label className="text-xs font-medium text-slate-600">
@@ -181,7 +237,7 @@ export function AssetRegistryForm({
             <select
               {...register('owner_type')}
               className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
-              disabled={!partyTypeOptions.length}
+              disabled={!partyTypeOptions.length || isEdit}
             >
               <option value="">
                 {partyTypeOptions.length
@@ -230,24 +286,32 @@ export function AssetRegistryForm({
         <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
           <div>
             <label className="text-xs font-medium text-slate-600">
-              Asset Type<span className="text-red-500 ml-0.5">*</span>
+              Asset Category<span className="text-red-500 ml-0.5">*</span>
             </label>
             <select
-              {...register('asset_type')}
+              {...register('asset_category')}
               className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
-              disabled={!assetTypeOptions.length}
+              disabled={!assetCategoryOptions.length}
             >
               <option value="">
-                {assetTypeOptions.length ? 'Select asset type' : 'Loading...'}
+                {assetCategoryOptions.length
+                  ? 'Select asset category'
+                  : 'Loading...'}
               </option>
-              {assetTypeOptions.map((t: any) => (
+              {assetCategoryOptions.map((t: any) => (
                 <option key={t.value} value={t.value}>
                   {t.label}
                 </option>
               ))}
             </select>
-            <FieldError message={errors.asset_type?.message} />
+            <FieldError message={errors.asset_category?.message} />
           </div>
+          <Input
+            label="Asset Type"
+            {...register('asset_type')}
+            error={errors.asset_type?.message}
+            required
+          />
           <Input
             label="Make"
             {...register('asset_make')}
@@ -377,6 +441,134 @@ export function AssetRegistryForm({
           />
         </div>
 
+        {/* ── Custody Details ── */}
+        <FormSectionHeader title="Custody Details" variant="dark" />
+        <div className="space-y-3 p-4">
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={Boolean(underCustody)}
+              onChange={(e) => {
+                setValue('under_custody', e.target.checked, {
+                  shouldValidate: true,
+                });
+                if (!e.target.checked) {
+                  setValue('custody_type', '');
+                  setValue('custodian_id', undefined);
+                  setValue('custodian_address', '');
+                  setValue('custodian_email', '');
+                  setValue('custodian_mobile', '');
+                  setValue('custodian_telephone', '');
+                  setValue('guarantor_name', '');
+                  setValue('guarantor_identification', '');
+                }
+              }}
+            />
+            Asset is under custody of someone other than the owner
+          </label>
+
+          {underCustody ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div>
+                <label className="text-xs font-medium text-slate-600">
+                  Custodian Type
+                </label>
+                <select
+                  {...register('custodian_type')}
+                  className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
+                >
+                  {partyTypeOptions.map((option: any) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <FieldError message={errors.custodian_type?.message} />
+              </div>
+              <div className="col-span-2">
+                <Controller
+                  name="custodian_id"
+                  control={control}
+                  render={({ field }) => (
+                    <AutocompleteInput
+                      label="Custodian Name / ID/Reg Number"
+                      placeholder="Search custodian..."
+                      queryKey={`asset-custodian-${currentCustodianType}`}
+                      fetchFn={(q) =>
+                        currentCustodianType === 'company'
+                          ? companiesApi.searchBranches(q)
+                          : individualsApi.searchIndividuals(q)
+                      }
+                      error={errors.custodian_id?.message}
+                      value={field.value}
+                      onBlur={field.onBlur}
+                      onChange={(v) => field.onChange(Number(v) || undefined)}
+                    />
+                  )}
+                />
+                <div className="mt-2 flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="primary"
+                    onClick={() => {
+                      if (currentCustodianType === 'company') {
+                        setAddCustodianCompanyOpen(true);
+                      } else {
+                        setAddCustodianIndividualOpen(true);
+                      }
+                    }}
+                  >
+                    +Add Custodian
+                  </Button>
+                </div>
+              </div>
+              <div className="col-span-2">
+                <Input
+                  label="Address"
+                  {...register('custodian_address')}
+                  placeholder="Auto-fill or enter address"
+                />
+              </div>
+              <Input label="Mobile" {...register('custodian_mobile')} />
+              <Input label="Email" {...register('custodian_email')} />
+              <Input label="Telephone" {...register('custodian_telephone')} />
+              <div>
+                <label className="text-xs font-medium text-slate-600">
+                  Custody Type
+                </label>
+                <select
+                  {...register('custody_type')}
+                  className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:border-[#0f7d8e]"
+                >
+                  <option value="">Select custody type...</option>
+                  {custodyTypeOptions.map((option: any) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <FieldError message={errors.custody_type?.message} />
+              </div>
+              <Input label="Guarantor" {...register('guarantor_name')} />
+              <Input
+                label="Guarantor ID"
+                {...register('guarantor_identification')}
+              />
+              <div className="flex items-end">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="primary"
+                  onClick={() => setAddGuarantorOpen(true)}
+                >
+                  +Add Guarantor
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-3">
           <Button type="button" variant="ghost" onClick={onCancel}>
@@ -416,6 +608,56 @@ export function AssetRegistryForm({
             setValue('owner_type', 'company');
             setValue('owner_id', id, { shouldValidate: true });
             setAddCompanyOpen(false);
+          }}
+        />
+      </Modal>
+      <Modal
+        open={addCustodianIndividualOpen || addCustodianCompanyOpen}
+        onClose={() => {
+          setAddCustodianIndividualOpen(false);
+          setAddCustodianCompanyOpen(false);
+        }}
+        title={
+          currentCustodianType === 'company'
+            ? 'Add Company Custodian'
+            : 'Add Individual Custodian'
+        }
+        size="lg"
+        disableBackdropClose
+      >
+        {currentCustodianType === 'company' ? (
+          <CompanyCreateForm
+            onCancel={() => setAddCustodianCompanyOpen(false)}
+            onSuccess={({ id }) => {
+              setValue('custodian_type', 'company');
+              setValue('custodian_id', id, { shouldValidate: true });
+              setAddCustodianCompanyOpen(false);
+              setAddCustodianIndividualOpen(false);
+            }}
+          />
+        ) : (
+          <IndividualCreateForm
+            onCancel={() => setAddCustodianIndividualOpen(false)}
+            onSuccess={({ id }) => {
+              setValue('custodian_type', 'individual');
+              setValue('custodian_id', id, { shouldValidate: true });
+              setAddCustodianIndividualOpen(false);
+              setAddCustodianCompanyOpen(false);
+            }}
+          />
+        )}
+      </Modal>
+      <Modal
+        open={addGuarantorOpen}
+        onClose={() => setAddGuarantorOpen(false)}
+        title="Add Guarantor"
+        size="lg"
+      >
+        <IndividualCreateForm
+          onCancel={() => setAddGuarantorOpen(false)}
+          onSuccess={({ id, name }) => {
+            setValue('guarantor_name', name || `Individual #${id}`);
+            setAddGuarantorOpen(false);
           }}
         />
       </Modal>

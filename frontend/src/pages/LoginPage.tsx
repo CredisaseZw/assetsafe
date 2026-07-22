@@ -28,7 +28,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const fromPath =
     (location.state as { from?: { pathname?: string } } | null)?.from
-      ?.pathname ?? '/collateral';
+      ?.pathname ?? '/dashboard';
   const redirectTo = resolveSafeRedirect(
     fromPath,
     canAccessAssetRegistry(user, authReady),
@@ -55,13 +55,27 @@ export default function LoginPage() {
         { username: values.username, password: values.password },
         fromPath,
       );
-      toast.success(`Welcome back! ${values.username}`);
+      toast.success('Welcome back!');
     } catch (err: any) {
+      const data = err?.response?.data;
+      const nonField = data?.non_field_errors?.[0];
+      const raw =
+        (typeof data?.error === 'string' && data.error) ||
+        (typeof data?.detail === 'string' && data.detail) ||
+        (typeof data?.message === 'string' && data.message) ||
+        (typeof nonField === 'string' && nonField) ||
+        (nonField && typeof nonField === 'object' && String(nonField)) ||
+        'Invalid username or password.';
+      const lower = String(raw).toLowerCase();
       const msg =
-        err?.response?.data?.detail ??
-        err?.response?.data?.message ??
-        err?.response?.data?.non_field_errors?.[0] ??
-        'Invalid username or password';
+        lower.includes('not verified')
+          ? 'Account not verified. Please verify your account.'
+          : lower.includes('no active account') ||
+              lower.includes('given credentials') ||
+              lower.includes('invalid credentials') ||
+              lower.includes('authentication failed')
+            ? 'Invalid username or password.'
+            : String(raw);
       setError('root', { message: msg });
       toast.error(msg);
     } finally {

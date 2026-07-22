@@ -41,6 +41,8 @@ export function ConfirmDialog({
       title={title}
       size="sm"
       disableBackdropClose
+      centered
+      draggable
     >
       <div className="space-y-4 bg-white p-5">
         <p className="text-sm leading-relaxed text-slate-700">{message}</p>

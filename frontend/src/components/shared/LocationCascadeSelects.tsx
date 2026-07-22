@@ -88,7 +88,7 @@ function Combobox<T extends { id: number; name: string }>({
       {open && (
         <div className="absolute z-[70] mt-0.5 max-h-52 w-full overflow-auto rounded border border-slate-300 bg-white shadow-md">
           {isLoading ? (
-            <p className="px-3 py-2 text-sm text-slate-400">Loading…</p>
+            <p className="px-3 py-2 text-sm text-slate-400">Loading...</p>
           ) : filtered.length === 0 ? (
             <p className="px-3 py-2 text-sm text-slate-400">No results</p>
           ) : (

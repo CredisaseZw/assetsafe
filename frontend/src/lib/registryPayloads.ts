@@ -7,12 +7,13 @@ type OwnerPayload = {
 
 export function mapAssetFormToApi(data: Record<string, unknown>) {
   const owner = data as OwnerPayload & Record<string, unknown>;
-  const asset_type = toBackendAssetType(String(data.asset_type ?? ''));
-  const isVehicle = asset_type === 'vehicles';
+  const asset_category = toBackendAssetType(String(data.asset_category ?? ''));
+  const isVehicle = asset_category === 'vehicles';
 
   const payload: Record<string, unknown> = {
     owner_type: owner.owner_type,
-    asset_type,
+    asset_category,
+    asset_type: String(data.asset_type ?? '').trim(),
     make: data.asset_make,
     model: data.asset_model,
     year_of_make: data.year_of_make,
@@ -27,6 +28,14 @@ export function mapAssetFormToApi(data: Record<string, unknown>) {
     mv_registration_number: isVehicle ? (data.mv_registration_no ?? '') : '',
     chassis_number: isVehicle ? (data.chassis_number ?? '') : '',
     engine_number: isVehicle ? (data.engine_number ?? '') : '',
+    custody_type: data.custody_type ?? '',
+    custodian_type: data.custodian_type ?? '',
+    custodian_address: data.custodian_address ?? '',
+    custodian_email: data.custodian_email ?? '',
+    custodian_mobile: data.custodian_mobile ?? '',
+    custodian_telephone: data.custodian_telephone ?? '',
+    guarantor_name: data.guarantor_name ?? '',
+    guarantor_identification: data.guarantor_identification ?? '',
   };
 
   if (owner.owner_type === 'individual') {
@@ -37,12 +46,28 @@ export function mapAssetFormToApi(data: Record<string, unknown>) {
     payload.individual_owner = null;
   }
 
+  const custodyType = String(data.custody_type ?? '');
+  if (custodyType) {
+    const custodianType = data.custodian_type as 'individual' | 'company';
+    if (custodianType === 'individual') {
+      payload.individual_custodian = data.custodian_id;
+      payload.company_custodian = null;
+    } else {
+      payload.company_custodian = data.custodian_id;
+      payload.individual_custodian = null;
+    }
+  } else {
+    payload.individual_custodian = null;
+    payload.company_custodian = null;
+    payload.custodian_type = '';
+  }
+
   return payload;
 }
 
 export function mapCollateralFormToApi(data: Record<string, unknown>) {
-  const asset_type = toBackendAssetType(String(data.asset_type ?? ''));
-  const isVehicle = asset_type === 'vehicles';
+  const asset_category = toBackendAssetType(String(data.asset_category ?? ''));
+  const isVehicle = asset_category === 'vehicles';
   const debtor_type = data.debtor_type as 'individual' | 'company';
 
   return {
@@ -52,7 +77,8 @@ export function mapCollateralFormToApi(data: Record<string, unknown>) {
     individual_debtor: debtor_type === 'individual' ? data.debtor_id : null,
     company_debtor: debtor_type === 'company' ? data.debtor_id : null,
     agreement_number: data.agreement_number,
-    asset_type,
+    asset_category,
+    asset_type: String(data.asset_type ?? '').trim(),
     make: data.asset_make,
     model: data.asset_model,
     year_of_make: data.asset_year,
@@ -74,9 +100,9 @@ export function mapCollateralFormToApi(data: Record<string, unknown>) {
 }
 
 export function mapHirePurchaseFormToApi(data: Record<string, unknown>) {
-  const asset_type = toBackendAssetType(String(data.asset_type ?? ''));
+  const asset_category = toBackendAssetType(String(data.asset_category ?? ''));
   const purchaser_type = data.purchaser_type as 'individual' | 'company';
-  const isVehicle = asset_type === 'vehicles';
+  const isVehicle = asset_category === 'vehicles';
 
   return {
     financier: data.financier_id,
@@ -86,7 +112,8 @@ export function mapHirePurchaseFormToApi(data: Record<string, unknown>) {
       purchaser_type === 'individual' ? data.purchaser_id : null,
     purchaser_company: purchaser_type === 'company' ? data.purchaser_id : null,
     agreement_number: data.agreement_number,
-    asset_type,
+    asset_category,
+    asset_type: String(data.asset_type ?? '').trim(),
     make: data.asset_make,
     model: data.asset_model ?? '',
     year_of_make: data.asset_year,

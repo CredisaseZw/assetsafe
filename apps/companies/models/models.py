@@ -185,7 +185,44 @@ class CompanyBranch(BaseModelWithUser):
         ordering = ["company__registration_name", "branch_name"]
 
     def __str__(self):
-        return f"{self.branch_name} - {self.company.registration_name}"
+        return self.party_display
+
+    @property
+    def party_display(self) -> str:
+        """
+        Registry-friendly label: company name (registration number).
+
+        Avoids duplicating the HQ branch name when it mirrors the company
+        registration/trading name (e.g. ``Acme - Acme``).
+        """
+        company = self.company
+        company_name = (
+            (company.trading_name or company.registration_name or "").strip()
+            if company
+            else ""
+        )
+        branch_name = (self.branch_name or "").strip()
+        reg_no = (
+            (company.registration_number or "").strip() if company else ""
+        )
+
+        if (
+            branch_name
+            and company_name
+            and branch_name.lower() not in {
+                company_name.lower(),
+                (company.registration_name or "").strip().lower(),
+                (company.trading_name or "").strip().lower(),
+            }
+            and not self.is_headquarters
+        ):
+            label = f"{company_name} — {branch_name}"
+        else:
+            label = company_name or branch_name or f"Branch #{self.pk}"
+
+        if reg_no:
+            return f"{label} ({reg_no})"
+        return label
 
     @property
     def full_name(self):

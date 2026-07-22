@@ -14,8 +14,6 @@ from django.utils.translation import gettext_lazy as _
 from apps.collateral.constants import ASSET_IDENTIFIER_FIELDS, ASSET_IDENTIFIER_LABELS
 from apps.common.models import (
     PartyType,
-    CollateralAssetType,
-    AssetCondition,
     Currency,
 )
 from apps.common.models.base_models import BaseModelWithUser
@@ -25,7 +23,6 @@ from apps.individuals.models.models import Individual
 
 DEBTOR_TYPE_INDIVIDUAL = PartyType.INDIVIDUAL.value
 DEBTOR_TYPE_COMPANY = PartyType.COMPANY.value
-DEBTOR_TYPE_CHOICES = PartyType.choices
 
 
 class CollateralRegistration(BaseModelWithUser):
@@ -63,7 +60,6 @@ class CollateralRegistration(BaseModelWithUser):
     # ---- Debtor (the borrower) ----
     debtor_type = models.CharField(
         max_length=20,
-        choices=DEBTOR_TYPE_CHOICES,
         db_index=True,
         verbose_name=_("Debtor Type"),
     )
@@ -89,11 +85,18 @@ class CollateralRegistration(BaseModelWithUser):
         verbose_name=_("Agreement Number"),
         help_text=_("The loan reference number issued by the lender."),
     )
-    asset_type = models.CharField(
-        max_length=30,
-        choices=CollateralAssetType.choices,
+    asset_category = models.CharField(
+        max_length=50,
         db_index=True,
+        verbose_name=_("Asset Category"),
+        help_text=_("High-level category from managed collateral asset categories."),
+    )
+    asset_type = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
         verbose_name=_("Asset Type"),
+        help_text=_("Free-text subtype describing the asset within its category."),
     )
     make = models.CharField(max_length=100, blank=True, verbose_name=_("Make"))
     model = models.CharField(max_length=100, blank=True, verbose_name=_("Model"))
@@ -104,7 +107,6 @@ class CollateralRegistration(BaseModelWithUser):
     )
     condition = models.CharField(
         max_length=20,
-        choices=AssetCondition.choices,
         blank=True,
         verbose_name=_("Condition"),
     )

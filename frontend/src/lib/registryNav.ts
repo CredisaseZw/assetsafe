@@ -29,9 +29,9 @@ export function resolveSafeRedirect(
   path: string | undefined,
   isStaff: boolean,
 ): string {
-  const target = path && path.startsWith('/') ? path : '/collateral';
+  const target = path && path.startsWith('/') ? path : '/dashboard';
   if (!isStaff && target.startsWith(ASSET_REGISTRY_PATH)) {
-    return '/collateral';
+    return '/dashboard';
   }
   return target;
 }
