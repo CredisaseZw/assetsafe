@@ -13,8 +13,9 @@ export interface CompanyCreatePayload {
   date_of_incorporation?: string | null;
   industry: string;
   profile: {
-    email: string;
-    mobile_phone: string;
+    email?: string;
+    mobile_phone?: string;
+    landline_phone?: string;
   };
   addresses?: {
     address_type?: string;

@@ -330,13 +330,10 @@ class CompanyCreateSerializer(serializers.ModelSerializer):
         profile_errors: dict[str, str] = {}
         email = (profile_data.get("email") or "").strip()
         mobile = (profile_data.get("mobile_phone") or "").strip()
-        if not email:
-            profile_errors["email"] = "Email is required."
-        elif not validate_email(email):
+        landline = (profile_data.get("landline_phone") or "").strip()
+        if email and not validate_email(email):
             profile_errors["email"] = "Invalid email format."
-        if not mobile:
-            profile_errors["mobile_phone"] = "Phone is required."
-        else:
+        if mobile:
             normalized = normalize_zimbabwe_mobile(mobile)
             if not normalized:
                 profile_errors["mobile_phone"] = (
@@ -344,6 +341,14 @@ class CompanyCreateSerializer(serializers.ModelSerializer):
                 )
             else:
                 profile_data["mobile_phone"] = normalized
+        if landline:
+            normalized = normalize_zimbabwe_mobile(landline, type="home")
+            if not normalized:
+                profile_errors["landline_phone"] = (
+                    "Invalid Zimbabwean phone number format."
+                )
+            else:
+                profile_data["landline_phone"] = normalized
         if profile_errors:
             raise serializers.ValidationError({"profile": profile_errors})
         if email:

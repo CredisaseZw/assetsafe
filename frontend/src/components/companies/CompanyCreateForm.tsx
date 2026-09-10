@@ -29,8 +29,9 @@ const schema = z.object({
     message: 'Legal status is required',
   }),
   industry: z.string().min(1, 'Industry is required'),
-  email: z.string().email('Valid email is required'),
-  phone: z.string().min(1, 'Phone is required'),
+  email: z.string().email().optional().or(z.literal('')),
+  mobile: z.string().optional().or(z.literal('')),
+  telephone: z.string().optional().or(z.literal('')),
   street_address: z.string().min(1, 'Street address is required'),
   suburb_id: z.coerce.number().min(1, 'Suburb is required'),
 });
@@ -77,8 +78,9 @@ export function CompanyCreateForm({
         legal_status: values.legal_status,
         industry: values.industry,
         profile: {
-          email: values.email,
-          mobile_phone: values.phone,
+          email: values.email || undefined,
+          mobile_phone: values.mobile || undefined,
+          landline_phone: values.telephone || undefined,
         },
         addresses: [
           {
@@ -169,14 +171,18 @@ export function CompanyCreateForm({
           type="email"
           {...register('email')}
           error={errors.email?.message}
-          required
         />
         <Input
-          label="Phone"
+          label="Mobile"
           type="tel"
-          {...register('phone')}
-          error={errors.phone?.message}
-          required
+          {...register('mobile')}
+          error={errors.mobile?.message}
+        />
+        <Input
+          label="Telephone"
+          type="tel"
+          {...register('telephone')}
+          error={errors.telephone?.message}
         />
         <Input
           label="Street Address"

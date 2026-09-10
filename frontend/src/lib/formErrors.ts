@@ -28,6 +28,14 @@ const API_FIELD_MAP: Record<string, string> = {
   agreement_end_date: 'end_date',
   subscription_start_date: 'subscription_start_date',
   subscription_end_date: 'subscription_end_date',
+  'land.stand_number': 'stand_number',
+  'land.stand_address': 'stand_address',
+  'land.suburb': 'suburb_id',
+  mobile_phone: 'mobile',
+  landline_phone: 'telephone',
+  'profile.email': 'email',
+  'profile.mobile_phone': 'mobile',
+  'profile.landline_phone': 'telephone',
 };
 
 function messageFromValue(value: unknown): string {
