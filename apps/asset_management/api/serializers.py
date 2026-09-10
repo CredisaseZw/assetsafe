@@ -633,8 +633,11 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
     def _check_land_uniqueness(self, land_data: dict | None, instance_pk=None):
         if not land_data:
             return
-        city = land_data.get("city")
         suburb = land_data.get("suburb")
+        city = land_data.get("city")
+        if suburb and not city:
+            city = getattr(suburb, "city", None)
+            land_data["city"] = city
         stand_number = (land_data.get("stand_number") or "").strip()
         stand_address = (land_data.get("stand_address") or "").strip()
         if not (city and suburb and stand_number):
