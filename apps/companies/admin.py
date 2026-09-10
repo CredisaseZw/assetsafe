@@ -48,18 +48,21 @@ class CompanyProfileInline(admin.StackedInline):
 class CompanyAdmin(admin.ModelAdmin):
     list_display = (
         'id', 'registration_name', 'trading_name', 'legal_status', 
-        'industry', 'is_verified', 'is_active', 'branch_count',
+        'industry', 'source', 'external_reference', 'is_verified', 'is_active', 'branch_count',
         'date_of_incorporation', 'created_by', 'date_created'
     )
     list_filter = (
-        'legal_status', 'is_verified', 'is_active', 'is_deleted',
+        'legal_status', 'source', 'is_verified', 'is_active', 'is_deleted',
         'industry', 'date_of_incorporation', 'date_created'
     )
     search_fields = (
         'registration_name', 'trading_name', 'registration_number',
-        'industry'
+        'industry', 'external_reference'
     )
-    readonly_fields = ('date_created', 'date_updated', 'created_by')
+    readonly_fields = (
+        'date_created', 'date_updated', 'created_by',
+        'source', 'external_reference', 'external_registry_lookup_link',
+    )
     
     fieldsets = (
         (_('Basic Information'), {
@@ -70,6 +73,13 @@ class CompanyAdmin(admin.ModelAdmin):
                 ('legal_status', 'industry'),
                 'date_of_incorporation',
             )
+        }),
+        (_('External registry'), {
+            'fields': (
+                'source',
+                'external_reference',
+                'external_registry_lookup_link',
+            ),
         }),
         (_('Status'), {
             'fields': (
@@ -108,6 +118,22 @@ class CompanyAdmin(admin.ModelAdmin):
     def created_by(self, obj):
         return obj.created_by.get_full_name() or obj.created_by.username if obj.created_by else '-'
     created_by.short_description = _('Created By')
+
+    @admin.display(description=_('External lookup'))
+    def external_registry_lookup_link(self, obj):
+        from urllib.parse import urlencode
+
+        ref = (
+            (obj.external_reference or obj.registration_number or obj.registration_name or "")
+            .strip()
+        )
+        if not ref:
+            return '—'
+        url = reverse('admin:common_external_registry_lookup')
+        qs = urlencode({'lookup_type': 'company', 'query': ref})
+        return format_html(
+            '<a href="{}?{}">Look up in external registry</a>', url, qs
+        )
     
     def mark_as_verified(self, request, queryset):
         updated = queryset.update(is_verified=True)

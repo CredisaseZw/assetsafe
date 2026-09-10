@@ -28,7 +28,10 @@ from apps.companies.api.serializers import (
 )
 from apps.companies.utils.filters import CompanyBranchFilter
 from apps.common.utils import extract_error_message
-from apps.common.services.external_registry import ExternalRegistryClient
+from apps.common.services.external_registry import (
+    ExternalRegistryClient,
+    merge_company_search_results,
+)
 from apps.companies.services.external_import import import_external_company
 from rest_framework import serializers
 import logging
@@ -342,6 +345,8 @@ class CompanyBranchViewSet(BaseViewSet):
             return CompanyBranchSerializer
         elif self.action == "branches_by_company":
             return CompanyBranchSerializer
+        elif self.action == "search":
+            return CompanyBranchSearchSerializer
         return CompanyBranchMinimalSerializer
 
     def create(self, request, *args, **kwargs):
@@ -447,38 +452,23 @@ class CompanyBranchViewSet(BaseViewSet):
             .filter(
                 Q(branch_name__icontains=search_term)
                 | Q(company__trading_name__icontains=search_term)
+                | Q(company__registration_name__icontains=search_term)
                 | Q(company__registration_number__icontains=search_term)
             )
-            .select_related("company", "company__profile")
-            .prefetch_related(
-                "company__addresses",
-                "company__addresses__country",
-                "company__addresses__province",
-                "company__addresses__city",
-                "company__addresses__suburb",
-                "addresses",
-                "addresses__country",
-                "addresses__province",
-                "addresses__city",
-                "addresses__suburb",
-            )
+            .select_related("company")[:25]
         )
 
-        if branches.exists():
-            page = self.paginate_queryset(branches)
-            if page is not None:
-                serializer = self.get_serializer(page, many=True)
-                return self.get_paginated_response(serializer.data)
+        local_results = list(
+            CompanyBranchSearchSerializer(branches, many=True).data
+        )
 
-            serializer = self.get_serializer(branches, many=True)
-            return self._create_rendered_response(serializer.data)
-
+        external_results: list = []
         client = ExternalRegistryClient()
         if client.is_configured:
-            external_results = client.search_companies(search_term)[:25]
-            return self._create_rendered_response(external_results)
+            external_results = client.search_companies(search_term)
 
-        return self._create_rendered_response([])
+        merged = merge_company_search_results(local_results, external_results)
+        return self._create_rendered_response(merged)
 
     @action(detail=False, methods=["get"], url_path="claims")
     def claims(self, request, pk=None):

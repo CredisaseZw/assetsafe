@@ -485,7 +485,7 @@ class IndividualCreateSerializer(serializers.ModelSerializer):
 
 
 class IndividualSearchSerializer(serializers.ModelSerializer):
-    """Serializer for searching individuals Retuning minimal fields"""
+    """Slim serializer for autocomplete search results."""
 
     class Meta:
         model = Individual
@@ -496,7 +496,6 @@ class IndividualSearchSerializer(serializers.ModelSerializer):
             "identification_number",
             "phone",
             "email",
-            "is_active",
             "source",
             "external_reference",
         ]

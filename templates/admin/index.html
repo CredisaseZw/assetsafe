@@ -1,0 +1,23 @@
+{% extends "admin/index.html" %}
+{% load i18n %}
+
+{% block content %}
+{{ block.super }}
+<div class="module" style="margin-top: 1.5rem;">
+  <table>
+    <caption>
+      <a href="{% url 'admin:common_external_registry_lookup' %}" class="section">
+        External registry
+      </a>
+    </caption>
+    <tr>
+      <th scope="row">
+        <a href="{% url 'admin:common_external_registry_lookup' %}">
+          Look up person or company
+        </a>
+      </th>
+      <td>Search the configured external lookup API</td>
+    </tr>
+  </table>
+</div>
+{% endblock %}

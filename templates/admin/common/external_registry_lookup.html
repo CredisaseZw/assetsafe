@@ -1,0 +1,123 @@
+{% extends "admin/base_site.html" %} {% load i18n %} {% block content %}
+<h1>{{ title }}</h1>
+
+{% if not configured %}
+<p class="errornote">
+  External registry is not configured. Set EXTERNAL_REGISTRY_BASE_URL,
+  EXTERNAL_REGISTRY_USERNAME, and EXTERNAL_REGISTRY_TOKEN in the environment.
+</p>
+{% endif %}
+
+<form method="post" style="margin-bottom: 1.5rem">
+  {% csrf_token %}
+  <fieldset class="module aligned">
+    <div class="form-row">
+      <label for="id_lookup_type">Lookup type:</label>
+      <select name="lookup_type" id="id_lookup_type">
+        <option
+          value="person"
+          {%
+          if
+          lookup_type=""
+          ="person"
+          %}
+          selected{%
+          endif
+          %}
+        >
+          Person (national ID)
+        </option>
+        <option
+          value="company"
+          {%
+          if
+          lookup_type=""
+          ="company"
+          %}
+          selected{%
+          endif
+          %}
+        >
+          Company (reg name / number)
+        </option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label for="id_query">Query:</label>
+      <input
+        type="text"
+        name="query"
+        id="id_query"
+        value="{{ query }}"
+        size="40"
+        required
+      />
+    </div>
+  </fieldset>
+  <div class="submit-row">
+    <input type="submit" value="Look up" class="default" />
+  </div>
+</form>
+
+{% if result %}
+<h2>Results</h2>
+{% if result.kind == "person" %}
+<table>
+  <thead>
+    <tr>
+      <th>First name</th>
+      <th>Last name</th>
+      <th>National ID</th>
+      <th>Phone</th>
+      <th>Email</th>
+      <th>Address</th>
+      <th>External ref</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in result.rows %}
+    <tr>
+      <td>{{ row.first_name }}</td>
+      <td>{{ row.last_name }}</td>
+      <td>{{ row.identification_number }}</td>
+      <td>{{ row.phone|default:"—" }}</td>
+      <td>{{ row.email|default:"—" }}</td>
+      <td>{{ row.street_address|default:"—" }}</td>
+      <td>{{ row.external_reference }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<table>
+  <thead>
+    <tr>
+      <th>Registration name</th>
+      <th>Trading name</th>
+      <th>Reg. number</th>
+      <th>Phone</th>
+      <th>Email</th>
+      <th>Address</th>
+      <th>Searchable ref</th>
+      <th>Identity ref</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in result.rows %}
+    <tr>
+      <td>{{ row.company.registration_name }}</td>
+      <td>{{ row.company.trading_name|default:"—" }}</td>
+      <td>{{ row.company.registration_number|default:"—" }}</td>
+      <td>{{ row.phone|default:"—" }}</td>
+      <td>{{ row.email|default:"—" }}</td>
+      <td>{{ row.street_address|default:"—" }}</td>
+      <td>{{ row.external_reference }}</td>
+      <td>{{ row.company.external_reference }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %} {% endif %}
+
+<p><a href="{% url 'admin:index' %}">&larr; Back to admin index</a></p>
+{% endblock %}

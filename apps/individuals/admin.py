@@ -139,6 +139,8 @@ class IndividualAdmin(admin.ModelAdmin):
         "identification_number",
         "identification_type",
         "get_mobile_phone",
+        "source",
+        "external_reference",
         "created_by",
         "gender",
         "date_of_birth",
@@ -151,14 +153,25 @@ class IndividualAdmin(admin.ModelAdmin):
     list_filter = (
         "gender",
         "identification_type",
+        "source",
         "is_active",
         "is_verified",
         "is_deleted",
         "date_created",
     )
-    search_fields = ("first_name", "last_name", "identification_number")
+    search_fields = (
+        "first_name",
+        "last_name",
+        "identification_number",
+        "external_reference",
+    )
     ordering = ("-date_created",)
-    readonly_fields = ("account_number",)
+    readonly_fields = (
+        "account_number",
+        "source",
+        "external_reference",
+        "external_registry_lookup_link",
+    )
     fieldsets = (
         (None, {"fields": ("first_name", "last_name")}),
         (
@@ -168,6 +181,16 @@ class IndividualAdmin(admin.ModelAdmin):
         (
             "Additional Information",
             {"fields": ("date_of_birth", "gender", "marital_status", "account_number")},
+        ),
+        (
+            "External registry",
+            {
+                "fields": (
+                    "source",
+                    "external_reference",
+                    "external_registry_lookup_link",
+                ),
+            },
         ),
         ("Status", {"fields": ("is_verified", "is_active", "is_deleted")}),
     )
@@ -192,6 +215,22 @@ class IndividualAdmin(admin.ModelAdmin):
             )
 
     get_mobile_phone.short_description = "Phone Number"
+
+    @admin.display(description="External lookup")
+    def external_registry_lookup_link(self, obj):
+        from urllib.parse import urlencode
+
+        from django.urls import reverse
+        from django.utils.html import format_html
+
+        ref = (obj.external_reference or obj.identification_number or "").strip()
+        if not ref:
+            return "—"
+        url = reverse("admin:common_external_registry_lookup")
+        qs = urlencode({"lookup_type": "person", "query": ref})
+        return format_html(
+            '<a href="{}?{}">Look up in external registry</a>', url, qs
+        )
 
     actions = [
         "mark_as_verified",

@@ -598,12 +598,35 @@ export function AssetRegistryForm({
                   }
                   resolveSelection={async (item) => {
                     const ownerType = watch('owner_type');
-                    const id =
-                      ownerType === 'company'
-                        ? await companiesApi.resolveBranchSelection(item)
-                        : await individualsApi.resolveIndividualSelection(item);
+                    let id: number;
+                    let idLabel = partyIdRegDisplay(item, ownerType);
+                    if (ownerType === 'company') {
+                      id = await companiesApi.resolveBranchSelection(item);
+                      idLabel =
+                        idLabel ||
+                        item.idReg ||
+                        item.external_reference ||
+                        '';
+                    } else if (
+                      item.source === 'external' &&
+                      item.external_reference
+                    ) {
+                      const imported = await individualsApi.importExternal(
+                        item.external_reference,
+                      );
+                      id = imported.id;
+                      idLabel =
+                        idLabel ||
+                        imported.identification_number ||
+                        item.external_reference ||
+                        '';
+                    } else {
+                      id = await individualsApi.resolveIndividualSelection(item);
+                      idLabel =
+                        idLabel || item.idReg || item.external_reference || '';
+                    }
                     if (isLand) {
-                      setOwnerIdRegLabel(partyIdRegDisplay(item, ownerType));
+                      setOwnerIdRegLabel(idLabel);
                     }
                     return id;
                   }}

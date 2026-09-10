@@ -466,22 +466,41 @@ class CompanyBranchMinimalSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "company", "address_summary"]
 
 
-class CompanyBranchSearchSerializer(serializers.ModelSerializer):
-    """Serializer for company branch search results"""
+class CompanySearchMinimalSerializer(serializers.ModelSerializer):
+    """Slim company fields nested under branch search results."""
 
-    company = CompanyMinimalSerializer(read_only=True)
-    primary_address = serializers.SerializerMethodField()
+    class Meta:
+        model = Company
+        fields = [
+            "id",
+            "registration_number",
+            "registration_name",
+            "trading_name",
+            "external_reference",
+            "source",
+        ]
+
+
+class CompanyBranchSearchSerializer(serializers.ModelSerializer):
+    """Slim serializer for company branch autocomplete search results."""
+
+    company = CompanySearchMinimalSerializer(read_only=True)
+    source = serializers.CharField(source="company.source", read_only=True)
+    external_reference = serializers.CharField(
+        source="company.external_reference", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = CompanyBranch
-        fields = ["id", "branch_name", "is_headquarters", "company", "primary_address"]
-
-    def get_primary_address(self, obj):
-        """Get the primary address for this branch"""
-        primary_address = obj.addresses.filter(
-            address_type="physical", is_primary=True
-        ).first()
-        return AddressSerializer(primary_address).data if primary_address else None
+        fields = [
+            "id",
+            "branch_name",
+            "is_headquarters",
+            "company",
+            "phone",
+            "source",
+            "external_reference",
+        ]
 
 
 class CompanyBranchDetailSerializer(serializers.ModelSerializer):

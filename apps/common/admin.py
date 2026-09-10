@@ -3,6 +3,7 @@ from django.utils.translation import gettext_lazy as _
 # apps/common/admin.py
 from django.contrib import admin
 from django.contrib.contenttypes.admin import GenericTabularInline
+from django.urls import path
 from apps.common.models.models import (
     Document,
     Note,
@@ -14,6 +15,7 @@ from apps.common.models.models import (
     Currency,
     LookupOption,
 )
+from apps.common.admin_views import external_registry_lookup
 
 
 class AddressInline(GenericTabularInline):
@@ -135,3 +137,20 @@ class LookupOptionAdmin(admin.ModelAdmin):
     list_filter = ("category", "is_system", "is_active")
     search_fields = ("value", "label")
     ordering = ("category", "sort_order", "label")
+
+
+_original_get_urls = admin.site.get_urls
+
+
+def _get_urls():
+    return [
+        path(
+            "common/external-registry-lookup/",
+            admin.site.admin_view(external_registry_lookup),
+            name="common_external_registry_lookup",
+        ),
+    ] + _original_get_urls()
+
+
+admin.site.get_urls = _get_urls
+admin.site.index_template = "admin/index.html"

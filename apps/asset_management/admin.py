@@ -26,6 +26,7 @@ class LandDetailsInline(admin.StackedInline):
     model = LandDetails
     extra = 0
     max_num = 1
+    raw_id_fields = ("city", "suburb")
 
 
 @admin.register(AssetRegistration)
@@ -54,6 +55,11 @@ class AssetRegistrationAdmin(admin.ModelAdmin):
         "mobile__imei",
         "make",
         "model",
+    )
+    raw_id_fields = (
+        "individual_owner",
+        "company_owner",
+        "currency",
     )
     readonly_fields = (
         "registration_number",

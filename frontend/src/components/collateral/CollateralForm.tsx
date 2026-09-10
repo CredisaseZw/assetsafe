@@ -767,7 +767,11 @@ export function CollateralForm({
                 render={({ field }) => (
                   <AutocompleteInput
                     label="Name / ID / Reg. No."
-                    placeholder="Search debtor..."
+                    placeholder={
+                      watch('debtor_type') === 'company'
+                        ? 'Search by Name / Reg Number'
+                        : 'Search by Name / National ID'
+                    }
                     queryKey={`collateral-debtor-${watch('debtor_type')}`}
                     displayLabel={debtorLabel}
                     fetchFn={(q) =>
