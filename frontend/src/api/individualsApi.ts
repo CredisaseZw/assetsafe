@@ -111,16 +111,21 @@ export const individualsApi = {
 
   importExternal: async (
     externalReference: string,
-  ): Promise<{ id: number; name: string }> => {
+  ): Promise<{ id: number; name: string; identification_number?: string }> => {
     const { data } = await axiosInstance.post<unknown>(
       '/individuals/import-external/',
       { external_reference: externalReference },
     );
     const record = unwrapRecord(data);
     const mapped = mapIndividualSearchResult(record);
+    const identification_number =
+      mapped.idReg ||
+      String(record.identification_number ?? '').trim() ||
+      undefined;
     return {
       id: mapped.id ?? Number(record.id),
       name: mapped.name,
+      identification_number,
     };
   },
 

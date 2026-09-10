@@ -146,7 +146,7 @@ export function AutocompleteInput({
           ) : isBusy ? (
             <div className="p-2 text-sm text-slate-500">
               {selecting
-                ? 'Importing...'
+                ? 'Loading...'
                 : externalLoading
                   ? loadingLabel
                   : 'Searching...'}

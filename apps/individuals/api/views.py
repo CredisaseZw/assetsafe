@@ -16,7 +16,12 @@ from apps.individuals.models import Individual
 from apps.common.api.views import BaseViewSet
 from apps.common.utils import CacheService, extract_error_message
 from apps.individuals.services.tasks import process_individuals_csv
-from apps.common.services.external_registry import ExternalRegistryClient
+from apps.common.services.external_registry import (
+    ExternalRegistryClient,
+    looks_like_national_id,
+    merge_individual_search_results,
+    normalize_national_id,
+)
 from apps.individuals.services.external_import import import_external_individual
 from rest_framework import serializers
 
@@ -55,10 +60,16 @@ class IndividualViewSet(BaseViewSet):
         if search_key:
             first_name, *last_name_parts = search_key.split()
             last_name = " ".join(last_name_parts) if last_name_parts else first_name
+            id_filter = Q(identification_number__icontains=search_key)
+            if looks_like_national_id(search_key):
+                # Match compact DB values when the user types dashed/spaced forms
+                id_filter |= Q(
+                    identification_number__iexact=normalize_national_id(search_key)
+                )
             return self.queryset.filter(
                 Q(first_name__icontains=first_name)
                 | Q(last_name__icontains=last_name)
-                | Q(identification_number__icontains=search_key)
+                | id_filter
             ).prefetch_related(
                 "addresses",
                 "employment_details",
@@ -194,18 +205,18 @@ class IndividualViewSet(BaseViewSet):
             return self._create_rendered_response([], status.HTTP_200_OK)
 
         queryset = self.filter_queryset(self.get_queryset())[:25]
-        if queryset.exists():
-            serializer = self.get_serializer(queryset, many=True)
-            return self._create_rendered_response(serializer.data, status.HTTP_200_OK)
+        local_results = list(self.get_serializer(queryset, many=True).data)
 
-        client = ExternalRegistryClient()
-        if client.is_configured:
-            external_results = client.search_individuals(search_key)[:25]
-            return self._create_rendered_response(
-                external_results, status.HTTP_200_OK
-            )
+        external_results: list = []
+        if looks_like_national_id(search_key):
+            client = ExternalRegistryClient()
+            if client.is_configured:
+                external_results = client.search_individuals(
+                    normalize_national_id(search_key)
+                )
 
-        return self._create_rendered_response([], status.HTTP_200_OK)
+        merged = merge_individual_search_results(local_results, external_results)
+        return self._create_rendered_response(merged, status.HTTP_200_OK)
 
     @action(detail=False, methods=["post"], url_path="import-external")
     def import_external(self, request, *args, **kwargs):

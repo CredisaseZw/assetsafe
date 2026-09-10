@@ -235,15 +235,30 @@ export function StandOwnershipChangeForm({
   }, [newOwnerType, newOwnerId, setValue]);
 
   const applyNewOwnerSelection = async (item: SearchOption) => {
-    const id =
-      newOwnerType === 'company'
-        ? await companiesApi.resolveBranchSelection(item)
-        : await individualsApi.resolveIndividualSelection(item);
+    let id: number;
+    let idLabel = partyIdRegDisplay(item, newOwnerType);
+    if (newOwnerType === 'company') {
+      id = await companiesApi.resolveBranchSelection(item);
+      idLabel = idLabel || item.idReg || item.external_reference || '';
+    } else if (item.source === 'external' && item.external_reference) {
+      const imported = await individualsApi.importExternal(
+        item.external_reference,
+      );
+      id = imported.id;
+      idLabel =
+        idLabel ||
+        imported.identification_number ||
+        item.external_reference ||
+        '';
+    } else {
+      id = await individualsApi.resolveIndividualSelection(item);
+      idLabel = idLabel || item.idReg || item.external_reference || '';
+    }
     if (newOwnerType === detail.owner_type && id === detail.owner_id) {
       toast.error('The new owner cannot be the same as the current owner.');
       throw new Error('The new owner cannot be the same as the current owner.');
     }
-    setOwnerSearchLabel(partyIdRegDisplay(item, newOwnerType));
+    setOwnerSearchLabel(idLabel);
     return id;
   };
 
@@ -534,10 +549,27 @@ export function StandSaleTransitionForm({
   });
 
   const applyPurchaserSelection = async (item: SearchOption) => {
-    setPurchaserSearchLabel(partyIdRegDisplay(item, purchaserType));
-    return purchaserType === 'company'
-      ? companiesApi.resolveBranchSelection(item)
-      : individualsApi.resolveIndividualSelection(item);
+    let id: number;
+    let idLabel = partyIdRegDisplay(item, purchaserType);
+    if (purchaserType === 'company') {
+      id = await companiesApi.resolveBranchSelection(item);
+      idLabel = idLabel || item.idReg || item.external_reference || '';
+    } else if (item.source === 'external' && item.external_reference) {
+      const imported = await individualsApi.importExternal(
+        item.external_reference,
+      );
+      id = imported.id;
+      idLabel =
+        idLabel ||
+        imported.identification_number ||
+        item.external_reference ||
+        '';
+    } else {
+      id = await individualsApi.resolveIndividualSelection(item);
+      idLabel = idLabel || item.idReg || item.external_reference || '';
+    }
+    setPurchaserSearchLabel(idLabel);
+    return id;
   };
 
   const mutation = useMutation({

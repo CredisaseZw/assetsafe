@@ -110,8 +110,13 @@ export const companiesApi = {
   },
 
   resolveBranchSelection: async (item: SearchOption): Promise<number> => {
-    if (item.source === 'external' && item.external_reference) {
-      const result = await companiesApi.importExternal(item.external_reference);
+    if (item.source === 'external') {
+      // Prefer registration number/name — lookup-company/?search= does not accept fins ids.
+      const ref = (item.idReg || item.external_reference || '').trim();
+      if (!ref) {
+        throw new Error('Invalid external company selection');
+      }
+      const result = await companiesApi.importExternal(ref);
       return result.id;
     }
     if (item.id == null) {

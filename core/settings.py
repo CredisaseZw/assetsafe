@@ -91,7 +91,8 @@ def getenv_list(key: str, default: str = "") -> list[str]:
 
 # External party registry (optional — search fallback when local records are missing)
 EXTERNAL_REGISTRY_BASE_URL = os.getenv("EXTERNAL_REGISTRY_BASE_URL", "")
-EXTERNAL_REGISTRY_API_KEY = os.getenv("EXTERNAL_REGISTRY_API_KEY", "")
+EXTERNAL_REGISTRY_USERNAME = os.getenv("EXTERNAL_REGISTRY_USERNAME", "")
+EXTERNAL_REGISTRY_TOKEN = os.getenv("EXTERNAL_REGISTRY_TOKEN", "")
 EXTERNAL_REGISTRY_TIMEOUT = getenv_int("EXTERNAL_REGISTRY_TIMEOUT", 10)
 
 
@@ -204,6 +205,8 @@ else:
                 "PASSWORD": parsed.password,
                 "HOST": parsed.hostname,
                 "PORT": parsed.port,
+                "CONN_MAX_AGE": 0,
+                "DISABLE_SERVER_SIDE_CURSORS": True,
                 "OPTIONS": dict(parse_qsl(parsed.query)),
             },
             "pooler": {
@@ -213,6 +216,8 @@ else:
                 "PASSWORD": parsed.password,
                 "HOST": parsed.hostname,
                 "PORT": parsed.port,
+                "CONN_MAX_AGE": 0,
+                "DISABLE_SERVER_SIDE_CURSORS": True,
                 "OPTIONS": {
                     "sslmode": "require",
                     "options": "-c statement_timeout=30000",

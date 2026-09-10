@@ -35,16 +35,18 @@ export function mapIndividualSearchResult(
   const name =
     (typeof item.name === 'string' && item.name) ||
     `${first} ${last}`.trim() ||
-    (item.id != null ? `Individual #${item.id}` : 'External individual');
+    (item.id != null ? `Individual #${item.id}` : 'Individual');
+  const identification = String(
+    item.identification_number ?? item.external_reference ?? '',
+  ).trim();
+  const phone = String(item.phone ?? '').trim() || undefined;
+  const email = String(item.email ?? '').trim() || undefined;
 
   return {
     id: item.id != null ? Number(item.id) : null,
     name,
-    subtitle:
-      (item.identification_number as string | undefined) ??
-      (item.phone as string | undefined) ??
-      (item.email as string | undefined),
-    idReg: String(item.identification_number ?? '').trim() || undefined,
+    subtitle: identification || phone || email,
+    idReg: identification || undefined,
     source: (item.source as SearchOption['source']) ?? 'internal',
     external_reference: (item.external_reference as string | null) ?? null,
   };
@@ -79,12 +81,14 @@ export function mapBranchSearchResult(
     ? `${companyName} — ${branchName}`
     : companyName ||
       branchName ||
-      (item.id != null ? `Branch #${item.id}` : 'External company');
+      (item.id != null ? `Branch #${item.id}` : 'Company');
+
+  const phone = String(item.phone ?? company?.phone ?? '').trim() || undefined;
 
   return {
     id: item.id != null ? Number(item.id) : null,
     name: regNo ? `${name} (${regNo})` : name,
-    subtitle: item.source === 'external' ? 'External registry' : undefined,
+    subtitle: regNo || phone,
     idReg: regNo || undefined,
     source: (item.source as SearchOption['source']) ?? 'internal',
     external_reference:
@@ -101,10 +105,14 @@ export function partyIdRegDisplay(
 ): string {
   if (item.idReg?.trim()) return item.idReg.trim();
   if (partyType === 'individual') {
-    return item.subtitle?.trim() ?? '';
+    return (
+      item.subtitle?.trim() ||
+      item.external_reference?.trim() ||
+      ''
+    );
   }
   const match = item.name.match(/\(([^)]+)\)\s*$/);
-  return match?.[1]?.trim() ?? '';
+  return match?.[1]?.trim() || item.external_reference?.trim() || '';
 }
 
 export function mapClientSearchResult(
