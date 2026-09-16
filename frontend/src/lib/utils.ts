@@ -34,3 +34,13 @@ export function formatDate(dateStr: string): string {
     year: '2-digit',
   });
 }
+
+/**
+ * Reads a numeric form input, treating empty input as `undefined` instead of
+ * `NaN` so optional number fields validate as empty rather than invalid.
+ */
+export function emptyToUndefined(value: unknown): number | undefined {
+  if (value === '' || value === null || value === undefined) return undefined;
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isNaN(parsed) ? undefined : parsed;
+}

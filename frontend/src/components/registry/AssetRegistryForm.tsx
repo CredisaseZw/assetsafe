@@ -28,6 +28,7 @@ import { commonApi } from '@/api/commonApi';
 import { queryOptions } from '@/api/queryOptions';
 import { useCommonChoices } from '@/hooks/useCommonChoices';
 import { toBackendAssetType } from '@/lib/assetTypes';
+import { emptyToUndefined } from '@/lib/utils';
 import type { SearchOption } from '@/lib/searchResults';
 import { partyIdRegDisplay } from '@/lib/searchResults';
 import {
@@ -815,22 +816,28 @@ export function AssetRegistryForm({
               <Input
                 label="Total number of units"
                 type="number"
-                {...register('total_number_of_units', { valueAsNumber: true })}
+                {...register('total_number_of_units', {
+                  setValueAs: emptyToUndefined,
+                })}
+                error={errors.total_number_of_units?.message}
               />
               <Input
                 label="Building/Complex Name"
                 {...register('building_name')}
+                error={errors.building_name?.message}
               />
               <Input
                 label="Total Area (sq m)"
                 type="number"
                 step="0.01"
-                {...register('total_area', { valueAsNumber: true })}
+                {...register('total_area', { setValueAs: emptyToUndefined })}
+                error={errors.total_area?.message}
               />
               <Input
                 label="Year Built"
                 type="number"
-                {...register('year_built', { valueAsNumber: true })}
+                {...register('year_built', { setValueAs: emptyToUndefined })}
+                error={errors.year_built?.message}
               />
               <Select
                 label="Status"
@@ -986,7 +993,7 @@ export function AssetRegistryForm({
               <Input
                 label="Year of Make"
                 type="number"
-                {...register('year_of_make', { valueAsNumber: true })}
+                {...register('year_of_make', { setValueAs: emptyToUndefined })}
                 error={errors.year_of_make?.message}
               />
               <Select
