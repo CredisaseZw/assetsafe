@@ -11,30 +11,34 @@ export function mapAssetFormToApi(data: Record<string, unknown>) {
   const isVehicle = asset_category === 'vehicles';
   const isMobile = asset_category === 'mobiles';
   const isLand = asset_category === 'land';
+  const isBuilding = asset_category === 'building';
+  const typedAsset = isLand || isBuilding;
 
   const payload: Record<string, unknown> = {
     owner_type: owner.owner_type,
     asset_category,
     asset_type: String(data.asset_type ?? '').trim(),
-    make: isLand ? '' : data.asset_make,
-    model: isLand ? '' : data.asset_model,
-    year_of_make: isLand ? null : data.year_of_make,
-    condition: isLand ? '' : data.condition,
+    make: typedAsset ? '' : data.asset_make,
+    model: typedAsset ? '' : data.asset_model,
+    year_of_make: typedAsset ? null : data.year_of_make,
+    condition: typedAsset ? '' : data.condition,
     currency: data.currency,
     estimated_value: data.estimated_value,
-    location_address: isLand ? '' : data.location_address,
+    location_address: typedAsset ? '' : data.location_address,
     subscription_start_date: data.subscription_start_date,
     subscription_end_date: data.subscription_end_date,
     owner_asset_number: data.owner_asset_number ?? '',
     serial_number: isMobile ? '' : (data.serial_number ?? ''),
-    custody_type: isLand ? '' : (data.custody_type ?? ''),
-    custodian_type: isLand ? '' : (data.custodian_type ?? ''),
-    custodian_address: isLand ? '' : (data.custodian_address ?? ''),
-    custodian_email: isLand ? '' : (data.custodian_email ?? ''),
-    custodian_mobile: isLand ? '' : (data.custodian_mobile ?? ''),
-    custodian_telephone: isLand ? '' : (data.custodian_telephone ?? ''),
-    guarantor_name: isLand ? '' : (data.guarantor_name ?? ''),
-    guarantor_identification: isLand ? '' : (data.guarantor_identification ?? ''),
+    custody_type: typedAsset ? '' : (data.custody_type ?? ''),
+    custodian_type: typedAsset ? '' : (data.custodian_type ?? ''),
+    custodian_address: typedAsset ? '' : (data.custodian_address ?? ''),
+    custodian_email: typedAsset ? '' : (data.custodian_email ?? ''),
+    custodian_mobile: typedAsset ? '' : (data.custodian_mobile ?? ''),
+    custodian_telephone: typedAsset ? '' : (data.custodian_telephone ?? ''),
+    guarantor_name: typedAsset ? '' : (data.guarantor_name ?? ''),
+    guarantor_identification: typedAsset
+      ? ''
+      : (data.guarantor_identification ?? ''),
   };
 
   if (isVehicle) {
@@ -65,6 +69,33 @@ export function mapAssetFormToApi(data: Record<string, unknown>) {
     payload.company_custodian = null;
   }
 
+  if (isBuilding) {
+    payload.building = {
+      suburb: data.suburb_id,
+      street_address: data.street_address ?? '',
+      postal_code: data.postal_code ?? '',
+      stand_number: data.stand_number ?? '',
+      building_type: data.building_type,
+      description: data.building_description ?? '',
+      building_name: data.building_name ?? '',
+      total_number_of_units: data.total_number_of_units ?? 0,
+      total_area: data.total_area ?? 0,
+      year_built: data.year_built ?? null,
+      status: data.building_status,
+      is_furnished: Boolean(data.is_furnished),
+      features: {
+        parking: data.feature_parking ?? '',
+        security: data.feature_security ?? '',
+        backup_power: data.feature_backup_power ?? '',
+      },
+      // TODO: re-enable when building valuation/title UI returns
+      valuation_type: data.valuation_type ?? '',
+      title_status: data.title_status ?? '',
+    };
+    payload.individual_custodian = null;
+    payload.company_custodian = null;
+  }
+
   if (owner.owner_type === 'individual') {
     payload.individual_owner = owner.owner_id;
     payload.company_owner = null;
@@ -74,7 +105,7 @@ export function mapAssetFormToApi(data: Record<string, unknown>) {
   }
 
   const custodyType = String(data.custody_type ?? '');
-  if (custodyType && !isLand) {
+  if (custodyType && !typedAsset) {
     const custodianType = data.custodian_type as 'individual' | 'company';
     if (custodianType === 'individual') {
       payload.individual_custodian = data.custodian_id;

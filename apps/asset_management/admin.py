@@ -3,6 +3,7 @@ from django.contrib import admin
 from apps.asset_management.models import (
     AssetOwnershipEvent,
     AssetRegistration,
+    BuildingDetails,
     LandDetails,
     MobileDetails,
     StandSaleTransition,
@@ -24,6 +25,13 @@ class MobileDetailsInline(admin.StackedInline):
 
 class LandDetailsInline(admin.StackedInline):
     model = LandDetails
+    extra = 0
+    max_num = 1
+    raw_id_fields = ("city", "suburb")
+
+
+class BuildingDetailsInline(admin.StackedInline):
+    model = BuildingDetails
     extra = 0
     max_num = 1
     raw_id_fields = ("city", "suburb")
@@ -52,6 +60,9 @@ class AssetRegistrationAdmin(admin.ModelAdmin):
         "company_owner__company__trading_name",
         "vehicle__mv_registration_number",
         "land__stand_number",
+        "building__stand_number",
+        "building__street_address",
+        "building__building_name",
         "mobile__imei",
         "make",
         "model",
@@ -69,7 +80,12 @@ class AssetRegistrationAdmin(admin.ModelAdmin):
         "created_by",
         "updated_by",
     )
-    inlines = [VehicleDetailsInline, MobileDetailsInline, LandDetailsInline]
+    inlines = [
+        VehicleDetailsInline,
+        MobileDetailsInline,
+        LandDetailsInline,
+        BuildingDetailsInline,
+    ]
     fieldsets = (
         (
             "Registration",

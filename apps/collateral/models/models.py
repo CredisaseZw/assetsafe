@@ -56,6 +56,18 @@ class CollateralRegistration(BaseModelWithUser):
         verbose_name=_("Data Date"),
         help_text=_("Date on which the financier wants the record lodged."),
     )
+    data_source_name = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        verbose_name=_("Data Source Name"),
+    )
+    data_source_position = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        verbose_name=_("Data Source Position"),
+    )
 
     # ---- Debtor (the borrower) ----
     debtor_type = models.CharField(

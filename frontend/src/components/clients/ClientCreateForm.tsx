@@ -65,7 +65,7 @@ export function ClientCreateForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!entityId) {
-      setEntityError('Select an individual or company branch');
+      setEntityError('Select an individual or company name');
       return;
     }
     setEntityError('');
@@ -89,7 +89,7 @@ export function ClientCreateForm({
         </Select>
 
         <AutocompleteInput
-          label={entityType === 'individual' ? 'Individual' : 'Company Branch'}
+          label={entityType === 'individual' ? 'Individual' : 'Company Name'}
           placeholder={
             entityType === 'individual'
               ? 'Search by name or national ID...'
@@ -126,7 +126,7 @@ export function ClientCreateForm({
 
         <p className="text-xs text-slate-500">
           Creates a client record linked to the selected{' '}
-          {entityType === 'individual' ? 'individual' : 'company branch'}.
+          {entityType === 'individual' ? 'individual' : 'company name'}.
         </p>
 
         <div className="flex justify-end gap-2 border-t border-slate-200 pt-3">

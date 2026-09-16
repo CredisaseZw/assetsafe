@@ -23,6 +23,11 @@ interface Props {
   suburbLabel?: string;
   cityLabel?: string;
   suburbRequired?: boolean;
+  /**
+   * When set, lock the cascade to this country (e.g. "Zimbabwe") so city/suburb
+   * search only returns locations in that country. Country field stays hidden.
+   */
+  lockedCountryName?: string;
 }
 
 // ─── Generic searchable combobox ──────────────────────────────────────────────
@@ -178,6 +183,7 @@ export function LocationCascadeSelects({
   suburbLabel: suburbLabelProp,
   cityLabel: cityLabelProp,
   suburbRequired = true,
+  lockedCountryName,
 }: Props) {
   const queryClient = useQueryClient();
   const isStand = variant === 'stand';
@@ -189,6 +195,7 @@ export function LocationCascadeSelects({
   const [suburb, setSuburb] = useState<SuburbOption | null>(null);
   const [creatingSuburb, setCreatingSuburb] = useState(false);
   const [createError, setCreateError] = useState<string | undefined>();
+  const lockedCountryKey = lockedCountryName?.trim().toLowerCase() ?? '';
 
   // ── base data — loaded once on mount, cached forever ─────────────────────
   //
@@ -315,14 +322,20 @@ export function LocationCascadeSelects({
     if (found) setCountry(found);
   }, [suburb, country, countries]);
 
+  // Lock country when requested (e.g. Building → Zimbabwe only)
+  useEffect(() => {
+    if (!lockedCountryKey || countries.length === 0) return;
+    const locked =
+      countries.find((c) => c.name.toLowerCase() === lockedCountryKey) ?? null;
+    if (locked && country?.id !== locked.id) {
+      setCountry(locked);
+    }
+  }, [lockedCountryKey, countries, country?.id]);
+
   // External suburb id (react-hook-form) → populate comboboxes
   useEffect(() => {
     if (!value || value <= 0) {
-      if (suburb) {
-        setSuburb(null);
-        setCity(null);
-        setCountry(null);
-      }
+      if (suburb) setSuburb(null);
       return;
     }
     if (suburb?.id === value) return;
@@ -345,14 +358,31 @@ export function LocationCascadeSelects({
 
   const countryOptions = sorted(countries);
 
-  const cityOptions = sorted(country ? citiesForCountry : allCities);
+  const cityOptions = sorted(
+    country
+      ? citiesForCountry
+      : lockedCountryKey
+        ? allCities.filter((c) => {
+            const province = allProvinces.find(
+              (p) => p.name === c.province_name,
+            );
+            return (
+              province?.country_name?.toLowerCase() === lockedCountryKey
+            );
+          })
+        : allCities,
+  );
 
   const suburbOptions = sorted(
     city
       ? suburbsForCity
       : country
         ? allSuburbs.filter((s) => s.country_name === country.name)
-        : allSuburbs,
+        : lockedCountryKey
+          ? allSuburbs.filter(
+              (s) => s.country_name?.toLowerCase() === lockedCountryKey,
+            )
+          : allSuburbs,
   );
 
   // ── handlers ─────────────────────────────────────────────────────────────
@@ -396,12 +426,8 @@ export function LocationCascadeSelects({
     setCreateError(undefined);
     setSuburb(item);
     onChange(item?.id ?? 0);
-    if (!item) {
-      // Suburb cleared → reset city and country too
-      setCity(null);
-      setCountry(null);
-    }
-    // When item is set, city & country fill reactively via the useEffects above
+    // Cleared suburb text/selection must not reset city or country.
+    // When item is set, city & country fill reactively via the useEffects above.
   };
 
   const handleCreateSuburb = async (name: string) => {
@@ -486,9 +512,19 @@ export function LocationCascadeSelects({
     />
   );
 
+  if (lockedCountryKey) {
+    return (
+      <>
+        {cityField}
+        {suburbField}
+      </>
+    );
+  }
+
   if (isStand) {
     return (
       <>
+        {countryField}
         {cityField}
         {suburbField}
       </>

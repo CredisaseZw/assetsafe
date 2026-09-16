@@ -35,7 +35,6 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
     )
     purchaser_display = serializers.SerializerMethodField(read_only=True)
     data_source_display = serializers.SerializerMethodField(read_only=True)
-    data_source_position = serializers.SerializerMethodField(read_only=True)
     data_source_user_id = serializers.IntegerField(write_only=True, required=False)
     currency = serializers.SlugRelatedField(
         slug_field="code",
@@ -55,6 +54,8 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
             "purchaser_display",
             "purchaser_type",
             "data_date",
+            "data_source_name",
+            "data_source_position",
             "agreement_number",
             "asset_category",
             "asset_type",
@@ -80,7 +81,6 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
             "is_active",
             "is_pending_closure",
             "data_source_display",
-            "data_source_position",
             "data_source_user_id",
             "date_created",
             "date_updated",
@@ -100,12 +100,13 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
             "financier_display",
             "purchaser_display",
             "data_source_display",
-            "data_source_position",
         ]
         extra_kwargs = {
             "mv_registration_number": {"required": False},
             "serial_number": {"required": False},
             "make": {"required": False},
+            "data_source_name": {"required": False, "allow_blank": True},
+            "data_source_position": {"required": False, "allow_blank": True},
         }
         validators = []
 
@@ -127,14 +128,19 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
         return ""
 
     def get_data_source_display(self, obj: HirePurchaseRegistration) -> str:
+        name = (obj.data_source_name or "").strip()
+        if name:
+            return name
         if obj.created_by is None:
             return ""
         return obj.created_by.get_full_name() or obj.created_by.username or ""
 
-    def get_data_source_position(self, obj: HirePurchaseRegistration) -> str:
-        if obj.created_by is None:
-            return ""
-        return obj.created_by.position or ""
+    def to_representation(self, instance: HirePurchaseRegistration) -> dict:
+        data = super().to_representation(instance)
+        position = (data.get("data_source_position") or "").strip()
+        if not position and instance.created_by is not None:
+            data["data_source_position"] = instance.created_by.position or ""
+        return data
 
     def validate_asset_category(self, value: str) -> str:
         try:

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -10,6 +10,7 @@ import {
   Layers,
   Plus,
   Search,
+  XCircle,
 } from 'lucide-react';
 import { hirePurchaseApi } from '@/api/hirePurchaseApi';
 import { InlineStat } from '@/components/shared/InlineStat';
@@ -18,6 +19,7 @@ import { EmptyState } from '@/components/shared/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { Modal } from '@/components/shared/Modal';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { HirePurchaseForm } from '@/components/hire-purchase/HirePurchaseForm';
 import { HirePurchaseViewModal } from '@/components/hire-purchase/HirePurchaseViewModal';
 import { NumberedPaginationFooter } from '@/components/shared/NumberedPaginationFooter';
@@ -105,6 +107,25 @@ export default function HirePurchasePage() {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [viewRecord, setViewRecord] = useState<HirePurchaseRecord | null>(null);
+  const [pendingCloseRecord, setPendingCloseRecord] =
+    useState<HirePurchaseRecord | null>(null);
+
+  const { mutate: confirmClosure, isPending: isConfirmingClosure } = useMutation(
+    {
+      mutationFn: (id: number) => hirePurchaseApi.confirmClosure(id),
+      onSuccess: (_data, id) => {
+        toast.success('Hire purchase closure confirmed');
+        setPendingCloseRecord(null);
+        refreshList(false, id);
+      },
+      onError: (err: any) => {
+        toast.error(
+          err?.response?.data?.message ?? 'Failed to confirm closure',
+        );
+        setPendingCloseRecord(null);
+      },
+    },
+  );
 
   useEffect(() => {
     if (isStaff) return;
@@ -490,19 +511,31 @@ export default function HirePurchasePage() {
                         {formatDate(rec.end_date)}
                       </td>
                       <td className="px-2 py-2">
-                        <button
-                          type="button"
-                          onClick={() => handleViewRecord(rec)}
-                          className={cn(
-                            'flex items-center gap-1 px-2 py-1 text-[11px] font-bold uppercase text-white',
-                            isExpired(rec)
-                              ? 'bg-[#f97316] hover:bg-[#ea580c]'
-                              : 'bg-[#196A86] hover:bg-[#15586f]',
-                          )}
-                        >
-                          <Eye className="h-3 w-3" />
-                          View
-                        </button>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleViewRecord(rec)}
+                            className={cn(
+                              'inline-flex w-[4.75rem] items-center justify-center gap-1 px-2 py-1 text-[11px] font-bold uppercase leading-none text-white',
+                              isExpired(rec)
+                                ? 'bg-[#f97316] hover:bg-[#ea580c]'
+                                : 'bg-[#196A86] hover:bg-[#15586f]',
+                            )}
+                          >
+                            <Eye className="h-3 w-3" />
+                            View
+                          </button>
+                          {rec.status !== 'closed' ? (
+                            <button
+                              type="button"
+                              onClick={() => setPendingCloseRecord(rec)}
+                              className="inline-flex w-[4.75rem] items-center justify-center gap-1 px-2 py-1 text-[11px] font-bold uppercase leading-none text-white bg-[#dc2626] hover:bg-[#b91c1c]"
+                            >
+                              <XCircle className="h-3 w-3" />
+                              Close
+                            </button>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -527,6 +560,7 @@ export default function HirePurchasePage() {
         onClose={() => setAddOpen(false)}
         title="Hire Purchase Form"
         size="xl"
+        disableBackdropClose
       >
         <HirePurchaseForm
           onSuccess={() => {
@@ -546,6 +580,7 @@ export default function HirePurchasePage() {
         }}
         title="Upload Multiple Records"
         size="sm"
+        disableBackdropClose
       >
         <div className="flex flex-col gap-4 p-6">
           <div className="flex items-center gap-3 rounded border border-slate-200 bg-slate-50 px-4 py-3">
@@ -587,6 +622,21 @@ export default function HirePurchasePage() {
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={Boolean(pendingCloseRecord)}
+        title="Close Hire Purchase Agreement"
+        message="Are you sure you want to close this hire purchase agreement?"
+        confirmLabel="Yes, Confirm"
+        variant="danger"
+        loading={isConfirmingClosure}
+        onConfirm={() => {
+          if (pendingCloseRecord) {
+            confirmClosure(pendingCloseRecord.id);
+          }
+        }}
+        onCancel={() => setPendingCloseRecord(null)}
+      />
     </div>
   );
 }

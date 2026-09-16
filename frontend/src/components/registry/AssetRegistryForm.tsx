@@ -31,6 +31,11 @@ import { toBackendAssetType } from '@/lib/assetTypes';
 import type { SearchOption } from '@/lib/searchResults';
 import { partyIdRegDisplay } from '@/lib/searchResults';
 import {
+  BUILDING_BACKUP_POWER_OPTIONS,
+  BUILDING_PARKING_OPTIONS,
+  BUILDING_SECURITY_OPTIONS,
+} from '@/lib/buildingChoices';
+import {
   applySellerContactToForm,
   clearSellerContactForm,
   contactToFieldLocks,
@@ -91,9 +96,23 @@ const schema = z
     seller_mobile: z.string().optional(),
     seller_telephone: z.string().optional(),
     seller_suburb_id: z.coerce.number().optional(),
+    street_address: z.string().optional(),
+    postal_code: z.string().optional(),
+    building_type: z.string().optional(),
+    building_description: z.string().optional(),
+    building_name: z.string().optional(),
+    total_number_of_units: z.coerce.number().optional(),
+    total_area: z.coerce.number().optional(),
+    year_built: z.coerce.number().optional(),
+    building_status: z.string().optional(),
+    is_furnished: z.boolean().optional(),
+    feature_parking: z.string().optional(),
+    feature_security: z.string().optional(),
+    feature_backup_power: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     const isLand = toBackendAssetType(data.asset_category) === 'land';
+    const isBuilding = toBackendAssetType(data.asset_category) === 'building';
 
     if (isLand) {
       if (!data.suburb_id || data.suburb_id < 1) {
@@ -131,6 +150,39 @@ const schema = z
           path: ['title_status'],
         });
       }
+      return;
+    }
+
+    if (isBuilding) {
+      if (!data.suburb_id || data.suburb_id < 1) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Suburb/Area/Development is required',
+          path: ['suburb_id'],
+        });
+      }
+      if (!data.street_address?.trim()) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Street address is required',
+          path: ['street_address'],
+        });
+      }
+      if (!data.building_type) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Building type is required',
+          path: ['building_type'],
+        });
+      }
+      if (!data.building_status) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Status is required',
+          path: ['building_status'],
+        });
+      }
+      // TODO: re-enable building valuation/title requirements when fields return
       return;
     }
 
@@ -411,6 +463,8 @@ export function AssetRegistryForm({
   const isVehicle = category === 'vehicles';
   const isMobile = category === 'mobiles';
   const isLand = category === 'land';
+  const isBuilding = category === 'building';
+  const typedAsset = isLand || isBuilding;
 
   useEffect(() => {
     if (prevOwnerTypeRef.current === null) {
@@ -452,6 +506,30 @@ export function AssetRegistryForm({
 
   const valuationOptions = choices.ValuationType ?? [];
   const titleStatusOptions = choices.TitleStatus ?? [];
+  const buildingTypeOptions = choices.BuildingType ?? [];
+  const buildingStatusOptions = choices.BuildingStatus ?? [];
+
+  useEffect(() => {
+    if (!isBuilding || isEdit) return;
+    if (!watch('asset_type')) {
+      setValue('asset_type', 'Building', { shouldValidate: true });
+    }
+    if (!watch('building_status') && buildingStatusOptions.length > 0) {
+      setValue('building_status', buildingStatusOptions[0].value, {
+        shouldValidate: true,
+      });
+    }
+    if (underCustody) {
+      setValue('under_custody', false);
+    }
+  }, [
+    isBuilding,
+    isEdit,
+    setValue,
+    underCustody,
+    watch,
+    buildingStatusOptions,
+  ]);
 
   useEffect(() => {
     if (!isLand || isEdit) return;
@@ -681,9 +759,11 @@ export function AssetRegistryForm({
           />
         ) : null}
 
-        {/* ── Asset / Stand Details ── */}
+        {/* ── Asset / Stand / Building Details ── */}
         <FormSectionHeader
-          title={isLand ? 'Stand Details' : 'Asset Details'}
+          title={
+            isLand ? 'Stand Details' : isBuilding ? 'Building Details' : 'Asset Details'
+          }
           variant="dark"
         />
         <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
@@ -706,7 +786,140 @@ export function AssetRegistryForm({
             ))}
           </Select>
 
-          {isLand ? (
+          {isBuilding ? (
+            <>
+              <Select
+                label="Building Type"
+                required
+                {...register('building_type')}
+                error={errors.building_type?.message}
+              >
+                <option value="">Select...</option>
+                {buildingTypeOptions.map((option: any) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+              <div className="col-span-2">
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Property Details
+                </label>
+                <textarea
+                  {...register('building_description')}
+                  placeholder="i.e. Rooms, Size,"
+                  rows={2}
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                />
+              </div>
+              <Input
+                label="Total number of units"
+                type="number"
+                {...register('total_number_of_units', { valueAsNumber: true })}
+              />
+              <Input
+                label="Building/Complex Name"
+                {...register('building_name')}
+              />
+              <Input
+                label="Total Area (sq m)"
+                type="number"
+                step="0.01"
+                {...register('total_area', { valueAsNumber: true })}
+              />
+              <Input
+                label="Year Built"
+                type="number"
+                {...register('year_built', { valueAsNumber: true })}
+              />
+              <Select
+                label="Status"
+                required
+                {...register('building_status')}
+                error={errors.building_status?.message}
+              >
+                <option value="">Select...</option>
+                {buildingStatusOptions.map((option: any) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Furnished
+                </label>
+                <label className="flex items-center gap-2 pb-2 text-sm text-slate-700">
+                  <input type="checkbox" {...register('is_furnished')} />
+                  Yes
+                </label>
+              </div>
+              <div className="col-span-2 sm:col-span-4 rounded border border-slate-200 p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Features
+                </p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <Select label="Parking" {...register('feature_parking')}>
+                    <option value="">Select parking type</option>
+                    {BUILDING_PARKING_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
+                  <Select label="Security" {...register('feature_security')}>
+                    <option value="">Select security level</option>
+                    {BUILDING_SECURITY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
+                  <Select
+                    label="Backup Power"
+                    {...register('feature_backup_power')}
+                  >
+                    <option value="">Select power backup</option>
+                    {BUILDING_BACKUP_POWER_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              </div>
+              <div className="col-span-2 sm:col-span-4 rounded border border-slate-200 p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Primary Address
+                </p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+                  <Controller
+                    name="suburb_id"
+                    control={control}
+                    render={({ field }) => (
+                      <LocationCascadeSelects
+                        variant="stand"
+                        value={field.value}
+                        onChange={(id) =>
+                          field.onChange(id > 0 ? id : undefined)
+                        }
+                        error={errors.suburb_id?.message}
+                      />
+                    )}
+                  />
+                  <Input
+                    label="Street Address"
+                    {...register('street_address')}
+                    placeholder="e.g. 22 Cnr Sam Nujoma Str"
+                    error={errors.street_address?.message}
+                    required
+                  />
+                  <Input label="Postal Code" {...register('postal_code')} />
+                  <Input label="Stand Number" {...register('stand_number')} />
+                </div>
+              </div>
+            </>
+          ) : isLand ? (
             <>
               <Select
                 label="Asset Description"
@@ -849,6 +1062,18 @@ export function AssetRegistryForm({
               </Select>
             </>
           ) : null}
+          {/* TODO: re-enable building valuation/title when required again
+          {isBuilding ? (
+            <>
+              <Select label="Valuation Type" {...register('valuation_type')}>
+                ...
+              </Select>
+              <Select label="Title Status" {...register('title_status')}>
+                ...
+              </Select>
+            </>
+          ) : null}
+          */}
           <Select
             label="Currency"
             required
@@ -868,14 +1093,14 @@ export function AssetRegistryForm({
             ))}
           </Select>
           <Input
-            label={isLand ? 'Value Amount' : 'Estimated Value'}
+            label={typedAsset ? 'Value Amount' : 'Estimated Value'}
             type="number"
             step="0.01"
             {...register('estimated_value')}
             error={errors.estimated_value?.message}
             required
           />
-          {!isLand ? (
+          {!typedAsset ? (
             <div className="col-span-2">
               <Input
                 label="Location Address"
@@ -916,7 +1141,7 @@ export function AssetRegistryForm({
           />
         </div>
 
-        {!isLand ? (
+        {!typedAsset ? (
           <>
             {/* ── Custody Details ── */}
             <FormSectionHeader title="Custody Details" variant="dark" />

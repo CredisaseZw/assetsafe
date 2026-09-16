@@ -16,6 +16,11 @@ export const SALE_TERMS_FALLBACK: ChoiceOption[] = [
   { value: 'installments', label: 'Installments' },
 ];
 
+export {
+  BUILDING_TYPE_FALLBACK,
+  BUILDING_STATUS_FALLBACK,
+} from '@/lib/buildingChoices';
+
 export function mergeChoiceOptions(
   apiOptions: ChoiceOption[] | undefined,
   fallbackOptions: ChoiceOption[],

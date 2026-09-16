@@ -16,6 +16,8 @@ function mapRecordFromApi(record: any): AssetRecord {
   const vehicle = record.vehicle ?? {};
   const mobile = record.mobile ?? {};
   const land = record.land ?? {};
+  const building = record.building ?? {};
+  const features = building.features ?? {};
 
   return {
     id: record.id,
@@ -43,13 +45,29 @@ function mapRecordFromApi(record: any): AssetRecord {
     imei: mobile.imei ?? '',
     serial_number:
       record.primary_identifier ?? record.serial_number ?? mobile.imei ?? '',
-    stand_number: land.stand_number ?? '',
+    stand_number: land.stand_number ?? building.stand_number ?? '',
     stand_size: land.stand_size_display ?? land.stand_size ?? '',
     stand_address: land.stand_address ?? '',
-    city_name: land.city_name ?? '',
-    suburb_name: land.suburb_name ?? '',
-    valuation_type: land.valuation_type ?? '',
-    title_status: land.title_status ?? '',
+    street_address: building.street_address ?? '',
+    postal_code: building.postal_code ?? '',
+    city_name: land.city_name ?? building.city_name ?? '',
+    suburb_name: land.suburb_name ?? building.suburb_name ?? '',
+    suburb_id: land.suburb ?? building.suburb,
+    valuation_type: land.valuation_type ?? building.valuation_type ?? '',
+    title_status: land.title_status ?? building.title_status ?? '',
+    building_type: building.building_type ?? '',
+    building_type_display: building.building_type_display ?? '',
+    building_description: building.description ?? '',
+    building_name: building.building_name ?? '',
+    total_number_of_units: building.total_number_of_units ?? 0,
+    total_area: building.total_area ?? '',
+    year_built: building.year_built ?? undefined,
+    building_status: building.status ?? '',
+    building_status_display: building.status_display ?? '',
+    is_furnished: building.is_furnished ?? false,
+    feature_parking: features.parking ?? '',
+    feature_security: features.security ?? '',
+    feature_backup_power: features.backup_power ?? '',
     stand_status: record.stand_status ?? '',
     open_sale: record.open_sale ?? null,
     currency: record.currency_code ?? record.currency ?? 'USD',
@@ -57,9 +75,13 @@ function mapRecordFromApi(record: any): AssetRecord {
     location_address: record.location_address ?? '',
     subscription_start_date: record.subscription_start_date ?? '',
     subscription_end_date: record.subscription_end_date ?? '',
-    status: (record.is_active === false
-      ? 'expired'
-      : 'active') as AssetRecord['status'],
+    is_closed: record.is_closed ?? false,
+    closed_at: record.closed_at ?? null,
+    status: (record.is_closed
+      ? 'closed'
+      : record.is_active === false
+        ? 'expired'
+        : 'active') as AssetRecord['status'],
   };
 }
 
@@ -159,5 +181,13 @@ export const assetRegistryApi = {
 
   deleteRecord: async (id: number): Promise<void> => {
     await axiosInstance.delete(`/asset-management/${id}/`);
+  },
+
+  closeRecord: async (id: number): Promise<AssetRecord> => {
+    const { data } = await axiosInstance.patch<ApiResponse<any>>(
+      `/asset-management/${id}/close/`,
+    );
+    const body = data.data ?? data;
+    return mapRecordFromApi(body);
   },
 };

@@ -142,15 +142,12 @@ export function HirePurchaseForm({
   >();
   const [staffDataSourceName, setStaffDataSourceName] = useState('');
   const [staffDataSourcePosition, setStaffDataSourcePosition] = useState('');
-  const [staffDataSourceSearchLabel, setStaffDataSourceSearchLabel] =
-    useState('');
   const [positionOverride, setPositionOverride] = useState('');
 
   const clearDataSource = () => {
     setDataSourceUserId(undefined);
     setStaffDataSourceName('');
     setStaffDataSourcePosition('');
-    setStaffDataSourceSearchLabel('');
     setPositionOverride('');
   };
 
@@ -193,16 +190,16 @@ export function HirePurchaseForm({
   const currentPurchaserType = watch('purchaser_type');
   const selectedFinancierId = watch('financier_id');
 
-  const { data: clientUsers = [], isLoading: clientUsersLoading } = useQuery({
+  const { data: clientUsers = [] } = useQuery({
     queryKey: ['hp-client-users', selectedFinancierId],
     queryFn: () => clientsApi.listClientUsers(Number(selectedFinancierId)),
     enabled:
       !isEdit &&
       isStaff &&
+      financierClientType === 'individual' &&
       !!selectedFinancierId &&
       Number(selectedFinancierId) > 0,
   });
-  const clientUsersBusy = clientUsersLoading;
 
   const { data: clientDetail } = useQuery({
     queryKey: ['hp-client-detail', selectedFinancierId],
@@ -294,7 +291,6 @@ export function HirePurchaseForm({
         `${details?.first_name ?? ''} ${details?.last_name ?? ''}`.trim()) ||
       clientDetail.name;
     setStaffDataSourceName(individualName);
-    setStaffDataSourceSearchLabel(individualName);
     setStaffDataSourcePosition('');
   }, [clientDetail, financierClientType, isEdit, isStaff]);
 
@@ -376,10 +372,25 @@ export function HirePurchaseForm({
       balance: (data.purchase_amount ?? 0) - (data.total_paid_to_date ?? 0),
     };
 
-    if (isStaff && !isEdit && dataSourceUserId) {
-      return { ...withBalance, data_source_user_id: dataSourceUserId };
-    }
-    return withBalance;
+    const dataSourceName =
+      isClientUser && !isEdit
+        ? (user?.name ?? '').trim()
+        : staffDataSourceName.trim();
+    const dataSourcePosition =
+      isClientUser && !isEdit
+        ? ((user?.position ?? '').trim() || positionOverride.trim())
+        : staffDataSourcePosition.trim() || positionOverride.trim();
+
+    return {
+      ...withBalance,
+      ...(dataSourceName ? { data_source_name: dataSourceName } : {}),
+      ...(dataSourcePosition
+        ? { data_source_position: dataSourcePosition }
+        : {}),
+      ...(isStaff && !isEdit && dataSourceUserId
+        ? { data_source_user_id: dataSourceUserId }
+        : {}),
+    };
   };
 
   const persistBlankDataSourcePosition = async () => {
@@ -417,24 +428,6 @@ export function HirePurchaseForm({
     submit(buildSubmitPayload(data) as any, options);
   };
 
-  const validateStaffDataSource = () => {
-    if (
-      !isStaff ||
-      isEdit ||
-      !selectedFinancierId ||
-      Number(selectedFinancierId) <= 0
-    ) {
-      return true;
-    }
-    if (financierClientType === 'company' && !dataSourceUserId) {
-      toast.error(
-        'Please select a data source user for this company financier.',
-      );
-      return false;
-    }
-    return true;
-  };
-
   const onFormSubmit = handleSubmit((data) => {
     if (isClientUser && !isEdit) {
       if (!clientFinancierId) {
@@ -444,7 +437,6 @@ export function HirePurchaseForm({
         return;
       }
     }
-    if (!validateStaffDataSource()) return;
     if (isEdit) {
       setPendingSubmit(data);
       setConfirmingUpdate(true);
@@ -466,7 +458,6 @@ export function HirePurchaseForm({
       );
       return;
     }
-    if (!validateStaffDataSource()) return;
 
     performSubmit(data, {
       onSuccess: () => {
@@ -649,39 +640,11 @@ export function HirePurchaseForm({
               <div className="grid grid-cols-2 gap-3 px-4 pb-4 sm:grid-cols-4">
                 <div className="col-span-2">
                   {financierClientType === 'company' ? (
-                    <AutocompleteInput
+                    <Input
                       label="Data Source Name"
-                      placeholder="Search user under client..."
-                      queryKey={`hp-data-source-${selectedFinancierId}-${clientUsers.length}`}
-                      displayLabel={staffDataSourceSearchLabel}
-                      minChars={1}
-                      externalLoading={clientUsersBusy}
-                      loadingLabel="Fetching users..."
-                      fetchFn={async (q) => {
-                        const term = q.trim().toLowerCase();
-                        if (!term) return [];
-                        return clientUsers
-                          .filter(
-                            (u) =>
-                              u.name.toLowerCase().includes(term) ||
-                              (u.position?.toLowerCase().includes(term) ??
-                                false),
-                          )
-                          .map((u) => ({
-                            id: u.id,
-                            name: u.name,
-                            subtitle: u.position,
-                          }));
-                      }}
-                      value={dataSourceUserId}
-                      onChange={(id) => {
-                        const selected = clientUsers.find((u) => u.id === id);
-                        setDataSourceUserId(id);
-                        setStaffDataSourceName(selected?.name ?? '');
-                        setStaffDataSourcePosition(selected?.position ?? '');
-                        setStaffDataSourceSearchLabel(selected?.name ?? '');
-                        setPositionOverride('');
-                      }}
+                      value={staffDataSourceName}
+                      onChange={(e) => setStaffDataSourceName(e.target.value)}
+                      placeholder="Enter data source name"
                     />
                   ) : (
                     <ReadOnlyField
@@ -691,17 +654,29 @@ export function HirePurchaseForm({
                   )}
                 </div>
                 <div className="col-span-2">
-                  {staffDataSourcePosition.trim() ? (
+                  {financierClientType === 'company' ||
+                  !staffDataSourcePosition.trim() ? (
+                    <Input
+                      label="Position"
+                      value={
+                        financierClientType === 'company'
+                          ? staffDataSourcePosition || positionOverride
+                          : positionOverride
+                      }
+                      onChange={(e) => {
+                        if (financierClientType === 'company') {
+                          setStaffDataSourcePosition(e.target.value);
+                          setPositionOverride('');
+                        } else {
+                          setPositionOverride(e.target.value);
+                        }
+                      }}
+                      placeholder="Enter position"
+                    />
+                  ) : (
                     <ReadOnlyField
                       label="Position"
                       value={staffDataSourcePosition}
-                    />
-                  ) : (
-                    <Input
-                      label="Position"
-                      value={positionOverride}
-                      onChange={(e) => setPositionOverride(e.target.value)}
-                      placeholder="Enter position"
                     />
                   )}
                 </div>

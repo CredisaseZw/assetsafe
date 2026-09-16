@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Eye,
   Layers,
   Plus,
   Search,
+  XCircle,
 } from 'lucide-react';
 import { assetRegistryApi } from '@/api/assetRegistryApi';
 import { commonApi } from '@/api/commonApi';
@@ -19,6 +21,7 @@ import { EmptyState } from '@/components/shared/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { Modal } from '@/components/shared/Modal';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { AssetRegistryForm } from '@/components/registry/AssetRegistryForm';
 import { AssetViewModal } from '@/components/registry/AssetViewModal';
 import { NumberedPaginationFooter } from '@/components/shared/NumberedPaginationFooter';
@@ -42,7 +45,22 @@ export default function AssetRegistryPage() {
   const [addMultipleOpen, setAddMultipleOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [viewRecord, setViewRecord] = useState<AssetRecord | null>(null);
+  const [pendingCloseRecord, setPendingCloseRecord] =
+    useState<AssetRecord | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { mutate: closeRecord, isPending: isClosingRecord } = useMutation({
+    mutationFn: (id: number) => assetRegistryApi.closeRecord(id),
+    onSuccess: () => {
+      toast.success('Asset registration closed successfully');
+      setPendingCloseRecord(null);
+      refreshList(false);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message ?? 'Failed to close record');
+      setPendingCloseRecord(null);
+    },
+  });
 
   useEffect(() => {
     if (searchParams.get('add') === '1') {
@@ -367,13 +385,26 @@ export default function AssetRegistryPage() {
                         {formatDate(rec.subscription_end_date)}
                       </td>
                       <td className="px-2 py-2">
-                        <button
-                          type="button"
-                          onClick={() => setViewRecord(rec)}
-                          className="bg-[#196A86] px-2 py-1 text-[11px] font-bold text-white hover:bg-[#15586f]"
-                        >
-                          View
-                        </button>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setViewRecord(rec)}
+                            className="inline-flex w-[4.75rem] items-center justify-center gap-1 px-2 py-1 text-[11px] font-bold uppercase leading-none text-white bg-[#196A86] hover:bg-[#15586f]"
+                          >
+                            <Eye className="h-3 w-3" />
+                            View
+                          </button>
+                          {!rec.is_closed && rec.status !== 'closed' ? (
+                            <button
+                              type="button"
+                              onClick={() => setPendingCloseRecord(rec)}
+                              className="inline-flex w-[4.75rem] items-center justify-center gap-1 px-2 py-1 text-[11px] font-bold uppercase leading-none text-white bg-[#dc2626] hover:bg-[#b91c1c]"
+                            >
+                              <XCircle className="h-3 w-3" />
+                              Close
+                            </button>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -398,6 +429,7 @@ export default function AssetRegistryPage() {
         onClose={() => setAddOpen(false)}
         title="New Asset Registration"
         size="xl"
+        disableBackdropClose
       >
         <AssetRegistryForm
           onSuccess={() => {
@@ -417,6 +449,7 @@ export default function AssetRegistryPage() {
         }}
         title="Upload Multiple Records"
         size="sm"
+        disableBackdropClose
       >
         <div className="flex flex-col gap-4 p-6">
           <div className="flex items-center gap-3 rounded border border-slate-200 bg-slate-50 px-4 py-3">
@@ -462,6 +495,21 @@ export default function AssetRegistryPage() {
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={Boolean(pendingCloseRecord)}
+        title="Close Asset Registration"
+        message="Are you sure you want to close this asset registration? It will be removed from the active list and archived."
+        confirmLabel="Yes, Close Record"
+        variant="danger"
+        loading={isClosingRecord}
+        onConfirm={() => {
+          if (pendingCloseRecord) {
+            closeRecord(pendingCloseRecord.id);
+          }
+        }}
+        onCancel={() => setPendingCloseRecord(null)}
+      />
     </div>
   );
 }
