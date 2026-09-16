@@ -134,6 +134,9 @@ def search_assets(query: str, search_field: SearchField) -> list[EnquiryHit]:
         "land",
         "land__suburb",
         "land__city",
+        "building",
+        "building__suburb",
+        "building__city",
     )
     if search_field == "agreement_number":
         ar_qs = ar_qs.filter(_iexact("registration_number", term))
@@ -146,7 +149,10 @@ def search_assets(query: str, search_field: SearchField) -> list[EnquiryHit]:
     elif search_field == "engine_number":
         ar_qs = ar_qs.filter(_iexact("vehicle__engine_number", term))
     elif search_field == "stand_number":
-        ar_qs = ar_qs.filter(_iexact("land__stand_number", term))
+        ar_qs = ar_qs.filter(
+            _iexact("land__stand_number", term)
+            | _iexact("building__stand_number", term)
+        )
     else:
         ar_qs = AssetRegistration.objects.none()
 
@@ -170,6 +176,11 @@ def search_assets(query: str, search_field: SearchField) -> list[EnquiryHit]:
 def _asset_description(row: AssetRegistration) -> str:
     if row.asset_category == BaseAssetType.LAND:
         return row.asset_type or "Stand"
+    if row.asset_category == BaseAssetType.BUILDING:
+        building = getattr(row, "building", None)
+        if building:
+            return building.building_name or building.get_building_type_display()
+        return row.asset_type or "Building"
     return _description(row.make, row.model)
 
 
@@ -183,6 +194,11 @@ def _asset_reg_or_serial(row: AssetRegistration) -> str:
     if row.asset_category == BaseAssetType.LAND:
         land = getattr(row, "land", None)
         return land.stand_number if land else ""
+    if row.asset_category == BaseAssetType.BUILDING:
+        building = getattr(row, "building", None)
+        if building:
+            return building.stand_number or building.street_address
+        return ""
     return row.serial_number or ""
 
 

@@ -42,6 +42,8 @@ def seed_system_lookup_options(
     from apps.common.models.models import (
         AssetCondition,
         BaseAssetType,
+        BuildingStatus,
+        BuildingType,
         CollateralAssetType,
         PartyType,
         SaleTerms,
@@ -60,6 +62,8 @@ def seed_system_lookup_options(
         ("ValuationType", _rows_from_text_choices(ValuationType)),
         ("TitleStatus", _rows_from_text_choices(TitleStatus)),
         ("SaleTerms", _rows_from_text_choices(SaleTerms)),
+        ("BuildingType", _rows_from_text_choices(BuildingType)),
+        ("BuildingStatus", _rows_from_text_choices(BuildingStatus)),
     ]
 
     for category, rows in batches:

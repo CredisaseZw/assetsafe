@@ -12,6 +12,8 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.common.models import (
     BaseAssetType,
+    BuildingStatus,
+    BuildingType,
     CustodyType,
     Currency,
     PartyType,
@@ -179,6 +181,19 @@ class AssetRegistration(BaseModelWithUser):
     subscription_end_date = models.DateField(
         verbose_name=_("Subscription End Date"),
     )
+    is_closed = models.BooleanField(
+        default=False,
+        db_index=True,
+        verbose_name=_("Is Closed"),
+        help_text=_(
+            "When True, the registration is archived and excluded from active lists."
+        ),
+    )
+    closed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Closed At"),
+    )
 
     class Meta:
         ordering = ["-lodge_date"]
@@ -205,6 +220,10 @@ class AssetRegistration(BaseModelWithUser):
             land = getattr(self, "land", None)
             stand = land.stand_number if land else ""
             return f"{self.registration_number} — Stand {stand} ({owner})"
+        if self.asset_category == BaseAssetType.BUILDING:
+            building = getattr(self, "building", None)
+            name = building.building_name if building else ""
+            return f"{self.registration_number} — {name or self.asset_type} ({owner})"
         desc = f"{self.make} {self.model}".strip()
         return f"{self.registration_number} — {desc or self.asset_type} ({owner})"
 
@@ -411,6 +430,117 @@ class LandDetails(BaseModelWithUser):
             return ""
         unit_label = "sq. m" if self.stand_size_unit == self.STAND_SIZE_UNIT_SQ_M else self.stand_size_unit
         return f"{self.stand_size} {unit_label}"
+
+
+class BuildingDetails(BaseModelWithUser):
+    """Building registration details (1418)."""
+
+    asset = models.OneToOneField(
+        AssetRegistration,
+        on_delete=models.CASCADE,
+        related_name="building",
+        verbose_name=_("Asset"),
+    )
+    city = models.ForeignKey(
+        City,
+        on_delete=models.PROTECT,
+        related_name="building_assets",
+        verbose_name=_("City/Town"),
+    )
+    suburb = models.ForeignKey(
+        Suburb,
+        on_delete=models.PROTECT,
+        related_name="building_assets",
+        verbose_name=_("Suburb/Area/Development"),
+    )
+    street_address = models.CharField(
+        max_length=255,
+        verbose_name=_("Street Address"),
+    )
+    postal_code = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name=_("Postal Code"),
+    )
+    stand_number = models.CharField(
+        max_length=50,
+        blank=True,
+        db_index=True,
+        verbose_name=_("Stand Number"),
+    )
+    building_type = models.CharField(
+        max_length=50,
+        choices=BuildingType.choices,
+        verbose_name=_("Building Type"),
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_("Property Details"),
+    )
+    building_name = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name=_("Building/Complex Name"),
+    )
+    total_number_of_units = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_("Total Number of Units"),
+    )
+    total_area = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Total Area (sq m)"),
+    )
+    year_built = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name=_("Year Built"),
+    )
+    status = models.CharField(
+        max_length=30,
+        choices=BuildingStatus.choices,
+        verbose_name=_("Status"),
+    )
+    is_furnished = models.BooleanField(
+        default=False,
+        verbose_name=_("Furnished"),
+    )
+    features = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name=_("Features"),
+        help_text=_("Parking, security, and backup power options."),
+    )
+    valuation_type = models.CharField(
+        max_length=30,
+        choices=ValuationType.choices,
+        blank=True,
+        default="",
+        verbose_name=_("Valuation Type"),
+    )
+    title_status = models.CharField(
+        max_length=30,
+        choices=TitleStatus.choices,
+        blank=True,
+        default="",
+        verbose_name=_("Title Status"),
+    )
+
+    class Meta:
+        verbose_name = _("Building Details")
+        verbose_name_plural = _("Building Details")
+        constraints = [
+            models.UniqueConstraint(
+                models.F("suburb"),
+                Lower("street_address"),
+                name="ar_uq_building_suburb_address_ci",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        label = self.building_name or self.get_building_type_display()
+        return f"{label} — {self.suburb.name}"
 
 
 class StandSaleTransition(BaseModelWithUser):

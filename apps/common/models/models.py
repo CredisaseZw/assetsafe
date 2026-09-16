@@ -107,6 +107,41 @@ class SaleTerms(models.TextChoices):
     INSTALLMENTS = "installments", _("Installments")
 
 
+class BuildingType(models.TextChoices):
+    """Building subtypes for asset registry building assets (1418)."""
+
+    RESIDENTIAL_HOUSE = "residential_house", _("Residential - House")
+    RESIDENTIAL_COTTAGE = "residential_cottage", _("Residential - Cottage")
+    RESIDENTIAL_TOWNHOUSE = "residential_townhouse", _("Residential - Townhouse")
+    RESIDENTIAL_FLAT = "residential_flat", _("Residential - Flat")
+    RESIDENTIAL_SMALL_HOLDING = (
+        "residential_small_holding",
+        _("Residential - Small Holding"),
+    )
+    COMMERCIAL_OFFICES = "commercial_offices", _("Commercial - Offices")
+    COMMERCIAL_RETAIL = "commercial_retail", _("Commercial - Retail")
+    COMMERCIAL_INDUSTRIAL = "commercial_industrial", _("Commercial - Industrial")
+    COMMERCIAL_WAREHOUSE = "commercial_warehouse", _("Commercial - Warehouse")
+    COMMERCIAL_HOSPITALITY = "commercial_hospitality", _("Commercial - Hospitality")
+    INSTITUTIONAL_EDUCATION = (
+        "institutional_education",
+        _("Institutional - Education"),
+    )
+    INSTITUTIONAL_MEDICAL = "institutional_medical", _("Institutional - Medical")
+    AGRICULTURAL_WAREHOUSE = "agricultural_warehouse", _("Agricultural - Warehouse")
+    AGRICULTURAL_GREENHOUSE = "agricultural_greenhouse", _("Agricultural - Greenhouse")
+
+
+class BuildingStatus(models.TextChoices):
+    """Occupancy status for building assets (1418)."""
+
+    VACANT = "vacant", _("Vacant")
+    PARTIALLY_OCCUPIED = "partially_occupied", _("Partially Occupied")
+    OCCUPIED = "occupied", _("Occupied")
+    MAINTENANCE = "maintenance", _("Maintenance")
+    SOLD = "sold", _("Sold")
+
+
 class LookupOption(models.Model):
     """
     DB-backed choice lists for PartyType, BaseAssetType, AssetCondition,
@@ -126,6 +161,8 @@ class LookupOption(models.Model):
     CATEGORY_VALUATION_TYPE = "ValuationType"
     CATEGORY_TITLE_STATUS = "TitleStatus"
     CATEGORY_SALE_TERMS = "SaleTerms"
+    CATEGORY_BUILDING_TYPE = "BuildingType"
+    CATEGORY_BUILDING_STATUS = "BuildingStatus"
     CATEGORY_CHOICES = (
         (CATEGORY_PARTY_TYPE, _("Party Type")),
         (CATEGORY_BASE_ASSET_TYPE, _("Base Asset Type")),
@@ -135,6 +172,8 @@ class LookupOption(models.Model):
         (CATEGORY_VALUATION_TYPE, _("Valuation Type")),
         (CATEGORY_TITLE_STATUS, _("Title Status")),
         (CATEGORY_SALE_TERMS, _("Sale Terms")),
+        (CATEGORY_BUILDING_TYPE, _("Building Type")),
+        (CATEGORY_BUILDING_STATUS, _("Building Status")),
     )
 
     category = models.CharField(

@@ -10,6 +10,7 @@ from rest_framework import serializers
 
 from apps.asset_management.models import (
     AssetRegistration,
+    BuildingDetails,
     LandDetails,
     MobileDetails,
     StandSaleTransition,
@@ -170,6 +171,112 @@ class LandDetailsSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"stand_address": "Stand Address is required."}
                 )
+
+        return attrs
+
+
+class BuildingDetailsSerializer(serializers.ModelSerializer):
+    city_name = serializers.CharField(source="city.name", read_only=True)
+    suburb_name = serializers.CharField(source="suburb.name", read_only=True)
+    building_type_display = serializers.CharField(
+        source="get_building_type_display",
+        read_only=True,
+    )
+    status_display = serializers.CharField(
+        source="get_status_display",
+        read_only=True,
+    )
+    city = serializers.PrimaryKeyRelatedField(
+        queryset=City.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+
+    class Meta:
+        model = BuildingDetails
+        fields = [
+            "city",
+            "suburb",
+            "city_name",
+            "suburb_name",
+            "street_address",
+            "postal_code",
+            "stand_number",
+            "building_type",
+            "building_type_display",
+            "description",
+            "building_name",
+            "total_number_of_units",
+            "total_area",
+            "year_built",
+            "status",
+            "status_display",
+            "is_furnished",
+            "features",
+            "valuation_type",
+            "title_status",
+        ]
+
+    def validate(self, attrs: dict) -> dict:
+        suburb = attrs.get("suburb") or (
+            getattr(self.instance, "suburb", None) if self.instance else None
+        )
+        city = attrs.get("city")
+        if suburb and not city:
+            attrs["city"] = suburb.city
+        elif not suburb and not city:
+            raise serializers.ValidationError(
+                {"suburb": "Suburb/Area/Development is required."}
+            )
+
+        for field_name, category in (
+            ("building_type", LookupOption.CATEGORY_BUILDING_TYPE),
+            ("status", LookupOption.CATEGORY_BUILDING_STATUS),
+            ("valuation_type", LookupOption.CATEGORY_VALUATION_TYPE),
+            ("title_status", LookupOption.CATEGORY_TITLE_STATUS),
+        ):
+            value = attrs.get(field_name)
+            if value is None and self.instance:
+                continue
+            if isinstance(value, str):
+                value = value.strip()
+                attrs[field_name] = value
+            # valuation_type / title_status are optional for buildings (UI commented out)
+            if field_name in ("valuation_type", "title_status") and not value:
+                attrs[field_name] = ""
+                continue
+            if value:
+                try:
+                    attrs[field_name] = ensure_valid_lookup_value(
+                        category, value, field=field_name
+                    )
+                except DjangoValidationError as exc:
+                    raise DRFValidationError(exc.message_dict) from exc
+
+        street_address = attrs.get(
+            "street_address",
+            getattr(self.instance, "street_address", "") if self.instance else "",
+        )
+        if isinstance(street_address, str):
+            street_address = street_address.strip()
+            attrs["street_address"] = street_address
+        if not street_address:
+            raise serializers.ValidationError(
+                {"street_address": "Street address is required."}
+            )
+
+        stand_number = attrs.get(
+            "stand_number",
+            getattr(self.instance, "stand_number", "") if self.instance else "",
+        )
+        if isinstance(stand_number, str):
+            attrs["stand_number"] = stand_number.strip()
+
+        features = attrs.get("features")
+        if features is None:
+            attrs["features"] = {}
+        elif not isinstance(features, dict):
+            attrs["features"] = {}
 
         return attrs
 
@@ -336,6 +443,7 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
     vehicle = VehicleDetailsSerializer(required=False, allow_null=True)
     mobile = MobileDetailsSerializer(required=False, allow_null=True)
     land = LandDetailsSerializer(required=False, allow_null=True)
+    building = BuildingDetailsSerializer(required=False, allow_null=True)
     currency = serializers.SlugRelatedField(
         slug_field="code",
         queryset=Currency.objects.all(),
@@ -352,6 +460,8 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
             "lodge_date",
             "date_created",
             "date_updated",
+            "is_closed",
+            "closed_at",
         ]
 
     def get_is_active(self, obj: AssetRegistration) -> bool:
@@ -549,6 +659,7 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
         vehicle_data = attrs.pop("vehicle", serializers.empty)
         mobile_data = attrs.pop("mobile", serializers.empty)
         land_data = attrs.pop("land", serializers.empty)
+        building_data = attrs.pop("building", serializers.empty)
 
         if vehicle_data is not serializers.empty:
             self._vehicle_payload = vehicle_data
@@ -567,6 +678,11 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
         else:
             self._land_payload = None
 
+        if building_data is not serializers.empty:
+            self._building_payload = building_data
+        else:
+            self._building_payload = None
+
         is_create = self.instance is None
         if is_create:
             if asset_category == BaseAssetType.VEHICLES and not self._vehicle_payload:
@@ -581,6 +697,10 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"land": "Land details are required for land assets."}
                 )
+            if asset_category == BaseAssetType.BUILDING and not self._building_payload:
+                raise serializers.ValidationError(
+                    {"building": "Building details are required for building assets."}
+                )
 
         errors: dict[str, str] = {}
         if asset_category != BaseAssetType.VEHICLES and self._vehicle_payload:
@@ -589,10 +709,12 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
             errors["mobile"] = "Mobile details are only valid for mobile assets."
         if asset_category != BaseAssetType.LAND and self._land_payload:
             errors["land"] = "Land details are only valid for land assets."
+        if asset_category != BaseAssetType.BUILDING and self._building_payload:
+            errors["building"] = "Building details are only valid for building assets."
         if errors:
             raise serializers.ValidationError(errors)
 
-        if asset_category == BaseAssetType.LAND:
+        if asset_category in (BaseAssetType.LAND, BaseAssetType.BUILDING):
             attrs.setdefault("make", "")
             attrs.setdefault("model", "")
             attrs.setdefault("condition", "")
@@ -668,6 +790,28 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
                         )
                     }
                 )
+
+    def _check_building_uniqueness(self, building_data: dict | None, instance_pk=None):
+        if not building_data:
+            return
+        suburb = building_data.get("suburb")
+        street_address = (building_data.get("street_address") or "").strip()
+        if not (suburb and street_address):
+            return
+        qs = BuildingDetails.objects.filter(
+            suburb=suburb,
+            street_address__iexact=street_address,
+        )
+        if instance_pk:
+            qs = qs.exclude(asset_id=instance_pk)
+        if qs.exists():
+            raise serializers.ValidationError(
+                {
+                    "building.street_address": (
+                        "This address is already registered for this suburb."
+                    )
+                }
+            )
 
     def validate(self, attrs: dict) -> dict:
         attrs = self._validate_owner(attrs)
@@ -753,6 +897,7 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
             instance_pk,
         )
         self._check_land_uniqueness(self._land_payload, instance_pk)
+        self._check_building_uniqueness(self._building_payload, instance_pk)
 
         start = attrs.get(
             "subscription_start_date",
@@ -805,17 +950,30 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
             obj.created_by = user
             obj.save(update_fields=["created_by"])
 
+    def _upsert_building(self, asset: AssetRegistration, data: dict | None, user):
+        if data is None:
+            return
+        obj, created = BuildingDetails.objects.update_or_create(
+            asset=asset,
+            defaults={**data, "updated_by": user},
+        )
+        if created:
+            obj.created_by = user
+            obj.save(update_fields=["created_by"])
+
     @transaction.atomic
     def create(self, validated_data: dict) -> AssetRegistration:
         vehicle_data = getattr(self, "_vehicle_payload", None)
         mobile_data = getattr(self, "_mobile_payload", None)
         land_data = getattr(self, "_land_payload", None)
+        building_data = getattr(self, "_building_payload", None)
         user = self.context["request"].user
         validated_data["created_by"] = user
         instance = super().create(validated_data)
         self._upsert_vehicle(instance, vehicle_data, user)
         self._upsert_mobile(instance, mobile_data, user)
         self._upsert_land(instance, land_data, user)
+        self._upsert_building(instance, building_data, user)
         return instance
 
     @transaction.atomic
@@ -823,6 +981,7 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
         vehicle_data = getattr(self, "_vehicle_payload", None)
         mobile_data = getattr(self, "_mobile_payload", None)
         land_data = getattr(self, "_land_payload", None)
+        building_data = getattr(self, "_building_payload", None)
         user = self.context["request"].user
         validated_data["updated_by"] = user
         instance = super().update(instance, validated_data)
@@ -832,6 +991,8 @@ class AssetRegistrationSerializer(serializers.ModelSerializer):
             self._upsert_mobile(instance, mobile_data, user)
         if land_data is not None:
             self._upsert_land(instance, land_data, user)
+        if building_data is not None:
+            self._upsert_building(instance, building_data, user)
         return instance
 
 
@@ -873,11 +1034,20 @@ class AssetRegistrationListSerializer(AssetRegistrationSerializer):
             land = getattr(obj, "land", None)
             if land:
                 return land.stand_number
+        if obj.asset_category == BaseAssetType.BUILDING:
+            building = getattr(obj, "building", None)
+            if building:
+                return building.stand_number or building.street_address
         return obj.serial_number or ""
 
     def get_description(self, obj: AssetRegistration) -> str:
         if obj.asset_category == BaseAssetType.LAND:
             return obj.asset_type or "Stand"
+        if obj.asset_category == BaseAssetType.BUILDING:
+            building = getattr(obj, "building", None)
+            if building:
+                return building.building_name or building.get_building_type_display()
+            return obj.asset_type or "Building"
         if obj.make and obj.model:
             return f"{obj.make} {obj.model}"
         if obj.make:

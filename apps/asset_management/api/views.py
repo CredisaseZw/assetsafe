@@ -100,6 +100,9 @@ class AssetRegistrationViewSet(BaseViewSet):
         "vehicle__engine_number",
         "mobile__imei",
         "land__stand_number",
+        "building__stand_number",
+        "building__street_address",
+        "building__building_name",
         "make",
         "model",
     ]
@@ -146,6 +149,9 @@ class AssetRegistrationViewSet(BaseViewSet):
                 "land",
                 "land__city",
                 "land__suburb",
+                "building",
+                "building__city",
+                "building__suburb",
             )
             .prefetch_related(
                 "sale_transitions",
@@ -156,12 +162,18 @@ class AssetRegistrationViewSet(BaseViewSet):
         show_all: bool = (
             self.request.query_params.get("show_all", "false").lower() == "true"
         )
-        if not show_all:
-            today = timezone.now().date()
-            queryset = queryset.filter(
-                subscription_start_date__lte=today,
-                subscription_end_date__gte=today,
-            )
+        if self.action == "list":
+            if not show_all:
+                today = timezone.now().date()
+                queryset = queryset.filter(
+                    subscription_start_date__lte=today,
+                    subscription_end_date__gte=today,
+                    is_closed=False,
+                )
+            elif show_all:
+                pass
+        elif self.action not in {"retrieve", "update", "partial_update", "close"}:
+            queryset = queryset.filter(is_closed=False)
 
         return queryset
 
@@ -333,6 +345,40 @@ class AssetRegistrationViewSet(BaseViewSet):
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+    @action(detail=True, methods=["patch"], url_path="close")
+    def close(self, request: Request, pk=None) -> Response:
+        """Archive an asset registration and remove it from active lists."""
+        try:
+            instance = self.get_object()
+            if instance.is_closed:
+                return self._create_rendered_response(
+                    {"error": "This asset registration is already closed."},
+                    status.HTTP_400_BAD_REQUEST,
+                )
+            instance.is_closed = True
+            instance.closed_at = timezone.now()
+            instance.updated_by = request.user
+            instance.save(
+                update_fields=["is_closed", "closed_at", "updated_by", "date_updated"]
+            )
+            invalidate_registry_caches(
+                registries=[ASSET_REGISTRY], record_pk=instance.pk
+            )
+            detail = AssetRegistrationSerializer(
+                instance, context={"request": request}
+            )
+            return self._create_rendered_response(detail.data)
+        except ValidationError as e:
+            return self._create_rendered_response(
+                {"error": extract_error_message(e)}, status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            logger.error(f"Error closing asset registration: {e}")
+            return self._create_rendered_response(
+                {"error": "Something went wrong"},
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
     @CacheService.cached(tag_prefix="asset-registry:stats")
     @action(detail=False, methods=["get"], url_path="stats")
     def stats(self, request: Request) -> Response:
@@ -347,6 +393,7 @@ class AssetRegistrationViewSet(BaseViewSet):
             active_qs: QuerySet[AssetRegistration] = AssetRegistration.objects.filter(
                 subscription_start_date__lte=today,
                 subscription_end_date__gte=today,
+                is_closed=False,
             )
             aggregates: dict = active_qs.aggregate(
                 total_assets=Count("id"),

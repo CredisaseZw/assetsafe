@@ -220,6 +220,7 @@ export interface AssetRecord {
   stand_address?: string;
   city_name?: string;
   suburb_name?: string;
+  suburb_id?: number;
   valuation_type?: string;
   title_status?: string;
   stand_status?: string;
@@ -229,7 +230,24 @@ export interface AssetRecord {
   location_address: string;
   subscription_start_date: string;
   subscription_end_date: string;
-  status: 'active' | 'expired';
+  status: 'active' | 'expired' | 'closed';
+  is_closed?: boolean;
+  closed_at?: string | null;
+  street_address?: string;
+  postal_code?: string;
+  building_type?: string;
+  building_type_display?: string;
+  building_description?: string;
+  building_name?: string;
+  total_number_of_units?: number;
+  total_area?: number | string;
+  year_built?: number;
+  building_status?: string;
+  building_status_display?: string;
+  is_furnished?: boolean;
+  feature_parking?: string;
+  feature_security?: string;
+  feature_backup_power?: string;
 }
 
 export interface AssetRegistryDashboard {

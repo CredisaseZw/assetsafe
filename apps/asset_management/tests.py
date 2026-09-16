@@ -12,6 +12,7 @@ from rest_framework.test import APITestCase
 
 from apps.asset_management.models import (
     AssetRegistration,
+    BuildingDetails,
     LandDetails,
     MobileDetails,
     VehicleDetails,
@@ -483,3 +484,96 @@ class TypedAssetRegistryAPITest(APITestCase):
         detail = self.client.get(f"/api/asset-management/{asset_id}/")
         detail_data = detail.json().get("data") or detail.json()
         self.assertEqual(detail_data["mobile"]["imei"], "356938035643809")
+
+    def test_building_payload_nested(self):
+        today = date.today()
+        payload = {
+            "owner_type": "individual",
+            "individual_owner": self.owner.pk,
+            "company_owner": None,
+            "asset_category": "building",
+            "asset_type": "Building",
+            "currency": "USD",
+            "estimated_value": "450000.00",
+            "subscription_start_date": today.isoformat(),
+            "subscription_end_date": (today + timedelta(days=365)).isoformat(),
+            "building": {
+                "suburb": self.suburb.pk,
+                "street_address": "22 Sam Nujoma Ave",
+                "postal_code": "00263",
+                "stand_number": "SN-12",
+                "building_type": "commercial_offices",
+                "description": "Ground floor offices",
+                "building_name": "FinCheck Tower",
+                "total_number_of_units": 4,
+                "total_area": "1200.00",
+                "year_built": 2015,
+                "status": "vacant",
+                "is_furnished": False,
+                "features": {
+                    "parking": "open",
+                    "security": "24/7",
+                    "backup_power": "generator",
+                },
+            },
+        }
+        response = self.client.post("/api/asset-management/", payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        body = response.json()
+        asset_id = (body.get("data") or body)["id"]
+        detail = self.client.get(f"/api/asset-management/{asset_id}/")
+        detail_data = detail.json().get("data") or detail.json()
+        self.assertEqual(detail_data["building"]["building_name"], "FinCheck Tower")
+        self.assertEqual(detail_data["building"]["stand_number"], "SN-12")
+        self.assertEqual(detail_data["building"]["valuation_type"], "")
+        self.assertEqual(detail_data["building"]["title_status"], "")
+
+    def test_building_stand_number_optional(self):
+        today = date.today()
+        payload = {
+            "owner_type": "individual",
+            "individual_owner": self.owner.pk,
+            "company_owner": None,
+            "asset_category": "building",
+            "asset_type": "Building",
+            "currency": "USD",
+            "estimated_value": "300000.00",
+            "subscription_start_date": today.isoformat(),
+            "subscription_end_date": (today + timedelta(days=365)).isoformat(),
+            "building": {
+                "suburb": self.suburb.pk,
+                "street_address": "99 Borrowdale Road",
+                "building_type": "residential_house",
+                "status": "occupied",
+            },
+        }
+        response = self.client.post("/api/asset-management/", payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_close_asset_registration(self):
+        today = date.today()
+        asset = AssetRegistration.objects.create(
+            owner_type="individual",
+            individual_owner=self.owner,
+            asset_category=BaseAssetType.COMPUTERS,
+            asset_type="Laptop",
+            make="Dell",
+            model="XPS",
+            estimated_value=Decimal("1200.00"),
+            currency=self.currency,
+            location_address="Harare",
+            subscription_start_date=today,
+            subscription_end_date=today + timedelta(days=365),
+            created_by=self.user,
+            updated_by=self.user,
+        )
+        response = self.client.patch(f"/api/asset-management/{asset.pk}/close/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = response.json().get("data") or response.json()
+        self.assertTrue(body["is_closed"])
+        self.assertIsNotNone(body["closed_at"])
+        list_response = self.client.get("/api/asset-management/")
+        list_body = list_response.json()
+        results = (list_body.get("data") or list_body).get("results", [])
+        ids = [row["id"] for row in results]
+        self.assertNotIn(asset.pk, ids)

@@ -44,6 +44,18 @@ class HirePurchaseRegistration(BaseModelWithUser):
         verbose_name=_("Data Date"),
         help_text=_("Date the record is lodged; defaults to today."),
     )
+    data_source_name = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        verbose_name=_("Data Source Name"),
+    )
+    data_source_position = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        verbose_name=_("Data Source Position"),
+    )
 
     # ---- Purchaser ----
     purchaser_type = models.CharField(

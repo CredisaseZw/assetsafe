@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Modal } from '@/components/shared/Modal';
 import { AssetRegistryForm } from './AssetRegistryForm';
 import { StandViewReport } from './StandViewReport';
+import { BuildingViewReport } from './BuildingViewReport';
 import {
   StandOwnershipChangeForm,
   StandSaleTransitionForm,
@@ -12,7 +13,6 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { assetTypeLabel } from '@/lib/assetTypes';
 import { Button } from '@/components/ui/button';
 import { Edit } from 'lucide-react';
-// import { DeleteRecordButton } from '@/components/shared/DeleteRecordButton';
 import { assetRegistryApi } from '@/api/assetRegistryApi';
 
 interface AssetViewModalProps {
@@ -24,16 +24,63 @@ interface AssetViewModalProps {
 
 type StandPanel = 'view' | 'ownership' | 'sale';
 
+function buildEditInitial(detail: AssetRecord) {
+  return {
+    owner_type: detail.owner_type,
+    owner_id: detail.owner_id,
+    owner_asset_number: detail.owner_asset_number,
+    asset_category: detail.asset_category,
+    asset_type: detail.asset_type,
+    asset_make: detail.asset_make,
+    asset_model: detail.asset_model,
+    year_of_make: detail.year_of_make,
+    condition: detail.condition,
+    mv_registration_no: detail.mv_registration_no,
+    chassis_number: detail.chassis_number,
+    engine_number: detail.engine_number,
+    imei: detail.imei,
+    serial_number: detail.serial_number,
+    suburb_id: detail.suburb_id,
+    stand_address: detail.stand_address,
+    stand_number: detail.stand_number,
+    stand_size: detail.stand_size,
+    street_address: detail.street_address,
+    postal_code: detail.postal_code,
+    building_type: detail.building_type,
+    building_description: detail.building_description,
+    building_name: detail.building_name,
+    total_number_of_units: detail.total_number_of_units,
+    total_area:
+      detail.total_area != null && detail.total_area !== ''
+        ? Number(detail.total_area)
+        : undefined,
+    year_built: detail.year_built,
+    building_status: detail.building_status,
+    is_furnished: detail.is_furnished,
+    feature_parking: detail.feature_parking,
+    feature_security: detail.feature_security,
+    feature_backup_power: detail.feature_backup_power,
+    valuation_type: detail.valuation_type,
+    title_status: detail.title_status,
+    currency: detail.currency,
+    estimated_value: detail.estimated_value,
+    location_address: detail.location_address,
+    subscription_start_date: detail.subscription_start_date,
+    subscription_end_date: detail.subscription_end_date,
+  };
+}
+
 export function AssetViewModal({
   record,
   onClose,
   onSaved,
-  onDeleted,
+  onDeleted: _onDeleted,
 }: AssetViewModalProps) {
   const queryClient = useQueryClient();
   const [editMode, setEditMode] = useState(false);
   const [standPanel, setStandPanel] = useState<StandPanel>('view');
   const isLand = record.asset_category === 'land';
+  const isBuilding = record.asset_category === 'building';
 
   const { data: detail, refetch } = useQuery({
     queryKey: ['asset-detail', record.id],
@@ -52,6 +99,22 @@ export function AssetViewModal({
     onSaved();
   };
 
+  const viewFooter = (
+    <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 px-4 py-3">
+      <Button variant="ghost" onClick={onClose}>
+        Close
+      </Button>
+      {!isLand ? (
+        <Button
+          leftIcon={<Edit className="h-3.5 w-3.5" />}
+          onClick={() => setEditMode(true)}
+        >
+          Edit
+        </Button>
+      ) : null}
+    </div>
+  );
+
   return (
     <Modal
       open
@@ -59,7 +122,9 @@ export function AssetViewModal({
       title={
         isLand
           ? `Stand - ${record.registration_number}`
-          : `Asset - ${record.registration_number}`
+          : isBuilding
+            ? `Building - ${record.registration_number}`
+            : `Asset - ${record.registration_number}`
       }
       size="xl"
     >
@@ -89,19 +154,12 @@ export function AssetViewModal({
               onCancel={() => setStandPanel('view')}
             />
           ) : null}
-          {standPanel === 'view' ? (
-            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 px-4 py-3">
-              {/* Delete disabled for now
-              <DeleteRecordButton
-                onDelete={() => assetRegistryApi.deleteRecord(record.id)}
-                onDeleted={onDeleted}
-              />
-              */}
-              <Button variant="ghost" onClick={onClose}>
-                Close
-              </Button>
-            </div>
-          ) : null}
+          {standPanel === 'view' ? viewFooter : null}
+        </>
+      ) : isBuilding && !editMode && detail ? (
+        <>
+          <BuildingViewReport detail={detail} />
+          {viewFooter}
         </>
       ) : editMode ? (
         detail ? (
@@ -113,27 +171,7 @@ export function AssetViewModal({
                 ? (detail.owner_id_reg ?? '')
                 : detail.owner_name
             }
-            initial={{
-              owner_type: detail.owner_type,
-              owner_id: detail.owner_id,
-              owner_asset_number: detail.owner_asset_number,
-              asset_category: detail.asset_category,
-              asset_type: detail.asset_type,
-              asset_make: detail.asset_make,
-              asset_model: detail.asset_model,
-              year_of_make: detail.year_of_make,
-              condition: detail.condition,
-              mv_registration_no: detail.mv_registration_no,
-              chassis_number: detail.chassis_number,
-              engine_number: detail.engine_number,
-              imei: detail.imei,
-              serial_number: detail.serial_number,
-              currency: detail.currency,
-              estimated_value: detail.estimated_value,
-              location_address: detail.location_address,
-              subscription_start_date: detail.subscription_start_date,
-              subscription_end_date: detail.subscription_end_date,
-            }}
+            initial={buildEditInitial(detail)}
             onSuccess={onSaved}
             onCancel={() => setEditMode(false)}
           />
@@ -199,25 +237,7 @@ export function AssetViewModal({
               </div>
             ))}
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-slate-100">
-            {/* Delete disabled for now
-            <DeleteRecordButton
-              onDelete={() => assetRegistryApi.deleteRecord(record.id)}
-              onDeleted={onDeleted}
-            />
-            */}
-            <div className="flex gap-2">
-              <Button variant="ghost" onClick={onClose}>
-                Close
-              </Button>
-              <Button
-                leftIcon={<Edit className="h-3.5 w-3.5" />}
-                onClick={() => setEditMode(true)}
-              >
-                Edit
-              </Button>
-            </div>
-          </div>
+          {viewFooter}
         </div>
       )}
     </Modal>

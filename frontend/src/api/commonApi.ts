@@ -25,6 +25,8 @@ export interface CommonChoicesResponse {
   ValuationType?: ChoiceOption[];
   TitleStatus?: ChoiceOption[];
   SaleTerms?: ChoiceOption[];
+  BuildingType?: ChoiceOption[];
+  BuildingStatus?: ChoiceOption[];
 }
 
 export type ManagedChoiceCategory =

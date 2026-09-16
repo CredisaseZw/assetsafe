@@ -491,6 +491,10 @@ class CommonChoicesView(APIView):
             ),
             "TitleStatus": list_lookup_choices(LookupOption.CATEGORY_TITLE_STATUS),
             "SaleTerms": list_lookup_choices(LookupOption.CATEGORY_SALE_TERMS),
+            "BuildingType": list_lookup_choices(LookupOption.CATEGORY_BUILDING_TYPE),
+            "BuildingStatus": list_lookup_choices(
+                LookupOption.CATEGORY_BUILDING_STATUS
+            ),
             "CustodyType": [
                 {"value": choice.value, "label": choice.label}
                 for choice in CustodyType
@@ -554,6 +558,18 @@ class CommonChoicesView(APIView):
 
             all_choices["SaleTerms"] = [
                 {"value": c.value, "label": c.label} for c in SaleTerms
+            ]
+        if not all_choices["BuildingType"]:
+            from apps.common.models import BuildingType
+
+            all_choices["BuildingType"] = [
+                {"value": c.value, "label": c.label} for c in BuildingType
+            ]
+        if not all_choices["BuildingStatus"]:
+            from apps.common.models import BuildingStatus
+
+            all_choices["BuildingStatus"] = [
+                {"value": c.value, "label": c.label} for c in BuildingStatus
             ]
 
         requested_types = request.query_params.get("types")

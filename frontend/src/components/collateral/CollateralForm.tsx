@@ -146,15 +146,12 @@ export function CollateralForm({
   >();
   const [staffDataSourceName, setStaffDataSourceName] = useState('');
   const [staffDataSourcePosition, setStaffDataSourcePosition] = useState('');
-  const [staffDataSourceSearchLabel, setStaffDataSourceSearchLabel] =
-    useState('');
   const [positionOverride, setPositionOverride] = useState('');
 
   const clearDataSource = () => {
     setDataSourceUserId(undefined);
     setStaffDataSourceName('');
     setStaffDataSourcePosition('');
-    setStaffDataSourceSearchLabel('');
     setPositionOverride('');
   };
 
@@ -197,16 +194,16 @@ export function CollateralForm({
   const assetConditionOptions = choices.AssetCondition ?? [];
   const selectedFinancierId = watch('financier_id');
 
-  const { data: clientUsers = [], isLoading: clientUsersLoading } = useQuery({
+  const { data: clientUsers = [] } = useQuery({
     queryKey: ['collateral-client-users', selectedFinancierId],
     queryFn: () => clientsApi.listClientUsers(Number(selectedFinancierId)),
     enabled:
       !isEdit &&
       isStaff &&
+      financierClientType === 'individual' &&
       !!selectedFinancierId &&
       Number(selectedFinancierId) > 0,
   });
-  const clientUsersBusy = clientUsersLoading;
 
   const { data: clientDetail } = useQuery({
     queryKey: ['collateral-client-detail', selectedFinancierId],
@@ -295,7 +292,6 @@ export function CollateralForm({
         `${details?.first_name ?? ''} ${details?.last_name ?? ''}`.trim()) ||
       clientDetail.name;
     setStaffDataSourceName(individualName);
-    setStaffDataSourceSearchLabel(individualName);
     setStaffDataSourcePosition('');
   }, [clientDetail, financierClientType, isEdit, isStaff]);
 
@@ -386,10 +382,23 @@ export function CollateralForm({
       ? ({ ...data, financier_id: clientFinancierId } as StaffFormValues)
       : (data as StaffFormValues);
 
-    if (isStaff && !isEdit && dataSourceUserId) {
-      return { ...payload, data_source_user_id: dataSourceUserId };
-    }
-    return payload;
+    const dataSourceName = isClientUser
+      ? (user?.name ?? '').trim()
+      : staffDataSourceName.trim();
+    const dataSourcePosition = isClientUser
+      ? ((user?.position ?? '').trim() || positionOverride.trim())
+      : staffDataSourcePosition.trim() || positionOverride.trim();
+
+    return {
+      ...payload,
+      ...(dataSourceName ? { data_source_name: dataSourceName } : {}),
+      ...(dataSourcePosition
+        ? { data_source_position: dataSourcePosition }
+        : {}),
+      ...(isStaff && !isEdit && dataSourceUserId
+        ? { data_source_user_id: dataSourceUserId }
+        : {}),
+    };
   };
 
   const persistBlankDataSourcePosition = async () => {
@@ -424,24 +433,6 @@ export function CollateralForm({
     submit(buildSubmitPayload(data) as any);
   };
 
-  const validateStaffDataSource = () => {
-    if (
-      !isStaff ||
-      isEdit ||
-      !selectedFinancierId ||
-      Number(selectedFinancierId) <= 0
-    ) {
-      return true;
-    }
-    if (financierClientType === 'company' && !dataSourceUserId) {
-      toast.error(
-        'Please select a data source user for this company financier.',
-      );
-      return false;
-    }
-    return true;
-  };
-
   const onFormSubmit = handleSubmit((data) => {
     if (isClientUser && !clientFinancierId) {
       toast.error(
@@ -449,7 +440,6 @@ export function CollateralForm({
       );
       return;
     }
-    if (!validateStaffDataSource()) return;
     if (isEdit) {
       setPendingSubmit(data);
       setConfirmingUpdate(true);
@@ -636,39 +626,11 @@ export function CollateralForm({
               <div className="grid grid-cols-2 gap-3 px-4 pb-4 sm:grid-cols-4">
                 <div className="col-span-2">
                   {financierClientType === 'company' ? (
-                    <AutocompleteInput
+                    <Input
                       label="Data Source Name"
-                      placeholder="Search user under client..."
-                      queryKey={`collateral-data-source-${selectedFinancierId}-${clientUsers.length}`}
-                      displayLabel={staffDataSourceSearchLabel}
-                      minChars={1}
-                      externalLoading={clientUsersBusy}
-                      loadingLabel="Fetching users..."
-                      fetchFn={async (q) => {
-                        const term = q.trim().toLowerCase();
-                        if (!term) return [];
-                        return clientUsers
-                          .filter(
-                            (u) =>
-                              u.name.toLowerCase().includes(term) ||
-                              (u.position?.toLowerCase().includes(term) ??
-                                false),
-                          )
-                          .map((u) => ({
-                            id: u.id,
-                            name: u.name,
-                            subtitle: u.position,
-                          }));
-                      }}
-                      value={dataSourceUserId}
-                      onChange={(id) => {
-                        const selected = clientUsers.find((u) => u.id === id);
-                        setDataSourceUserId(id);
-                        setStaffDataSourceName(selected?.name ?? '');
-                        setStaffDataSourcePosition(selected?.position ?? '');
-                        setStaffDataSourceSearchLabel(selected?.name ?? '');
-                        setPositionOverride('');
-                      }}
+                      value={staffDataSourceName}
+                      onChange={(e) => setStaffDataSourceName(e.target.value)}
+                      placeholder="Enter data source name"
                     />
                   ) : (
                     <ReadOnlyField
@@ -678,17 +640,29 @@ export function CollateralForm({
                   )}
                 </div>
                 <div className="col-span-2">
-                  {staffDataSourcePosition.trim() ? (
+                  {financierClientType === 'company' ||
+                  !staffDataSourcePosition.trim() ? (
+                    <Input
+                      label="Position"
+                      value={
+                        financierClientType === 'company'
+                          ? staffDataSourcePosition || positionOverride
+                          : positionOverride
+                      }
+                      onChange={(e) => {
+                        if (financierClientType === 'company') {
+                          setStaffDataSourcePosition(e.target.value);
+                          setPositionOverride('');
+                        } else {
+                          setPositionOverride(e.target.value);
+                        }
+                      }}
+                      placeholder="Enter position"
+                    />
+                  ) : (
                     <ReadOnlyField
                       label="Position"
                       value={staffDataSourcePosition}
-                    />
-                  ) : (
-                    <Input
-                      label="Position"
-                      value={positionOverride}
-                      onChange={(e) => setPositionOverride(e.target.value)}
-                      placeholder="Enter position"
                     />
                   )}
                 </div>
