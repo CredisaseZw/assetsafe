@@ -32,10 +32,16 @@ import {
 import { invalidateRegistryQueries } from '@/lib/registryCache';
 import { registryQueryOptions } from '@/lib/registryQueryOptions';
 import { isStaffUser } from '@/lib/registryNav';
+import { usePaginatedList } from '@/hooks/usePaginatedList';
 import { useAuthStore } from '@/store';
 import type { HirePurchaseRecord } from '@/types';
 
 const PAGE_SIZE = 20;
+
+const selectHirePurchasePage = (response: {
+  records: HirePurchaseRecord[];
+  count: number;
+}) => ({ rows: response.records, count: response.count });
 
 type HirePurchaseSortOption =
   | 'date-desc'
@@ -101,7 +107,6 @@ export default function HirePurchasePage() {
     useState<HirePurchaseSearchField>('agreement_number');
   const [sortOption, setSortOption] =
     useState<HirePurchaseSortOption>('date-desc');
-  const [currentPage, setCurrentPage] = useState(1);
   const [addOpen, setAddOpen] = useState(false);
   const [addMultipleOpen, setAddMultipleOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -126,19 +131,6 @@ export default function HirePurchasePage() {
       },
     },
   );
-
-  useEffect(() => {
-    if (isStaff) return;
-    if (searchField === 'financier') {
-      setSearchField('agreement_number');
-    }
-    if (appliedSearchField === 'financier') {
-      setAppliedSearchField('agreement_number');
-      setAppliedSearch('');
-      setSearchValue('');
-      setCurrentPage(1);
-    }
-  }, [isStaff, searchField, appliedSearchField]);
 
   const openAddSingle = async () => {
     setAddOpen(true);
@@ -167,24 +159,50 @@ export default function HirePurchasePage() {
   });
 
   const {
-    data: recordsData,
-    isLoading,
-    isFetching,
-  } = useQuery({
-    queryKey: ['hp-records', appliedSearch, appliedSearchField, currentPage],
-    queryFn: () =>
+    setPage: setCurrentPage,
+    rows,
+    count: totalRecords,
+    totalPages,
+    activePage,
+    startItem,
+    endItem,
+    isInitialLoading,
+    isPageLoading,
+  } = usePaginatedList({
+    queryKeyForPage: (page) => [
+      'hp-records',
+      appliedSearch,
+      appliedSearchField,
+      page,
+    ],
+    fetchPage: (page) =>
       hirePurchaseApi.getRecords({
         ...(appliedSearch
           ? { search: appliedSearch, search_field: appliedSearchField }
           : {}),
-        page: currentPage,
+        page,
         page_size: PAGE_SIZE,
       }),
+    select: selectHirePurchasePage,
+    pageSize: PAGE_SIZE,
     enabled: authReady,
     ...registryQueryOptions,
   });
 
-  const loadingRecords = !authReady || isLoading || isFetching;
+  useEffect(() => {
+    if (isStaff) return;
+    if (searchField === 'financier') {
+      setSearchField('agreement_number');
+    }
+    if (appliedSearchField === 'financier') {
+      setAppliedSearchField('agreement_number');
+      setAppliedSearch('');
+      setSearchValue('');
+      setCurrentPage(1);
+    }
+  }, [isStaff, searchField, appliedSearchField, setCurrentPage]);
+
+  const loadingRecords = !authReady || isInitialLoading;
 
   const handleViewRecord = (rec: HirePurchaseRecord) => {
     void queryClient.prefetchQuery({
@@ -212,16 +230,6 @@ export default function HirePurchasePage() {
     invalidateRegistryQueries(queryClient, 'hp', id);
   };
 
-  const totalRecords = recordsData?.count ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalRecords / PAGE_SIZE));
-  const activePage = Math.min(currentPage, totalPages);
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
-
   const activeSortField = sortOption.startsWith('date') ? 'date' : 'name';
   const activeSortDirection = sortOption.endsWith('asc') ? 'asc' : 'desc';
 
@@ -240,7 +248,7 @@ export default function HirePurchasePage() {
   };
 
   const sortedRecords = useMemo(() => {
-    if (!recordsData?.records) {
+    if (!rows.length) {
       return [] as HirePurchaseRecord[];
     }
 
@@ -262,7 +270,7 @@ export default function HirePurchasePage() {
         },
       );
 
-    const sorted = [...recordsData.records];
+    const sorted = [...rows];
 
     sorted.sort((left, right) => {
       switch (sortOption) {
@@ -280,10 +288,7 @@ export default function HirePurchasePage() {
     });
 
     return sorted;
-  }, [recordsData, sortOption]);
-
-  const startItem = totalRecords === 0 ? 0 : (activePage - 1) * PAGE_SIZE + 1;
-  const endItem = Math.min(activePage * PAGE_SIZE, totalRecords);
+  }, [rows, sortOption]);
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
@@ -406,7 +411,13 @@ export default function HirePurchasePage() {
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="min-h-0 flex-1 overflow-auto">
+          <div
+            aria-busy={isPageLoading}
+            className={cn(
+              'min-h-0 flex-1 overflow-auto transition-opacity',
+              isPageLoading && 'opacity-60',
+            )}
+          >
             <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr className="sticky top-0 z-10 border-b border-[#8f8f8f] bg-white text-left divide-x divide-[#8f8f8f]">
@@ -550,6 +561,7 @@ export default function HirePurchasePage() {
             totalRecords={totalRecords}
             activePage={activePage}
             totalPages={totalPages}
+            isPageLoading={isPageLoading}
             onPageChange={setCurrentPage}
           />
         </div>

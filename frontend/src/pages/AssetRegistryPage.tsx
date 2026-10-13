@@ -27,9 +27,15 @@ import { AssetViewModal } from '@/components/registry/AssetViewModal';
 import { NumberedPaginationFooter } from '@/components/shared/NumberedPaginationFooter';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import { invalidateRegistryQueries } from '@/lib/registryCache';
+import { usePaginatedList } from '@/hooks/usePaginatedList';
 import type { AssetRecord } from '@/types';
 
 const PAGE_SIZE = 20;
+
+const selectAssetRegistryPage = (response: {
+  records: AssetRecord[];
+  count: number;
+}) => ({ rows: response.records, count: response.count });
 
 type AssetSortOption = 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc';
 
@@ -40,7 +46,6 @@ export default function AssetRegistryPage() {
   const [searchText, setSearchText] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [sortOption, setSortOption] = useState<AssetSortOption>('date-desc');
-  const [currentPage, setCurrentPage] = useState(1);
   const [addOpen, setAddOpen] = useState(false);
   const [addMultipleOpen, setAddMultipleOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -86,15 +91,32 @@ export default function AssetRegistryPage() {
       ),
   });
 
-  const { data: recordsData, isLoading } = useQuery({
-    queryKey: ['registry-records', filterAssetType, appliedSearch, currentPage],
-    queryFn: () =>
+  const {
+    setPage: setCurrentPage,
+    rows,
+    count: totalRecords,
+    totalPages,
+    activePage,
+    startItem,
+    endItem,
+    isInitialLoading,
+    isPageLoading,
+  } = usePaginatedList({
+    queryKeyForPage: (page) => [
+      'registry-records',
+      filterAssetType,
+      appliedSearch,
+      page,
+    ],
+    fetchPage: (page) =>
       assetRegistryApi.getRecords({
         ...(filterAssetType ? { asset_category: filterAssetType } : {}),
         ...(appliedSearch ? { search: appliedSearch } : {}),
-        page: currentPage,
+        page,
         page_size: PAGE_SIZE,
       }),
+    select: selectAssetRegistryPage,
+    pageSize: PAGE_SIZE,
   });
 
   const handleSearch = () => {
@@ -111,16 +133,6 @@ export default function AssetRegistryPage() {
     setCurrentPage(1);
     invalidateRegistryQueries(queryClient, 'asset');
   };
-
-  const totalRecords = recordsData?.count ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalRecords / PAGE_SIZE));
-  const activePage = Math.min(currentPage, totalPages);
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
 
   const activeSortField = sortOption.startsWith('date') ? 'date' : 'name';
   const activeSortDirection = sortOption.endsWith('asc') ? 'asc' : 'desc';
@@ -140,7 +152,7 @@ export default function AssetRegistryPage() {
   };
 
   const sortedRecords = useMemo(() => {
-    if (!recordsData?.records) {
+    if (!rows.length) {
       return [] as AssetRecord[];
     }
 
@@ -155,7 +167,7 @@ export default function AssetRegistryPage() {
         sensitivity: 'base',
       });
 
-    const sorted = [...recordsData.records];
+    const sorted = [...rows];
 
     sorted.sort((left, right) => {
       switch (sortOption) {
@@ -173,10 +185,7 @@ export default function AssetRegistryPage() {
     });
 
     return sorted;
-  }, [recordsData, sortOption]);
-
-  const startItem = totalRecords === 0 ? 0 : (activePage - 1) * PAGE_SIZE + 1;
-  const endItem = Math.min(activePage * PAGE_SIZE, totalRecords);
+  }, [rows, sortOption]);
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
@@ -275,7 +284,13 @@ export default function AssetRegistryPage() {
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="min-h-0 flex-1 overflow-auto">
+          <div
+            aria-busy={isPageLoading}
+            className={cn(
+              'min-h-0 flex-1 overflow-auto transition-opacity',
+              isPageLoading && 'opacity-60',
+            )}
+          >
             <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr className="sticky top-0 z-10 border-b border-[#8f8f8f] bg-white text-left divide-x divide-[#8f8f8f]">
@@ -339,7 +354,7 @@ export default function AssetRegistryPage() {
                 </tr>
               </thead>
               <tbody>
-                {isLoading ? (
+                {isInitialLoading ? (
                   <TableSkeleton rows={8} cols={11} />
                 ) : !sortedRecords.length ? (
                   <EmptyState message="No assets found." />
@@ -419,6 +434,7 @@ export default function AssetRegistryPage() {
             totalRecords={totalRecords}
             activePage={activePage}
             totalPages={totalPages}
+            isPageLoading={isPageLoading}
             onPageChange={setCurrentPage}
           />
         </div>

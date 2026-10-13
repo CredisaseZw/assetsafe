@@ -15,6 +15,8 @@ interface NumberedPaginationFooterProps {
   totalRecords: number;
   activePage: number;
   totalPages: number;
+  /** True while a new page's data is still in flight (rows shown are stale). */
+  isPageLoading?: boolean;
   onPageChange: (page: number) => void;
 }
 
@@ -24,6 +26,7 @@ export function NumberedPaginationFooter({
   totalRecords,
   activePage,
   totalPages,
+  isPageLoading = false,
   onPageChange,
 }: NumberedPaginationFooterProps) {
   const paginationItems = buildPaginationItems(activePage, totalPages);
@@ -34,6 +37,11 @@ export function NumberedPaginationFooter({
         <span>
           Page {activePage} of {totalPages}
         </span>
+        {isPageLoading ? (
+          <span role="status" className="text-slate-500">
+            Loading…
+          </span>
+        ) : null}
         {totalRecords > 0 ? (
           <span className="text-slate-600">
             Showing {startItem} to {endItem} of {totalRecords} entries

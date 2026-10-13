@@ -34,3 +34,33 @@ export function buildPaginationItems(
     totalPages,
   ];
 }
+
+/**
+ * Pages to keep warm for a paginated list: every page number currently rendered
+ * by `buildPaginationItems`, plus the active page's immediate neighbours.
+ * Always clamped to `1..totalPages` and de-duplicated.
+ */
+export function paginationPrefetchTargets(
+  activePage: number,
+  totalPages: number,
+): number[] {
+  if (totalPages <= 1) {
+    return [];
+  }
+
+  const targets = new Set<number>();
+
+  for (const item of buildPaginationItems(activePage, totalPages)) {
+    if (item !== 'ellipsis') {
+      targets.add(item);
+    }
+  }
+
+  for (const neighbour of [activePage - 1, activePage + 1]) {
+    if (neighbour >= 1 && neighbour <= totalPages) {
+      targets.add(neighbour);
+    }
+  }
+
+  return [...targets].sort((left, right) => left - right);
+}
