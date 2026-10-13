@@ -32,10 +32,16 @@ import {
 import { invalidateRegistryQueries } from '@/lib/registryCache';
 import { registryQueryOptions } from '@/lib/registryQueryOptions';
 import { isStaffUser } from '@/lib/registryNav';
+import { usePaginatedList } from '@/hooks/usePaginatedList';
 import { useAuthStore } from '@/store';
 import type { CollateralRecord } from '@/types';
 
 const PAGE_SIZE = 20;
+
+const selectCollateralPage = (response: {
+  records: CollateralRecord[];
+  count: number;
+}) => ({ rows: response.records, count: response.count });
 
 type CollateralSortOption = 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc';
 
@@ -97,7 +103,6 @@ export default function CollateralPage() {
   const [searchValue, setSearchValue] = useState('');
   const [sortOption, setSortOption] =
     useState<CollateralSortOption>('date-desc');
-  const [currentPage, setCurrentPage] = useState(1);
   const [appliedSearch, setAppliedSearch] = useState('');
   const [appliedSearchField, setAppliedSearchField] =
     useState<CollateralSearchField>('agreement_number');
@@ -121,19 +126,6 @@ export default function CollateralPage() {
       setPendingCloseRecord(null);
     },
   });
-
-  useEffect(() => {
-    if (isStaff) return;
-    if (searchField === 'financier') {
-      setSearchField('agreement_number');
-    }
-    if (appliedSearchField === 'financier') {
-      setAppliedSearchField('agreement_number');
-      setAppliedSearch('');
-      setSearchValue('');
-      setCurrentPage(1);
-    }
-  }, [isStaff, searchField, appliedSearchField]);
 
   const openAddSingle = async () => {
     setAddOpen(true);
@@ -162,30 +154,51 @@ export default function CollateralPage() {
   });
 
   const {
-    data: recordsData,
-    isLoading,
+    setPage: setCurrentPage,
+    rows,
+    count: totalRecords,
+    totalPages,
+    activePage,
+    startItem,
+    endItem,
+    isInitialLoading,
+    isPageLoading,
     isError,
-    isFetching,
-  } = useQuery({
-    queryKey: [
+  } = usePaginatedList({
+    queryKeyForPage: (page) => [
       'collateral-records',
       appliedSearch,
       appliedSearchField,
-      currentPage,
+      page,
     ],
-    queryFn: () =>
+    fetchPage: (page) =>
       collateralApi.getRecords({
         ...(appliedSearch
           ? { search: appliedSearch, search_field: appliedSearchField }
           : {}),
-        page: currentPage,
+        page,
         page_size: PAGE_SIZE,
       }),
+    select: selectCollateralPage,
+    pageSize: PAGE_SIZE,
     enabled: authReady,
     ...registryQueryOptions,
   });
 
-  const loadingRecords = !authReady || isLoading || isFetching;
+  useEffect(() => {
+    if (isStaff) return;
+    if (searchField === 'financier') {
+      setSearchField('agreement_number');
+    }
+    if (appliedSearchField === 'financier') {
+      setAppliedSearchField('agreement_number');
+      setAppliedSearch('');
+      setSearchValue('');
+      setCurrentPage(1);
+    }
+  }, [isStaff, searchField, appliedSearchField, setCurrentPage]);
+
+  const loadingRecords = !authReady || isInitialLoading;
 
   const handleSearch = () => {
     setAppliedSearch(searchValue.trim());
@@ -213,16 +226,6 @@ export default function CollateralPage() {
     setViewRecord(rec);
   };
 
-  const totalRecords = recordsData?.count ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalRecords / PAGE_SIZE));
-  const activePage = Math.min(currentPage, totalPages);
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
-
   const activeSortField = sortOption.startsWith('date') ? 'date' : 'name';
   const activeSortDirection = sortOption.endsWith('asc') ? 'asc' : 'desc';
 
@@ -241,9 +244,9 @@ export default function CollateralPage() {
   };
 
   const sortedRecords = useMemo(() => {
-    const rows = [...(recordsData?.records ?? [])];
+    const sorted = [...rows];
 
-    rows.sort((left, right) => {
+    sorted.sort((left, right) => {
       if (activeSortField === 'date') {
         const leftTime = new Date(left.lodge_date ?? '').getTime();
         const rightTime = new Date(right.lodge_date ?? '').getTime();
@@ -259,11 +262,8 @@ export default function CollateralPage() {
         : rightName.localeCompare(leftName);
     });
 
-    return rows;
-  }, [activeSortDirection, activeSortField, recordsData]);
-
-  const startItem = totalRecords === 0 ? 0 : (activePage - 1) * PAGE_SIZE + 1;
-  const endItem = Math.min(activePage * PAGE_SIZE, totalRecords);
+    return sorted;
+  }, [activeSortDirection, activeSortField, rows]);
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
@@ -387,7 +387,13 @@ export default function CollateralPage() {
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="min-h-0 flex-1 overflow-auto">
+          <div
+            aria-busy={isPageLoading}
+            className={cn(
+              'min-h-0 flex-1 overflow-auto transition-opacity',
+              isPageLoading && 'opacity-60',
+            )}
+          >
             <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr className="sticky top-0 z-10 border-b border-[#8f8f8f] bg-white text-left divide-x divide-[#8f8f8f]">
@@ -532,6 +538,7 @@ export default function CollateralPage() {
             totalRecords={totalRecords}
             activePage={activePage}
             totalPages={totalPages}
+            isPageLoading={isPageLoading}
             onPageChange={setCurrentPage}
           />
         </div>

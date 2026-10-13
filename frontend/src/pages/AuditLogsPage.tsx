@@ -1,35 +1,44 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { auditApi } from '@/api/auditApi';
+import { auditApi, type AuditLogEntry } from '@/api/auditApi';
 import { TableSkeleton } from '@/components/shared/TableSkeleton';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { NumberedPaginationFooter } from '@/components/shared/NumberedPaginationFooter';
-import { formatDate } from '@/lib/utils';
+import { cn, formatDate } from '@/lib/utils';
+import { usePaginatedList } from '@/hooks/usePaginatedList';
 
 const PAGE_SIZE = 20;
 
+const selectAuditLogPage = (response: {
+  results: AuditLogEntry[];
+  count: number;
+}) => ({ rows: response.results, count: response.count });
+
 export default function AuditLogsPage() {
-  const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
 
-  const { data, isLoading, isFetching, isError } = useQuery({
-    queryKey: ['audit-logs', page, appliedSearch],
-    queryFn: () =>
+  const {
+    setPage,
+    rows,
+    count: totalRecords,
+    totalPages,
+    activePage,
+    startItem,
+    endItem,
+    isInitialLoading,
+    isPageLoading,
+    isError,
+  } = usePaginatedList({
+    queryKeyForPage: (page) => ['audit-logs', page, appliedSearch],
+    fetchPage: (page) =>
       auditApi.list({
         page,
         page_size: PAGE_SIZE,
         ...(appliedSearch ? { search: appliedSearch } : {}),
       }),
+    select: selectAuditLogPage,
+    pageSize: PAGE_SIZE,
   });
-
-  const loading = isLoading || isFetching;
-  const totalRecords = data?.count ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalRecords / PAGE_SIZE));
-  const activePage = Math.min(page, totalPages);
-  const rows = data?.results ?? [];
-  const startItem = totalRecords === 0 ? 0 : (activePage - 1) * PAGE_SIZE + 1;
-  const endItem = Math.min(activePage * PAGE_SIZE, totalRecords);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
@@ -61,10 +70,16 @@ export default function AuditLogsPage() {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden border border-[#8f8f8f]">
-        <div className="min-h-0 flex-1 overflow-auto">
-          {isError && !loading ? (
+        <div
+          aria-busy={isPageLoading}
+          className={cn(
+            'min-h-0 flex-1 overflow-auto transition-opacity',
+            isPageLoading && 'opacity-60',
+          )}
+        >
+          {isError && !isPageLoading ? (
             <EmptyState message="Could not load audit logs." />
-          ) : !loading && rows.length === 0 ? (
+          ) : !isInitialLoading && !isPageLoading && rows.length === 0 ? (
             <EmptyState message="No audit entries found." />
           ) : (
             <table className="w-full min-w-[800px] border-collapse text-left text-sm">
@@ -78,7 +93,7 @@ export default function AuditLogsPage() {
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
+                {isInitialLoading ? (
                   <TableSkeleton cols={5} rows={10} />
                 ) : (
                   rows.map((row) => (
@@ -115,6 +130,7 @@ export default function AuditLogsPage() {
             totalRecords={totalRecords}
             activePage={activePage}
             totalPages={totalPages}
+            isPageLoading={isPageLoading}
             onPageChange={setPage}
           />
         ) : null}
