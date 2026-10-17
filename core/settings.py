@@ -13,7 +13,6 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from datetime import timedelta
 from pathlib import Path
 import os
-from urllib.parse import urlparse, parse_qsl
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -175,65 +174,17 @@ DB_HOST = os.getenv("DB_HOST", None)
 DB_PORT = os.getenv("DB_PORT", None)
 DB_NAME = os.getenv("DB_NAME", None)
 
-if DEVELOPMENT := os.getenv("DEVELOPMENT", "False").lower() == "true":
-    print("Development mode")
-    DATABASES = {
-        "default": {
-            "ENGINE": DB_ENGINE,
-            "NAME": DB_NAME,
-            "USER": DB_USER,
-            "PASSWORD": DB_PASSWORD,
-            "HOST": DB_HOST,
-            "PORT": DB_PORT,
-        }
+
+DATABASES = {
+    "default": {
+        "ENGINE": DB_ENGINE,
+        "NAME": DB_NAME,
+        "USER": DB_USER,
+        "PASSWORD": DB_PASSWORD,
+        "HOST": DB_HOST,
+        "PORT": DB_PORT,
     }
-else:
-    print("Testing mode....")
-    if db_url := os.getenv("PRODUCTION_DATABASE_URL"):
-        db_url = db_url.strip().strip('"').strip("'")
-        parsed = urlparse(db_url)
-
-        if not parsed.hostname:
-            raise Exception("Invalid PRODUCTION_DATABASE_URL: Missing hostname.")
-        migration_host = parsed.hostname.replace("-pooler", "")
-
-        DATABASES = {
-            "default": {
-                "ENGINE": "django.db.backends.postgresql",
-                "NAME": parsed.path.replace("/", ""),
-                "USER": parsed.username,
-                "PASSWORD": parsed.password,
-                "HOST": parsed.hostname,
-                "PORT": parsed.port,
-                "CONN_MAX_AGE": 0,
-                "DISABLE_SERVER_SIDE_CURSORS": True,
-                "OPTIONS": dict(parse_qsl(parsed.query)),
-            },
-            "pooler": {
-                "ENGINE": "django.db.backends.postgresql",
-                "NAME": parsed.path[1:].split("?")[0],
-                "USER": parsed.username,
-                "PASSWORD": parsed.password,
-                "HOST": parsed.hostname,
-                "PORT": parsed.port,
-                "CONN_MAX_AGE": 0,
-                "DISABLE_SERVER_SIDE_CURSORS": True,
-                "OPTIONS": {
-                    "sslmode": "require",
-                    "options": "-c statement_timeout=30000",
-                },
-            },
-        }
-    else:
-        print(
-            "\033[1;31mRemote DB error: Make sure your dev mode is set to true\033[0m"
-        )
-        DATABASES = {
-            "default": {
-                "ENGINE": "django.db.backends.sqlite3",
-                "NAME": BASE_DIR / "assetsafeFallback.sqlite3",
-            }
-        }
+}
 
 # REST Framework
 # https://www.django-rest-framework.org/api-guide/settings/
