@@ -149,7 +149,7 @@ class HirePurchaseRegistrationViewSet(BaseViewSet):
             "purchaser_individual",
             "purchaser_company",
             "purchaser_company__company",
-        ).all()
+        ).filter(created_by__client=self.request.user.client)
 
         qs = scope_registry_to_client_portfolio(qs, self.request.user)
 
