@@ -290,7 +290,11 @@ class HirePurchaseRegistrationViewSet(BaseViewSet):
             request.user,
         )
 
-        active_filter = Q(agreement_end_date__gte=today, closure_confirmed=False)
+        active_filter = Q(
+            agreement_end_date__gte=today,
+            closure_confirmed=False,
+            created_by__client=request.user.client,
+        )
         # Single aggregate call for the headline metrics. `active_agreements`
         # excludes already-closed records so it can never disagree with the
         # main table, which only ever shows open (non-closed) agreements.
@@ -300,6 +304,7 @@ class HirePurchaseRegistrationViewSet(BaseViewSet):
                 "id",
                 filter=Q(
                     agreement_end_date__lt=today,
+                    created_by__client=request.user.client,
                     closure_confirmed=False,
                 ),
             ),
