@@ -84,8 +84,8 @@ export function HirePurchaseViewModal({
                 engine_number: detail.engine_number,
                 currency: detail.currency,
                 purchase_amount: detail.purchase_amount,
-                instalment_amount: detail.instalment_amount,
-                instalment_date: detail.instalment_date,
+                instalment_amount: detail.instalment_amount ?? '',
+                instalment_date: detail.instalment_date ?? '',
                 total_paid_to_date: detail.total_paid_to_date,
                 balance: detail.balance,
                 start_date: detail.start_date,
@@ -133,9 +133,13 @@ export function HirePurchaseViewModal({
                 ],
                 [
                   'Instalment',
-                  formatCurrency(
-                    detail?.instalment_amount ?? record.instalment_amount,
-                  ),
+                  (detail?.instalment_amount ?? record.instalment_amount) ==
+                  null
+                    ? '—'
+                    : formatCurrency(
+                        (detail?.instalment_amount ??
+                          record.instalment_amount) as number,
+                      ),
                 ],
                 ['Balance', formatCurrency(detail?.balance ?? record.balance)],
                 [

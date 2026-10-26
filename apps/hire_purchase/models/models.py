@@ -86,6 +86,8 @@ class HirePurchaseRegistration(BaseModelWithUser):
     agreement_number = models.CharField(
         max_length=100,
         unique=True,
+        null=True,
+        blank=True,
         db_index=True,
         verbose_name=_("Agreement Number"),
         help_text=_("The financier's own agreement reference number."),
@@ -153,10 +155,14 @@ class HirePurchaseRegistration(BaseModelWithUser):
     instalment_amount = models.DecimalField(
         max_digits=18,
         decimal_places=2,
+        null=True,
+        blank=True,
         validators=[MinValueValidator(0)],
         verbose_name=_("Instalment Amount"),
     )
     instalment_day = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
         validators=[MinValueValidator(1), MaxValueValidator(31)],
         verbose_name=_("Instalment Day"),
         help_text=_("Day-of-month (dd) when each instalment falls due."),
@@ -316,7 +322,7 @@ class HirePurchaseRegistration(BaseModelWithUser):
 
     def __str__(self) -> str:
         return (
-            f"HP {self.agreement_number} — {self.purchaser} ({self.make} {self.model})"
+            f"HP {self.agreement_number or '—'} — {self.purchaser} ({self.make} {self.model})"
         )
 
     # ------------------------------------------------------------------

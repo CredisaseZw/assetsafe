@@ -22,12 +22,10 @@ const LEGAL_STATUS_CHOICES = [
 ] as const;
 
 const schema = z.object({
-  registration_number: z.string().min(1, 'Required'),
+  registration_number: z.string(),
   registration_name: z.string().min(1, 'Required'),
-  trading_name: z.string().min(1, 'Required'),
-  legal_status: z.enum(['private', 'public', 'government', 'ngo', 'other'], {
-    message: 'Legal status is required',
-  }),
+  trading_name: z.string(),
+  legal_status: z.enum(['', 'private', 'public', 'government', 'ngo', 'other']),
   industry: z.string().min(1, 'Industry is required'),
   email: z.string().email().optional().or(z.literal('')),
   mobile: z.string().optional().or(z.literal('')),
@@ -56,7 +54,12 @@ export function CompanyCreateForm({
     mode: 'onSubmit',
     reValidateMode: 'onChange',
     shouldFocusError: true,
-    defaultValues: { legal_status: 'private', industry: '' },
+    defaultValues: {
+      registration_number: '',
+      trading_name: '',
+      legal_status: '',
+      industry: '',
+    },
   });
 
   const { errors } = useFormState({ control });
@@ -72,10 +75,10 @@ export function CompanyCreateForm({
   const { mutate: submit, isPending } = useMutation({
     mutationFn: async (values: FormValues) => {
       const result = await companiesApi.createCompany({
-        registration_number: values.registration_number,
+        registration_number: values.registration_number.trim() || null,
         registration_name: values.registration_name,
-        trading_name: values.trading_name,
-        legal_status: values.legal_status,
+        trading_name: values.trading_name.trim() || null,
+        legal_status: values.legal_status || null,
         industry: values.industry,
         profile: {
           email: values.email || undefined,
@@ -126,7 +129,6 @@ export function CompanyCreateForm({
           label="Registration Number"
           {...register('registration_number')}
           error={errors.registration_number?.message}
-          required
         />
         <Input
           label="Registration Name"
@@ -138,15 +140,14 @@ export function CompanyCreateForm({
           label="Trading Name"
           {...register('trading_name')}
           error={errors.trading_name?.message}
-          required
           className="col-span-2"
         />
         <Select
           label="Legal Status"
-          required
           {...register('legal_status')}
           error={errors.legal_status?.message}
         >
+          <option value="">Select legal status...</option>
           {LEGAL_STATUS_CHOICES.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
@@ -175,6 +176,7 @@ export function CompanyCreateForm({
         <Input
           label="Mobile"
           type="tel"
+          placeholder="e.g 0775125458"
           {...register('mobile')}
           error={errors.mobile?.message}
         />

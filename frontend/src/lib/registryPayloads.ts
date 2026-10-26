@@ -157,6 +157,12 @@ export function mapCollateralFormToApi(data: Record<string, unknown>) {
   };
 }
 
+function blankToNull(value: unknown): string | number | null {
+  if (value === '' || value === null || value === undefined) return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  return value as string | number;
+}
+
 export function mapHirePurchaseFormToApi(data: Record<string, unknown>) {
   const asset_category = toBackendAssetType(String(data.asset_category ?? ''));
   const purchaser_type = data.purchaser_type as 'individual' | 'company';
@@ -169,7 +175,7 @@ export function mapHirePurchaseFormToApi(data: Record<string, unknown>) {
     purchaser_individual:
       purchaser_type === 'individual' ? data.purchaser_id : null,
     purchaser_company: purchaser_type === 'company' ? data.purchaser_id : null,
-    agreement_number: data.agreement_number,
+    agreement_number: blankToNull(data.agreement_number),
     asset_category,
     asset_type: String(data.asset_type ?? '').trim(),
     make: data.asset_make,
@@ -182,8 +188,8 @@ export function mapHirePurchaseFormToApi(data: Record<string, unknown>) {
     engine_number: isVehicle ? (data.engine_number ?? '') : '',
     currency: data.currency,
     purchase_amount: data.purchase_amount,
-    instalment_amount: data.instalment_amount,
-    instalment_day: data.instalment_date,
+    instalment_amount: blankToNull(data.instalment_amount),
+    instalment_day: blankToNull(data.instalment_date),
     total_paid_to_date: data.total_paid_to_date,
     balance: data.balance,
     agreement_start_date: data.start_date,

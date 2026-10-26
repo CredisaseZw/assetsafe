@@ -107,6 +107,13 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
             "make": {"required": False},
             "data_source_name": {"required": False, "allow_blank": True},
             "data_source_position": {"required": False, "allow_blank": True},
+            "agreement_number": {
+                "required": False,
+                "allow_blank": True,
+                "allow_null": True,
+            },
+            "instalment_amount": {"required": False, "allow_null": True},
+            "instalment_day": {"required": False, "allow_null": True},
         }
         validators = []
 
@@ -156,8 +163,16 @@ class HirePurchaseRegistrationSerializer(serializers.ModelSerializer):
     # Field-level validation
     # ------------------------------------------------------------------
 
-    def validate_instalment_day(self, value: int) -> int:
-        """Day-of-month must be within calendar bounds (1-31)."""
+    def validate_agreement_number(self, value: str | None) -> str | None:
+        """Blank agreement numbers are stored as NULL so several can be omitted."""
+        if value is None:
+            return None
+        return str(value).strip() or None
+
+    def validate_instalment_day(self, value: int | None) -> int | None:
+        """Day-of-month must be within calendar bounds (1-31) when supplied."""
+        if value is None:
+            return None
         if not 1 <= value <= 31:
             raise serializers.ValidationError(
                 "Instalment day must be between 1 and 31."
