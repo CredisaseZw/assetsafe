@@ -292,6 +292,23 @@ class CompanyCreateSerializer(serializers.ModelSerializer):
             "notes",
             "profile",
         ]
+        extra_kwargs = {
+            "registration_number": {
+                "required": False,
+                "allow_blank": True,
+                "allow_null": True,
+            },
+            "trading_name": {
+                "required": False,
+                "allow_blank": True,
+                "allow_null": True,
+            },
+            "legal_status": {
+                "required": False,
+                "allow_blank": True,
+                "allow_null": True,
+            },
+        }
 
     def validate_industry(self, value: str) -> str:
         if not value or not str(value).strip():
@@ -306,6 +323,12 @@ class CompanyCreateSerializer(serializers.ModelSerializer):
             raise DRFValidationError(exc.message_dict) from exc
 
     def validate(self, attrs):
+        for field in ("registration_number", "trading_name", "legal_status"):
+            value = attrs.get(field)
+            if value is None:
+                continue
+            attrs[field] = str(value).strip() or None
+
         registration_number = attrs.get("registration_number")
         if (
             registration_number
@@ -314,14 +337,14 @@ class CompanyCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "A company with this registration number already exists."
             )
-        registartion_name = attrs.get("registration_name")
+        registration_name = (attrs.get("registration_name") or "").strip()
         trading_name = attrs.get("trading_name")
-        if (
-            registartion_name
-            and Company.objects.filter(
-                Q(registration_name=registartion_name) | Q(trading_name=trading_name)
-            ).exists()
-        ):
+        name_query = Q()
+        if registration_name:
+            name_query |= Q(registration_name=registration_name)
+        if trading_name:
+            name_query |= Q(trading_name=trading_name)
+        if name_query and Company.objects.filter(name_query).exists():
             raise serializers.ValidationError(
                 "A company with this registration/trading name already exists."
             )
@@ -333,26 +356,11 @@ class CompanyCreateSerializer(serializers.ModelSerializer):
         landline = (profile_data.get("landline_phone") or "").strip()
         if email and not validate_email(email):
             profile_errors["email"] = "Invalid email format."
-        if mobile:
-            normalized = normalize_zimbabwe_mobile(mobile)
-            if not normalized:
-                profile_errors["mobile_phone"] = (
-                    "Invalid Zimbabwean phone number format."
-                )
-            else:
-                profile_data["mobile_phone"] = normalized
-        if landline:
-            normalized = normalize_zimbabwe_mobile(landline, type="home")
-            if not normalized:
-                profile_errors["landline_phone"] = (
-                    "Invalid Zimbabwean phone number format."
-                )
-            else:
-                profile_data["landline_phone"] = normalized
         if profile_errors:
             raise serializers.ValidationError({"profile": profile_errors})
-        if email:
-            profile_data["email"] = email
+        profile_data["email"] = email or None
+        profile_data["mobile_phone"] = mobile or None
+        profile_data["landline_phone"] = landline or None
         attrs["profile"] = profile_data
 
         return super().validate(attrs)

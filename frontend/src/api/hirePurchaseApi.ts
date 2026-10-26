@@ -49,10 +49,15 @@ function mapHirePurchaseRecord(
     engine_number: String(record.engine_number ?? ''),
     currency: String(record.currency_code ?? record.currency ?? ''),
     purchase_amount: Number(record.purchase_amount ?? 0),
-    instalment_amount: Number(record.instalment_amount ?? 0),
-    instalment_date: Number(
-      record.instalment_day ?? record.instalment_date ?? 1,
-    ),
+    instalment_amount:
+      record.instalment_amount == null || record.instalment_amount === ''
+        ? null
+        : Number(record.instalment_amount),
+    instalment_date:
+      record.instalment_day == null &&
+      (record.instalment_date == null || record.instalment_date === '')
+        ? null
+        : Number(record.instalment_day ?? record.instalment_date),
     total_paid_to_date: Number(record.total_paid_to_date ?? 0),
     balance: Number(record.balance ?? 0),
     start_date: String(record.agreement_start_date ?? record.start_date ?? ''),

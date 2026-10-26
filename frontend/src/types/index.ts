@@ -129,8 +129,8 @@ export interface HirePurchaseRecord {
   engine_number: string;
   currency: Currency;
   purchase_amount: number;
-  instalment_amount: number;
-  instalment_date: number;
+  instalment_amount: number | null;
+  instalment_date: number | null;
   total_paid_to_date: number;
   balance: number;
   start_date: string;
@@ -168,8 +168,8 @@ export interface HirePurchaseFormData {
   engine_number?: string;
   currency: Currency;
   purchase_amount: number;
-  instalment_amount: number;
-  instalment_date: number;
+  instalment_amount: number | '' | null;
+  instalment_date: number | '' | null;
   total_paid_to_date: number;
   balance: number;
   start_date: string;

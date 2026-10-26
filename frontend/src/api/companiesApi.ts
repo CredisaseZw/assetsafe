@@ -6,10 +6,10 @@ import {
 } from '@/lib/searchResults';
 
 export interface CompanyCreatePayload {
-  registration_number: string;
+  registration_number?: string | null;
   registration_name: string;
-  trading_name: string;
-  legal_status?: string;
+  trading_name?: string | null;
+  legal_status?: string | null;
   date_of_incorporation?: string | null;
   industry: string;
   profile: {

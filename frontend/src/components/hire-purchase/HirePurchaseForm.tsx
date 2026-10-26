@@ -30,13 +30,19 @@ import { cn } from '@/lib/utils';
 import { authApi } from '@/api/authApi';
 import { usersApi } from '@/api/usersApi';
 
+const optionalAmount = z.union([z.literal(''), z.coerce.number().min(0)]);
+const optionalInstalmentDay = z.union([
+  z.literal(''),
+  z.coerce.number().int().min(1).max(31),
+]);
+
 const hpCoreSchema = z.object({
   data_date: z.string().min(1, 'Required'),
   purchaser_type: z.string().min(1, 'Purchaser Type is required'),
   purchaser_id: z
     .number({ error: 'Purchaser is required' })
     .min(1, 'Purchaser is required'),
-  agreement_number: z.string().min(1, 'Required'),
+  agreement_number: z.string(),
   asset_category: z.string().min(1, 'Select asset category'),
   asset_type: z.string().min(1, 'Asset type is required'),
   asset_make: z.string().min(1, 'Required'),
@@ -48,8 +54,8 @@ const hpCoreSchema = z.object({
   engine_number: z.string().optional(),
   currency: z.string().min(1, 'Currency is required'),
   purchase_amount: z.coerce.number().min(0),
-  instalment_amount: z.coerce.number().min(0),
-  instalment_date: z.coerce.number().min(1).max(31),
+  instalment_amount: optionalAmount,
+  instalment_date: optionalInstalmentDay,
   total_paid_to_date: z.coerce.number().min(0),
   balance: z.coerce.number().min(0),
   start_date: z.string().min(1),
@@ -151,6 +157,13 @@ export function HirePurchaseForm({
     setPositionOverride('');
   };
 
+  const {
+    agreement_number: initialAgreement,
+    instalment_amount: initialInstalmentAmount,
+    instalment_date: initialInstalmentDate,
+    ...restInitial
+  } = initial ?? {};
+
   const { register, control, handleSubmit, watch, reset, setValue, setError } =
     useForm<FormValues>({
       resolver: zodResolver(formSchema),
@@ -168,7 +181,10 @@ export function HirePurchaseForm({
         total_paid_to_date: 0,
         balance: 0,
         ...(isClientUser && !isEdit ? {} : {}),
-        ...initial,
+        ...restInitial,
+        agreement_number: initialAgreement ?? '',
+        instalment_amount: initialInstalmentAmount ?? '',
+        instalment_date: initialInstalmentDate ?? '',
       },
     });
 
@@ -806,7 +822,6 @@ export function HirePurchaseForm({
             label="Agreement Number"
             {...register('agreement_number')}
             error={errors.agreement_number?.message}
-            required
           />
           <Select
             label="Asset Category"
@@ -894,7 +909,6 @@ export function HirePurchaseForm({
             type="number"
             step="0.01"
             {...register('instalment_amount')}
-            required
           />
           <Input
             label="Instalment Date (dd)"
@@ -902,7 +916,6 @@ export function HirePurchaseForm({
             min="1"
             max="31"
             {...register('instalment_date')}
-            required
           />
           <Input
             label="Total Paid to Date"
