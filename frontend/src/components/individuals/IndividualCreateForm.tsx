@@ -172,6 +172,7 @@ export function IndividualCreateForm({
           control={control}
           render={({ field }) => (
             <LocationCascadeSelects
+              variant="stand"
               value={field.value}
               onChange={(id) => field.onChange(id)}
               error={errors.suburb_id?.message}
